@@ -16,7 +16,7 @@ public class CryostatMCP {
     String getHealth() {
         return Qute.fmt(
                 """
-                Cryostat server version: ${h.cryostatVersion}
+                Cryostat server version: {h.cryostatVersion}
                 """,
                 Map.of("h", cryostat.health())
                 );
