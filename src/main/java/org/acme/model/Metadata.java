@@ -1,5 +1,5 @@
 package org.acme.model;
 
-import java.util.Map;
+import java.util.List;
 
-public record Metadata(Map<String, String> labels) {}
+public record Metadata(List<KeyValue> labels) {}
