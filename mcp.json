@@ -1,0 +1,20 @@
+{
+    "mcpServers": {
+        "cryostat": {
+            "command": "jbang",
+            "args": [
+                "--quiet",
+                "org.acme:cryostat-mcp:1.0.0-SNAPSHOT:runner"
+            ],
+            "env": {
+                "QUARKUS_TLS_PROFILE_TRUST_ALL": "true",
+                "QUARKUS_TLS_PROFILE_HOSTNAME_VERIFICATION_ALGORITHM": "NONE",
+                "QUARKUS_REST_CLIENT_CRYOSTAT_URL": "https://localhost:8443",
+                "QUARKUS_REST_CLIENT_CRYOSTAT_VERIFY_HOST": "false",
+                "QUARKUS_REST_CLIENT_CRYOSTAT_TLS_CONFIGURATION_NAME": "profile",
+                "CRYOSTAT_AUTH_USERNAME": "user",
+                "CRYOSTAT_AUTH_PASSWORD": "pass"
+            }
+        }
+    }
+}
