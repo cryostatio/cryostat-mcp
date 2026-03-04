@@ -176,7 +176,7 @@ public class CryostatMCP {
                     The most recently processed automated analysis report document for this target will be returned,
                     if any is available.
                     """)
-    String getTargetReport(
+    Object getTargetReport(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.getTargetReport(targetId);
     }
