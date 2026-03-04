@@ -8,7 +8,6 @@ import java.util.List;
 import org.acme.model.EventTemplate;
 import org.acme.model.Health;
 import org.acme.model.RecordingDescriptor;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.annotation.ClientHeaderParam;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import org.jboss.resteasy.reactive.RestForm;
@@ -17,9 +16,7 @@ import org.jboss.resteasy.reactive.RestForm;
         configKey = "cryostat",
         baseUri = "http://localhost:8181" // this should always be overridden
         )
-@ClientHeaderParam(
-        name = "Authorization",
-        value = "{org.acme.CryostatRESTClient.authorizationHeader}")
+@ClientHeaderParam(name = "Authorization", value = "${cryostat.auth.value}")
 public interface CryostatRESTClient {
 
     @GET
@@ -60,8 +57,4 @@ public interface CryostatRESTClient {
     @GET
     @Path("/api/v4.1/targets/{targetId}/reports")
     String getTargetReport(long targetId);
-
-    default String authorizationHeader(@ConfigProperty(name = "cryostat.auth.value") String auth) {
-        return auth;
-    }
 }
