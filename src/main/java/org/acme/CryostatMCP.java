@@ -87,7 +87,7 @@ public class CryostatMCP {
     @Tool(description = "Get a specific .jfc (XML) JDK Flight Recorder Event Template definition.")
     String getTargetEventTemplate(
             @ToolArg(description = "The Target's ID.", required = true) long targetId,
-            @ToolArg(description = "The event template's templateType.", required = true)
+            @ToolArg(description = "The event template's type.", required = true)
                     String templateType,
             @ToolArg(description = "The event template's name.", required = true)
                     String templateName) {
