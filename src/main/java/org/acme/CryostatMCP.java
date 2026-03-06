@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.acme.model.ArchivedRecordingDirectory;
 import org.acme.model.DiscoveryNode;
 import org.acme.model.DiscoveryNodeFilter;
 import org.acme.model.EventTemplate;
@@ -151,6 +152,12 @@ public class CryostatMCP {
         return rest.targetActiveRecordings(targetId);
     }
 
+    @Tool(description = "Get a list of archived JDK Flight Recordings sourced from the Target JVM.")
+    List<ArchivedRecordingDirectory> listTargetArchivedRecordings(
+            @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
+        return rest.targetArchivedRecordings(jvmId);
+    }
+
     @Tool(
             description =
                     """
@@ -234,5 +241,49 @@ public class CryostatMCP {
     Object getTargetReport(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.getTargetReport(targetId);
+    }
+
+    @Tool(
+            description =
+                    """
+                    Load an archived Flight Recording file into a database and execute a SQL query against
+                    the contents of that file. The data is located in a schema named JFR, and each JFR event
+                    type is mapped to a table sharing the event's name. Each event attribute is mapped to a
+                    column of that table. The target's event templates can be inspected to determine which
+                    events may be found in a given recording.
+                    The following additional struct type is available:
+                        RecordedThread {
+                            osName
+                            osThreadId
+                            javaName
+                            javaThreadId
+                            group
+                        }
+                    The following additional functions are available:
+                        VARCHAR CLASS_NAME(RecordedClass): Obtains the fully-qualified class name from the
+                            given jdk.jfr.consumer.RecordedClass
+                        VARCHAR TRUNCATE_STACKTRACE(RecordedStackTrace, INT): Truncates the stacktrace of the
+                            given jdk.jfr.consumer.RecordedStackTrace to the given depth
+                        BOOL HAS_MATCHING_FRAME(RecordedStackTrace, VARCHAR): Returns true if the
+                            given jdk.jfr.consumer.RecordedStackTrace contains a frame matching the given
+                            regular expression, false otherwise
+                    Example queries:
+                    Count the number of object allocation sample events:
+                        SELECT COUNT(*) FROM "JFR"."jdk.ObjectAllocationSample"
+                    Retrieve the ten top allocating stacktraces:
+                        SELECT TRUNCATE_STACKTRACE("stackTrace", 40), SUM("weight")
+                                FROM "JFR"."jdk.ObjectAllocationSample"
+                                GROUP BY TRUNCATE_STACKTRACE("stackTrace", 40)
+                                ORDER BY SUM("weight") DESC
+                                LIMIT 10
+                    """)
+    List<List<String>> executeQuery(
+            @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
+            @ToolArg(
+                            description = "The name of the archived recording file to query.",
+                            required = true)
+                    String filename,
+            @ToolArg(description = "The SQL query to execute.", required = true) String query) {
+        return rest.executeQuery(jvmId, filename, query);
     }
 }

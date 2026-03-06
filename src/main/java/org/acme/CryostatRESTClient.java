@@ -1,5 +1,6 @@
 package org.acme;
 
+import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -7,6 +8,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
+import org.acme.model.ArchivedRecordingDirectory;
 import org.acme.model.DiscoveryNode;
 import org.acme.model.EventTemplate;
 import org.acme.model.Health;
@@ -52,6 +54,10 @@ public interface CryostatRESTClient {
     @Path("/api/v4/targets/{targetId}/recordings")
     List<RecordingDescriptor> targetActiveRecordings(long targetId);
 
+    @GET
+    @Path("/api/beta/fs/recordings/{jvmId}")
+    List<ArchivedRecordingDirectory> targetArchivedRecordings(String jvmId);
+
     @POST
     @Path("/api/v4/targets/{targetId}/recordings")
     RecordingDescriptor startRecording(
@@ -75,4 +81,9 @@ public interface CryostatRESTClient {
     @Path("/api/v4.1/targets/{targetId}/reports")
     @Produces(MediaType.APPLICATION_JSON)
     Object getTargetReport(long targetId);
+
+    @POST
+    @Path("/api/beta/recording_analytics/{jvmId}/{filename}")
+    List<List<String>> executeQuery(
+            String jvmId, String filename, @FormParam("query") String query);
 }
