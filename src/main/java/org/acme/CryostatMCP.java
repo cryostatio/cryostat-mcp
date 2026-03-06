@@ -246,11 +246,11 @@ public class CryostatMCP {
     @Tool(
             description =
                     """
-                    Load an archived Flight Recording file into a database and execute a SQL query against
-                    the contents of that file. The data is located in a schema named JFR, and each JFR event
-                    type is mapped to a table sharing the event's name. Each event attribute is mapped to a
-                    column of that table. The target's event templates can be inspected to determine which
-                    events may be found in a given recording.
+                    Load an archived Flight Recording file into a database and execute an Apache Calcite SQL
+                    query against the contents of that file. The data is located in a schema named JFR, and
+                    each JFR event type is mapped to a table sharing the event's name. Each event attribute
+                    is mapped to a column of that table. The target's event templates can be inspected to
+                    determine which events may be found in a given recording.
                     The following additional struct type is available:
                         RecordedThread {
                             osName
