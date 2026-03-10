@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.acme.CryostatMCP.QueryExample;
 import org.acme.model.ArchivedRecordingDirectory;
 import org.acme.model.DiscoveryNode;
 import org.acme.model.DiscoveryNodeFilter;
@@ -320,26 +321,52 @@ Provides details about additional custom functions and structures available for 
                 new QueryExample(
                         "Count the number of object allocation sample events",
                         """
-                            SELECT COUNT(*) FROM "JFR"."jdk.ObjectAllocationSample"
+                        SELECT COUNT(*) FROM jfr."jdk.ObjectAllocationSample"
                         """),
                 new QueryExample(
                         "Retrieve the ten top allocating stacktraces",
                         """
-                            SELECT TRUNCATE_STACKTRACE("stackTrace", 40), SUM("weight")
-                                    FROM "JFR"."jdk.ObjectAllocationSample"
-                                    GROUP BY TRUNCATE_STACKTRACE("stackTrace", 40)
-                                    ORDER BY SUM("weight") DESC
-                                    LIMIT 10
+                        SELECT TRUNCATE_STACKTRACE("stackTrace", 40), SUM("weight")
+                                FROM jfr."jdk.ObjectAllocationSample"
+                                GROUP BY TRUNCATE_STACKTRACE("stackTrace", 40)
+                                ORDER BY SUM("weight") DESC
+                                LIMIT 10
                         """),
                 new QueryExample(
                         "Retrieve the top 20 classes by allocation count",
                         """
-                            SELECT CLASS_NAME("objectClass") AS "class_name",
-                                           COUNT(*) AS "allocation_count"
-                                    FROM "JFR"."jdk.ObjectAllocationSample"
-                                    GROUP BY CLASS_NAME("objectClass")
-                                    ORDER BY COUNT(*) DESC
-                                    LIMIT 20
+                        SELECT CLASS_NAME("objectClass") AS "class_name",
+                                COUNT(*) AS "allocation_count"
+                                FROM jfr."jdk.ObjectAllocationSample"
+                                GROUP BY CLASS_NAME("objectClass")
+                                ORDER BY COUNT(*) DESC
+                                LIMIT 20
+                        """),
+                new QueryExample(
+                        """
+                        Retrieve several columns of information about the first class loaded by the JVM
+                        """,
+                        """
+                        SELECT "startTime", "loadedClass", "initiatingClassLoader", "definingClassLoader"
+                                FROM jfr."jdk.ClassLoad"
+                                ORDER by "startTime"
+                                LIMIT 1
+                        """),
+                new QueryExample(
+                        "Retrieve the name of the first class loaded by the JVM",
+                        """
+                        SELECT CLASS_NAME("loadedClass") as className
+                                FROM jfr."jdk.ClassLoad"
+                                ORDER by "startTime"
+                                LIMIT 1
+                        """),
+                new QueryExample(
+                        "Get information about threads which are no longer running",
+                        """
+                        SELECT ts."parentThread"."javaName", ts."thread"."javaName", ts."thread"."javaThreadId", te."thread"."javaName", te."thread"."javaThreadId"
+                                FROM jfr."jdk.ThreadStart" ts
+                                LEFT JOIN jfr."jdk.ThreadEnd" te ON ts."thread"."javaThreadId" = te."thread"."javaThreadId"
+                                ORDER BY ts."thread"."javaThreadId"
                         """));
     }
 
