@@ -256,38 +256,6 @@ public class CryostatMCP {
                     Fields like objectClass and eventThread are returned as formatted string representations of
                     their internal structure, not as separate queryable columns.
                     Queries cannot use "objectClass"."name", "objectClass.name", or "objectClass"['name'] syntax.
-                    The following additional struct type is available:
-                        RecordedThread {
-                            osName
-                            osThreadId
-                            javaName
-                            javaThreadId
-                            group
-                        }
-                    The following additional functions are available:
-                        VARCHAR CLASS_NAME(RecordedClass): Obtains the fully-qualified class name from the
-                            given jdk.jfr.consumer.RecordedClass
-                        VARCHAR TRUNCATE_STACKTRACE(RecordedStackTrace, INT): Truncates the stacktrace of the
-                            given jdk.jfr.consumer.RecordedStackTrace to the given depth
-                        BOOL HAS_MATCHING_FRAME(RecordedStackTrace, VARCHAR): Returns true if the
-                            given jdk.jfr.consumer.RecordedStackTrace contains a frame matching the given
-                            regular expression, false otherwise
-                    Example queries:
-                    Count the number of object allocation sample events:
-                        SELECT COUNT(*) FROM "JFR"."jdk.ObjectAllocationSample"
-                    Retrieve the ten top allocating stacktraces:
-                        SELECT TRUNCATE_STACKTRACE("stackTrace", 40), SUM("weight")
-                                FROM "JFR"."jdk.ObjectAllocationSample"
-                                GROUP BY TRUNCATE_STACKTRACE("stackTrace", 40)
-                                ORDER BY SUM("weight") DESC
-                                LIMIT 10
-                    Retrieve the top 20 classes by allocation count:
-                        SELECT CLASS_NAME("objectClass") AS "class_name",
-                                       COUNT(*) AS "allocation_count"
-                                FROM "JFR"."jdk.ObjectAllocationSample"
-                                GROUP BY CLASS_NAME("objectClass")
-                                ORDER BY COUNT(*) DESC
-                                LIMIT 20
                     """)
     List<List<String>> executeQuery(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
@@ -298,4 +266,71 @@ public class CryostatMCP {
             @ToolArg(description = "The SQL query to execute.", required = true) String query) {
         return rest.executeQuery(jvmId, filename, query);
     }
+
+    @Tool(
+            description =
+"""
+Provides details about additional custom functions and structures available for SQL queries.
+""")
+    List<QueryExample> getQueryAdditionalFunctions() {
+        return List.of(
+                new QueryExample(
+                        "Obtains the fully-qualified class name from the given"
+                                + " jdk.jfr.consumer.RecordedClass",
+                        "VARCHAR CLASS_NAME(RecordedClass)"),
+                new QueryExample(
+                        "Truncates the stacktrace of the given jdk.jfr.consumer.RecordedStackTrace"
+                                + " to the given depth",
+                        "VARCHAR TRUNCATE_STACKTRACE(RecordedStackTrace, INT):"),
+                new QueryExample(
+                        "Returns true if the given jdk.jfr.consumer.RecordedStackTrace contains a"
+                                + " frame matching the given regular expression, false otherwise",
+                        "BOOL HAS_MATCHING_FRAME(RecordedStackTrace, VARCHAR):"),
+                new QueryExample(
+                        "The following additional struct type is available",
+                        """
+                            RecordedThread {
+                                osName
+                                osThreadId
+                                javaName
+                                javaThreadId
+                                group
+                            }
+                        """));
+    }
+
+    @Tool(
+            description =
+                    """
+                    Provides example SQL queries as reference.
+                    """)
+    List<QueryExample> getQueryExamples() {
+        return List.of(
+                new QueryExample(
+                        "Count the number of object allocation sample events",
+                        """
+                            SELECT COUNT(*) FROM "JFR"."jdk.ObjectAllocationSample"
+                        """),
+                new QueryExample(
+                        "Retrieve the ten top allocating stacktraces",
+                        """
+                            SELECT TRUNCATE_STACKTRACE("stackTrace", 40), SUM("weight")
+                                    FROM "JFR"."jdk.ObjectAllocationSample"
+                                    GROUP BY TRUNCATE_STACKTRACE("stackTrace", 40)
+                                    ORDER BY SUM("weight") DESC
+                                    LIMIT 10
+                        """),
+                new QueryExample(
+                        "Retrieve the top 20 classes by allocation count",
+                        """
+                            SELECT CLASS_NAME("objectClass") AS "class_name",
+                                           COUNT(*) AS "allocation_count"
+                                    FROM "JFR"."jdk.ObjectAllocationSample"
+                                    GROUP BY CLASS_NAME("objectClass")
+                                    ORDER BY COUNT(*) DESC
+                                    LIMIT 20
+                        """));
+    }
+
+    record QueryExample(String description, String query) {}
 }
