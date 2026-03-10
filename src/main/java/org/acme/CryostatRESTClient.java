@@ -14,6 +14,7 @@ import org.acme.model.EventTemplate;
 import org.acme.model.Health;
 import org.acme.model.RecordingDescriptor;
 import org.acme.model.Target;
+import org.acme.model.ThreadDump;
 import org.eclipse.microprofile.rest.client.annotation.ClientHeaderParam;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import org.jboss.resteasy.reactive.RestForm;
@@ -69,6 +70,18 @@ public interface CryostatRESTClient {
             @RestForm boolean toDisk,
             @RestForm String metadata,
             @RestForm boolean archiveOnStop);
+
+    @GET
+    @Path("/api/beta/diagnostics/targets/{targetId}/threaddump")
+    List<ThreadDump> listTargetThreadDumps(long targetId);
+
+    @POST
+    @Path("/api/beta/diagnostics/targets/{targetId}/threaddump")
+    String requestTargetThreadDump(long targetId);
+
+    @GET
+    @Path("/api/beta/diagnostics/targets/{targetId}/threaddump/{threadDumpId}/analyze")
+    Object getTargetThreadDumpAnalysis(long targetId, String threadDumpId);
 
     @GET
     @Path("/api/v4.1/metrics/reports")

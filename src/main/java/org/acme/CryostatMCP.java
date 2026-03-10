@@ -16,6 +16,7 @@ import org.acme.model.EventTemplate;
 import org.acme.model.Health;
 import org.acme.model.RecordingDescriptor;
 import org.acme.model.Target;
+import org.acme.model.ThreadDump;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 public class CryostatMCP {
@@ -193,6 +194,38 @@ public class CryostatMCP {
                 true,
                 mapper.writeValueAsString(Map.of("labels", Map.of("autoanalyze", "true"))),
                 true);
+    }
+
+    @Tool(
+            description =
+                    """
+                    List the available JVM thread dumps for a Target.
+                    """)
+    List<ThreadDump> listTargetThreadDumps(
+            @ToolArg(description = "The Target's ID.", required = true) long targetId) {
+        return rest.listTargetThreadDumps(targetId);
+    }
+
+    @Tool(
+            description =
+                    """
+                    Request Cryostat to capture a JVM thread dump from a Target.
+                    The return value is an asynchronous job ID, not the thread dump's ID.
+                    """)
+    String requestTargetThreadDump(
+            @ToolArg(description = "The Target's ID.", required = true) long targetId) {
+        return rest.requestTargetThreadDump(targetId);
+    }
+
+    @Tool(
+            description =
+                    """
+                    Get Cryostat's analysis of a JVM thread dump.
+                    """)
+    Object getTargetThreadDumpAnalysis(
+            @ToolArg(description = "The Target's ID.", required = true) long targetId,
+            @ToolArg(description = "The thread dump ID.", required = true) String threadDumpId) {
+        return rest.getTargetThreadDumpAnalysis(targetId, threadDumpId);
     }
 
     @Tool(
