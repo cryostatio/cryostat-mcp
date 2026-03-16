@@ -8,7 +8,6 @@ import jakarta.inject.Inject;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import org.acme.CryostatMCP.QueryExample;
 import org.acme.model.ArchivedRecordingDirectory;
 import org.acme.model.DiscoveryNode;
 import org.acme.model.DiscoveryNodeFilter;
@@ -318,6 +317,11 @@ Provides details about additional custom functions and structures available for 
                     """)
     List<QueryExample> getQueryExamples() {
         return List.of(
+                new QueryExample(
+                        "List the available JFR event types (tables) in a recording", "tables"),
+                new QueryExample(
+                        "List the JFR event type fields (columns) on a given table",
+                        "columns jdk.ObjectAllocationSample"),
                 new QueryExample(
                         "Count the number of object allocation sample events",
                         """
