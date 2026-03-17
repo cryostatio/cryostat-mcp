@@ -1,20 +1,20 @@
-package org.acme;
+package io.cryostat.mcp;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.cryostat.mcp.model.ArchivedRecordingDirectory;
+import io.cryostat.mcp.model.DiscoveryNode;
+import io.cryostat.mcp.model.DiscoveryNodeFilter;
+import io.cryostat.mcp.model.EventTemplate;
+import io.cryostat.mcp.model.Health;
+import io.cryostat.mcp.model.RecordingDescriptor;
+import io.cryostat.mcp.model.Target;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.inject.Inject;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import org.acme.model.ArchivedRecordingDirectory;
-import org.acme.model.DiscoveryNode;
-import org.acme.model.DiscoveryNodeFilter;
-import org.acme.model.EventTemplate;
-import org.acme.model.Health;
-import org.acme.model.RecordingDescriptor;
-import org.acme.model.Target;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 public class CryostatMCP {
@@ -63,7 +63,7 @@ public class CryostatMCP {
                     the full list of all discovered Targets will be returned. Otherwise, if any filter inputs are provided, then only
                     Targets which match all of the given inputs will be returned.
                     """)
-    List<org.acme.model.graphql.DiscoveryNode> listTargets(
+    List<io.cryostat.mcp.model.graphql.DiscoveryNode> listTargets(
             @ToolArg(
                             description =
                                     """

@@ -1,9 +1,9 @@
-package org.acme;
+package io.cryostat.mcp;
 
+import io.cryostat.mcp.model.DiscoveryNodeFilter;
+import io.cryostat.mcp.model.graphql.DiscoveryNode;
 import io.smallrye.graphql.client.typesafe.api.GraphQLClientApi;
 import java.util.List;
-import org.acme.model.DiscoveryNodeFilter;
-import org.acme.model.graphql.DiscoveryNode;
 
 @GraphQLClientApi(configKey = "cryostat")
 public interface CryostatGraphQLClient {

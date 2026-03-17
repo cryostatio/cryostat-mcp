@@ -1,4 +1,4 @@
-package org.acme.model;
+package io.cryostat.mcp.model;
 
 import java.util.List;
 

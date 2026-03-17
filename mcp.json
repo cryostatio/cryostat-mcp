@@ -4,7 +4,7 @@
             "command": "jbang",
             "args": [
                 "--quiet",
-                "org.acme:cryostat-mcp:1.0.0-SNAPSHOT:runner"
+                "io.cryostat:cryostat-mcp:1.0.0-SNAPSHOT:runner"
             ],
             "env": {
                 "QUARKUS_TLS_NOTLS_TRUST_ALL": "true",

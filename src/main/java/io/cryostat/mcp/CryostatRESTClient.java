@@ -1,5 +1,11 @@
-package org.acme;
+package io.cryostat.mcp;
 
+import io.cryostat.mcp.model.ArchivedRecordingDirectory;
+import io.cryostat.mcp.model.DiscoveryNode;
+import io.cryostat.mcp.model.EventTemplate;
+import io.cryostat.mcp.model.Health;
+import io.cryostat.mcp.model.RecordingDescriptor;
+import io.cryostat.mcp.model.Target;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -8,12 +14,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
-import org.acme.model.ArchivedRecordingDirectory;
-import org.acme.model.DiscoveryNode;
-import org.acme.model.EventTemplate;
-import org.acme.model.Health;
-import org.acme.model.RecordingDescriptor;
-import org.acme.model.Target;
 import org.eclipse.microprofile.rest.client.annotation.ClientHeaderParam;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import org.jboss.resteasy.reactive.RestForm;

@@ -1,4 +1,4 @@
-package org.acme.model;
+package io.cryostat.mcp.model;
 
 public record RecordingDescriptor(
         long id,

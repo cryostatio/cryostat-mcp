@@ -1,4 +1,4 @@
-package org.acme.model.graphql;
+package io.cryostat.mcp.model.graphql;
 
 import java.util.Map;
 
