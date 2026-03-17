@@ -1,0 +1,35 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
+  "reviewersFromCodeOwners": true,
+  "labels": [
+    "dependencies",
+    "chore",
+    "safe-to-test"
+  ],
+  "stopUpdatingLabel": "blocked",
+  "semanticCommits": "enabled",
+  "major": {
+    "dependencyDashboardApproval": true
+  },
+  "packageRules": [
+    {
+      "description": "Require approval for Quarkus minor version updates",
+      "matchManagers": [
+        "maven"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "dependencyDashboardApproval": true,
+      "matchPackageNames": [
+        "/^io\\.quarkus:/",
+        "/^io\\.quarkus\\.platform:/"
+      ]
+    }
+  ]
+}
