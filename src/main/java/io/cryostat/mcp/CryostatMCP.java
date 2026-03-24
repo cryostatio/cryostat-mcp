@@ -135,15 +135,16 @@ public class CryostatMCP {
     @Tool(
             description =
                     """
-                    List the available JDK Flight Recorder Event Templates for a given Target.   
-                    Cryostat Version: v1.0+  
+                    List the available JDK Flight Recorder Event Templates for a given Target.
+                    Cryostat Version: v1.0+
                     """)
     List<EventTemplate> listTargetEventTemplates(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.targetEventTemplates(targetId);
     }
 
-    @Tool(description = 
+    @Tool(
+            description =
                     """
                     Get a specific .jfc (XML) JDK Flight Recorder Event Template definition.
                     Cryostat Version: v1.0+
@@ -157,7 +158,8 @@ public class CryostatMCP {
         return rest.targetEventTemplate(targetId, templateType, templateName);
     }
 
-    @Tool(description = 
+    @Tool(
+            description =
                     """
                     Get a list of active JDK Flight Recordings present in the Target JVM.
                     Cryostat Version: v1.0+
@@ -167,7 +169,8 @@ public class CryostatMCP {
         return rest.targetActiveRecordings(targetId);
     }
 
-    @Tool(description = 
+    @Tool(
+            description =
                     """
                     Get a list of archived JDK Flight Recordings sourced from the Target JVM.
                     Cryostat Version: v4.0+
