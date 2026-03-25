@@ -7,14 +7,9 @@
                 "io.cryostat:cryostat-mcp:1.0.0-SNAPSHOT:runner"
             ],
             "env": {
-                "QUARKUS_TLS_NOTLS_TRUST_ALL": "true",
-                "QUARKUS_TLS_NOTLS_HOSTNAME_VERIFICATION_ALGORITHM": "NONE",
-                "QUARKUS_REST_CLIENT_CRYOSTAT_URL": "https://cryostat-sample-cryostat.apps-crc.testing/",
-                "QUARKUS_REST_CLIENT_CRYOSTAT_VERIFY_HOST": "false",
-                "QUARKUS_REST_CLIENT_CRYOSTAT_TLS_CONFIGURATION_NAME": "notls",
-                "CRYOSTAT_AUTH_VALUE": "Bearer sha256~SEU5dRLwgseRAH28f2FakoedFbScjVzE6oiyP3LCq7M",
-                "QUARKUS_SMALLRYE_GRAPHQL_CLIENT_CRYOSTAT_TLS_CONFIGURATION_NAME": "notls",
-                "QUARKUS_SMALLRYE_GRAPHQL_CLIENT_CRYOSTAT_URL": "https://cryostat-sample-cryostat.apps-crc.testing/api/v4/graphql"
+                "CRYOSTAT_AUTH_VALUE": "Bearer $my_token",
+                "QUARKUS_REST_CLIENT_CRYOSTAT_URL": "https://cryostat-instance.cryostat-namespace.mycluster/",
+                "QUARKUS_SMALLRYE_GRAPHQL_CLIENT_CRYOSTAT_URL": "https://cryostat-instance.cryostat-namespace.mycluster/api/v4/graphql"
             }
         }
     }
