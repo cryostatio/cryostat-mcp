@@ -5,7 +5,13 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request_target:
+  push:
+    branches:
+      - main
+      - v[0-9]+
+      - v[0-9]+.[0-9]+
+      - cryostat-v[0-9]+.[0-9]+
+  pull_request:
     types:
       - opened
       - reopened
@@ -27,7 +33,7 @@ jobs:
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     - name: Fail if PR and safe-to-test label NOT applied
-      if: ${{ !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
+      if: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
       run: exit 1
     - uses: actions/checkout@v6
       with:
