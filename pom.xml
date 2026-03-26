@@ -21,7 +21,8 @@
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.27.2</quarkus.platform.version>
         <com.diffplug.spotless.maven.plugin.version>3.4.0</com.diffplug.spotless.maven.plugin.version>
-        <com.google.java-format.version>1.28.0</com.google.java-format.version>
+        <com.google.java-format.version>1.35.0</com.google.java-format.version>
+        <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
         <surefire-plugin.version>3.5.5</surefire-plugin.version>
     </properties>
 
@@ -81,8 +82,36 @@
                             </googleJavaFormat>
                             <trimTrailingWhitespace />
                             <endWithNewline />
+                            <importOrder>
+                                <order>java,javax,org.openjdk.jmc,io.cryostat,</order>
+                            </importOrder>
                             <removeUnusedImports />
                         </java>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>com.mycila</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <version>${com.mycila.license.maven.plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>update-license</id>
+                            <phase>process-sources</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <licenseSets>
+                            <licenseSet>
+                                <header>LICENSE</header>
+                                <includes>
+                                    <include>src/main/**/*.java</include>
+                                    <include>src/test/**/*.java</include>
+                                </includes>
+                            </licenseSet>
+                        </licenseSets>
                     </configuration>
                 </plugin>
                 <plugin>
