@@ -126,9 +126,16 @@ public class K8sMultiMCP {
                         return ToolResponse.success(jsonResult);
                     } catch (Exception e) {
                         LOG.errorf(e, "Failed to invoke tool '%s'", toolName);
-                        String errorMsg = e.getMessage();
+
+                        // Unwrap InvocationTargetException to get the real cause
+                        Throwable cause = e;
+                        if (e instanceof java.lang.reflect.InvocationTargetException) {
+                            cause = e.getCause() != null ? e.getCause() : e;
+                        }
+
+                        String errorMsg = cause.getMessage();
                         if (errorMsg == null || errorMsg.isEmpty()) {
-                            errorMsg = e.getClass().getSimpleName() + ": " + e.toString();
+                            errorMsg = cause.getClass().getSimpleName() + ": " + cause.toString();
                         }
                         return ToolResponse.error("Tool invocation failed: " + errorMsg);
                     }
@@ -185,7 +192,77 @@ public class K8sMultiMCP {
 
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         Object[] methodArgs = prepareMethodArguments(method, args);
-        return method.invoke(mcp, methodArgs);
+        try {
+            return method.invoke(mcp, methodArgs);
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            Throwable cause = e.getCause();
+
+            // Handle WebApplicationException (HTTP errors)
+            if (cause instanceof jakarta.ws.rs.WebApplicationException) {
+                jakarta.ws.rs.WebApplicationException webEx =
+                        (jakarta.ws.rs.WebApplicationException) cause;
+                String errorDetail =
+                        String.format(
+                                "HTTP %d: %s",
+                                webEx.getResponse().getStatus(),
+                                webEx.getResponse().getStatusInfo().getReasonPhrase());
+                throw new Exception(
+                        "Request to Cryostat in namespace '"
+                                + namespace
+                                + "' failed: "
+                                + errorDetail,
+                        cause);
+            }
+
+            // Handle ProcessingException (connection errors, etc.)
+            if (cause instanceof jakarta.ws.rs.ProcessingException) {
+                String errorMsg = cause.getMessage();
+                Throwable rootCause = cause.getCause();
+                if (rootCause != null) {
+                    errorMsg = rootCause.getClass().getSimpleName() + ": " + rootCause.getMessage();
+                }
+                throw new Exception(
+                        "Failed to connect to Cryostat in namespace '"
+                                + namespace
+                                + "': "
+                                + errorMsg,
+                        cause);
+            }
+
+            // Handle RuntimeException (may contain nested causes)
+            if (cause instanceof RuntimeException) {
+                Throwable rootCause = cause;
+                while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+                    rootCause = rootCause.getCause();
+                }
+
+                String errorMsg = cause.getMessage();
+                if (rootCause != cause) {
+                    errorMsg += " (root cause: " + rootCause.getClass().getSimpleName();
+                    if (rootCause.getMessage() != null) {
+                        errorMsg += ": " + rootCause.getMessage();
+                    }
+                    errorMsg += ")";
+                }
+
+                throw new Exception(
+                        "Error invoking Cryostat method in namespace '"
+                                + namespace
+                                + "': "
+                                + errorMsg,
+                        cause);
+            }
+
+            // Re-throw with cause details
+            throw new Exception(
+                    "Error invoking Cryostat method in namespace '"
+                            + namespace
+                            + "': "
+                            + cause.getClass().getSimpleName()
+                            + ": "
+                            + cause.getMessage(),
+                    cause);
+        }
     }
 
     private Object aggregateResults(Method method, java.util.Map<String, Object> args)

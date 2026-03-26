@@ -1,7 +1,11 @@
 {
     "mcpServers": {
         "k8s-multi-mcp": {
-            "url": "http://k8s-multi-mcp-k8s-mcp.apps-crc.testing/mcp/sse"
+            "type": "sse",
+            "url": "http://cryostat-k8s-multi-mcp/mcp/sse",
+            "headers": {
+                "Authorization": "Bearer mytoken"
+            }
         }
     }
 }

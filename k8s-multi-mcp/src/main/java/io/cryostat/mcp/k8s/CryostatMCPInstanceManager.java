@@ -86,7 +86,9 @@ public class CryostatMCPInstanceManager {
 
     private CryostatRESTClient createRESTClient(CryostatInstance instance) {
         RestClientBuilder builder =
-                RestClientBuilder.newBuilder().baseUri(URI.create(instance.applicationUrl()));
+                RestClientBuilder.newBuilder()
+                        .baseUri(URI.create(instance.applicationUrl()))
+                        .followRedirects(true);
 
         if (credentialsContext.hasCredentials()) {
             String authHeader = credentialsContext.getAuthorizationHeader();

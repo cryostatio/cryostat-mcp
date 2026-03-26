@@ -72,6 +72,12 @@ spec:
             - name: QUARKUS_KUBERNETES_CLIENT_TRUST_CERTS
               value: "true"
 
+            # TLS/SSL configuration for REST and GraphQL clients
+            # Trust all certificates (for development/test with self-signed certs)
+            # Set to false in production with proper CA certificates
+            - name: QUARKUS_TLS_TRUST_ALL
+              value: "true"
+
             # Optional: Limit CR discovery to specific namespace
             # Leave empty to watch all namespaces (default)
             # - name: QUARKUS_KUBERNETES_CLIENT_NAMESPACE
