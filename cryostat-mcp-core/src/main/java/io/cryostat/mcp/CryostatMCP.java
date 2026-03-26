@@ -51,7 +51,7 @@ public class CryostatMCP {
     }
 
     @Tool(description = "Get Cryostat server health and configuration")
-    Health getHealth() {
+    public Health getHealth() {
         return rest.health();
     }
 
@@ -67,7 +67,7 @@ public class CryostatMCP {
                     the Universe are aways Realm nodes, representing each distinct Discovery Plugin (Kubernetes API, JDP, Docker/Podman,
                     Custom Targets, and each individual registered Cryostat Agent instance).
                     """)
-    DiscoveryNode getDiscoveryTree(
+    public DiscoveryNode getDiscoveryTree(
             @ToolArg(
                             description =
                                     """
@@ -90,7 +90,7 @@ public class CryostatMCP {
                     the full list of all discovered Targets will be returned. Otherwise, if any filter inputs are provided, then only
                     Targets which match all of the given inputs will be returned.
                     """)
-    List<io.cryostat.mcp.model.graphql.DiscoveryNode> listTargets(
+    public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listTargets(
             @ToolArg(
                             description =
                                     """
@@ -138,7 +138,7 @@ public class CryostatMCP {
                     this tool may still be able to provide information about what the Target was if the Cryostat instance has audit
                     logging enabled.
                     """)
-    Target getAuditTarget(
+    public Target getAuditTarget(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         return rest.auditTarget(jvmId);
     }
@@ -150,7 +150,7 @@ public class CryostatMCP {
                     this tool can return information about the Target and all of its DiscoveryNode lineage ancestors up to (but excluding)
                     the Universe node.
                     """)
-    DiscoveryNode getAuditTargetLineage(
+    public DiscoveryNode getAuditTargetLineage(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         return rest.auditTargetLineage(jvmId);
     }
@@ -158,13 +158,13 @@ public class CryostatMCP {
     @Tool(
             description =
                     "List the available JDK Flight Recorder Event Templates for a given Target.")
-    List<EventTemplate> listTargetEventTemplates(
+    public List<EventTemplate> listTargetEventTemplates(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.targetEventTemplates(targetId);
     }
 
     @Tool(description = "Get a specific .jfc (XML) JDK Flight Recorder Event Template definition.")
-    String getTargetEventTemplate(
+    public String getTargetEventTemplate(
             @ToolArg(description = "The Target's ID.", required = true) long targetId,
             @ToolArg(description = "The event template's type.", required = true)
                     String templateType,
@@ -174,13 +174,13 @@ public class CryostatMCP {
     }
 
     @Tool(description = "Get a list of active JDK Flight Recordings present in the Target JVM.")
-    List<RecordingDescriptor> listTargetActiveRecordings(
+    public List<RecordingDescriptor> listTargetActiveRecordings(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.targetActiveRecordings(targetId);
     }
 
     @Tool(description = "Get a list of archived JDK Flight Recordings sourced from the Target JVM.")
-    List<ArchivedRecordingDirectory> listTargetArchivedRecordings(
+    public List<ArchivedRecordingDirectory> listTargetArchivedRecordings(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         return rest.targetArchivedRecordings(jvmId);
     }
@@ -192,7 +192,7 @@ public class CryostatMCP {
                     When the recording completes, Cryostat will automatically capture the data
                     and perform an automated analysis of its contents.
                     """)
-    RecordingDescriptor startTargetRecording(
+    public RecordingDescriptor startTargetRecording(
             @ToolArg(description = "The Target's ID.", required = true) long targetId,
             @ToolArg(
                             description = "The name of the recording. Must be unique per Target.",
@@ -233,7 +233,7 @@ public class CryostatMCP {
                     Scores of [25.0, 75.0) indicate that a medium severity issue was detected.
                     Scores of [75.0, 100.0] indicate that a high severity issue was detected.
                     """)
-    String scrapeMetrics(
+    public String scrapeMetrics(
             @ToolArg(
                             description =
                                     """
@@ -261,7 +261,7 @@ public class CryostatMCP {
                     Scores of [25.0, 75.0) indicate that a medium severity issue was detected.
                     Scores of [75.0, 100.0] indicate that a high severity issue was detected.
                     """)
-    String scrapeTargetMetrics(
+    public String scrapeTargetMetrics(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         return rest.scrapeTargetMetrics(jvmId);
     }
@@ -276,7 +276,7 @@ public class CryostatMCP {
                     and suggestions. For simple problem detection and incident reporting, use the Prometheus-format
                     metrics scraping tools.
                     """)
-    Object getTargetReport(
+    public Object getTargetReport(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.getTargetReport(targetId);
     }
@@ -295,7 +295,7 @@ public class CryostatMCP {
                     their internal structure, not as separate queryable columns.
                     Queries cannot use "objectClass"."name", "objectClass.name", or "objectClass"['name'] syntax.
                     """)
-    List<List<String>> executeQuery(
+    public List<List<String>> executeQuery(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
             @ToolArg(
                             description = "The name of the archived recording file to query.",
@@ -307,10 +307,10 @@ public class CryostatMCP {
 
     @Tool(
             description =
-"""
-Provides details about additional custom functions and structures available for SQL queries.
-""")
-    List<QueryExample> getQueryAdditionalFunctions() {
+                    """
+                    Provides details about additional custom functions and structures available for SQL queries.
+                    """)
+    public List<QueryExample> getQueryAdditionalFunctions() {
         return List.of(
                 new QueryExample(
                         "Obtains the fully-qualified class name from the given"
@@ -342,7 +342,7 @@ Provides details about additional custom functions and structures available for 
                     """
                     Provides example SQL queries as reference.
                     """)
-    List<QueryExample> getQueryExamples() {
+    public List<QueryExample> getQueryExamples() {
         return List.of(
                 new QueryExample(
                         "List the available JFR event types (tables) in a recording", "tables"),

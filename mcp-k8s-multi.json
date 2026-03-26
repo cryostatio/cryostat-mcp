@@ -1,18 +1,7 @@
 {
     "mcpServers": {
         "k8s-multi-mcp": {
-            "command": "jbang",
-            "args": [
-                "--quiet",
-                "io.cryostat:k8s-multi-mcp:1.0.0-SNAPSHOT:runner"
-            ],
-            "env": {
-                "QUARKUS_HTTP_PORT": "8080",
-                "QUARKUS_MCP_SERVER_TRANSPORT": "sse",
-                "QUARKUS_KUBERNETES_CLIENT_TRUST_CERTS": "true",
-                "QUARKUS_REST_CLIENT_LOGGING_SCOPE": "request-response",
-                "QUARKUS_REST_CLIENT_LOGGING_BODY_LIMIT": "1024"
-            }
+            "url": "http://k8s-multi-mcp-k8s-mcp.apps-crc.testing/mcp/sse"
         }
     }
 }

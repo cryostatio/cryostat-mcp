@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.cryostat.mcp.k8s.model.Cryostat;
 
@@ -46,16 +48,26 @@ public class CryostatInstanceDiscovery {
 
     private static final Logger LOG = Logger.getLogger(CryostatInstanceDiscovery.class);
 
-    @Inject KubernetesClient k8sClient;
-
+    private final ExecutorService discoveryExecutor = Executors.newSingleThreadExecutor();
     private final Map<String, CryostatInstance> instances = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> namespaceToInstances = new ConcurrentHashMap<>();
     private Watch watch;
 
+    @Inject KubernetesClient k8sClient;
+
     void onStart(@Observes StartupEvent event) {
         LOG.info("Starting Cryostat instance discovery");
-        discoverInstances();
-        startWatch();
+        discoveryExecutor.submit(
+                () -> {
+                    try {
+                        LOG.info("Started Cryostat instance discovery");
+                        discoverInstances();
+                        startWatch();
+                        LOG.info("Cryostat instance discovery initialized");
+                    } catch (Exception e) {
+                        LOG.error("Failed to initialize Cryostat instance discovery", e);
+                    }
+                });
     }
 
     void onShutdown(@Observes ShutdownEvent event) {
@@ -63,6 +75,7 @@ public class CryostatInstanceDiscovery {
         if (watch != null) {
             watch.close();
         }
+        discoveryExecutor.shutdown();
     }
 
     private void discoverInstances() {
