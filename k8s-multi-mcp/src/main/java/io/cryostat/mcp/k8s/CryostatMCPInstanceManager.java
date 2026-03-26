@@ -1,40 +1,41 @@
 package io.cryostat.mcp.k8s;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+
 import io.cryostat.mcp.CryostatGraphQLClient;
 import io.cryostat.mcp.CryostatMCP;
 import io.cryostat.mcp.CryostatRESTClient;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.graphql.client.typesafe.api.TypesafeGraphQLClientBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MultivaluedMap;
-import java.net.URI;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
 import org.eclipse.microprofile.rest.client.ext.ClientHeadersFactory;
 import org.jboss.logging.Logger;
 
 /**
- * Manages creation of CryostatMCP instances for different Cryostat deployments.
- * Routes requests to the appropriate Cryostat instance based on namespace.
+ * Manages creation of CryostatMCP instances for different Cryostat deployments. Routes requests to
+ * the appropriate Cryostat instance based on namespace.
  */
 @ApplicationScoped
 public class CryostatMCPInstanceManager {
 
     private static final Logger LOG = Logger.getLogger(CryostatMCPInstanceManager.class);
 
-    private final ConcurrentHashMap<String, CryostatMCP> instanceCache =
-            new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, CryostatMCP> instanceCache = new ConcurrentHashMap<>();
 
     @Inject CryostatInstanceDiscovery discovery;
     @Inject ClientCredentialsContext credentialsContext;
     @Inject ObjectMapper mapper;
 
     /**
-     * Get or create a CryostatMCP instance for the given namespace.
-     * Instances are cached to avoid recreating clients repeatedly.
-     * Finds the appropriate Cryostat instance and configures clients with credentials.
+     * Get or create a CryostatMCP instance for the given namespace. Instances are cached to avoid
+     * recreating clients repeatedly. Finds the appropriate Cryostat instance and configures clients
+     * with credentials.
      *
      * @param namespace the target namespace
      * @return a configured CryostatMCP instance
@@ -50,7 +51,8 @@ public class CryostatMCPInstanceManager {
         if (instanceOpt.isEmpty()) {
             String message =
                     String.format(
-                            "No Cryostat instance found for namespace '%s'. Available instances: %s",
+                            "No Cryostat instance found for namespace '%s'. Available instances:"
+                                    + " %s",
                             namespace, discovery.getAllInstances());
             LOG.error(message);
             throw new IllegalStateException(message);
@@ -78,8 +80,7 @@ public class CryostatMCPInstanceManager {
                         @Override
                         public MultivaluedMap<String, String> update(
                                 MultivaluedMap<String, String> incomingHeaders,
-                                MultivaluedMap<String, String>
-                                        clientOutgoingHeaders) {
+                                MultivaluedMap<String, String> clientOutgoingHeaders) {
                             clientOutgoingHeaders.putSingle("Authorization", authHeader);
                             return clientOutgoingHeaders;
                         }

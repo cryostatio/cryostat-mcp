@@ -22,8 +22,7 @@ import io.fabric8.kubernetes.model.annotation.Version;
 
 @Group("operator.cryostat.io")
 @Version("v1beta2")
-public class Cryostat extends CustomResource<CryostatSpec, CryostatStatus>
-        implements Namespaced {
+public class Cryostat extends CustomResource<CryostatSpec, CryostatStatus> implements Namespaced {
 
     @Override
     protected CryostatSpec initSpec() {

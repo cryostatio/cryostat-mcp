@@ -18,6 +18,7 @@ package io.cryostat.mcp.k8s;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 
 class CryostatInstanceTest {
@@ -43,22 +44,13 @@ class CryostatInstanceTest {
     void testCompareTo() {
         CryostatInstance instance1 =
                 new CryostatInstance(
-                        "cryostat-a",
-                        "ns1",
-                        "https://cryostat-a.ns1.svc:8181",
-                        Set.of("app-ns"));
+                        "cryostat-a", "ns1", "https://cryostat-a.ns1.svc:8181", Set.of("app-ns"));
         CryostatInstance instance2 =
                 new CryostatInstance(
-                        "cryostat-b",
-                        "ns2",
-                        "https://cryostat-b.ns2.svc:8181",
-                        Set.of("app-ns"));
+                        "cryostat-b", "ns2", "https://cryostat-b.ns2.svc:8181", Set.of("app-ns"));
         CryostatInstance instance3 =
                 new CryostatInstance(
-                        "cryostat-c",
-                        "ns3",
-                        "https://cryostat-c.ns3.svc:8181",
-                        Set.of("app-ns"));
+                        "cryostat-c", "ns3", "https://cryostat-c.ns3.svc:8181", Set.of("app-ns"));
 
         assertTrue(instance1.compareTo(instance2) < 0);
         assertTrue(instance2.compareTo(instance1) > 0);

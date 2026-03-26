@@ -19,9 +19,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
 import io.cryostat.mcp.k8s.model.Cryostat;
 import io.cryostat.mcp.k8s.model.CryostatSpec;
 import io.cryostat.mcp.k8s.model.CryostatStatus;
+
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
@@ -32,10 +38,6 @@ import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.dsl.ServiceResource;
 import io.quarkus.runtime.StartupEvent;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -102,8 +104,7 @@ class CryostatInstanceDiscoveryTest {
         Cryostat cr2 = createCryostat("cryostat-alpha", "ns2", List.of("shared-ns"));
         Cryostat cr3 = createCryostat("cryostat-gamma", "ns3", List.of("shared-ns"));
 
-        when(cryostatNonNamespaceOperation.list())
-                .thenReturn(createCryostatList(cr1, cr2, cr3));
+        when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr1, cr2, cr3));
         when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
@@ -266,10 +267,7 @@ class CryostatInstanceDiscoveryTest {
                 .endMetadata()
                 .withNewSpec()
                 .withPorts(
-                        new ServicePortBuilder()
-                                .withPort(port)
-                                .withAppProtocol(protocol)
-                                .build())
+                        new ServicePortBuilder().withPort(port).withAppProtocol(protocol).build())
                 .endSpec()
                 .build();
     }

@@ -18,10 +18,7 @@ package io.cryostat.mcp.k8s;
 import java.util.Set;
 
 public record CryostatInstance(
-        String name,
-        String namespace,
-        String applicationUrl,
-        Set<String> targetNamespaces)
+        String name, String namespace, String applicationUrl, Set<String> targetNamespaces)
         implements Comparable<CryostatInstance> {
 
     @Override

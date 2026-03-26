@@ -3,8 +3,8 @@ package io.cryostat.mcp.k8s;
 import jakarta.enterprise.context.RequestScoped;
 
 /**
- * Request-scoped context for storing client credentials (Authorization header).
- * This allows credentials to be forwarded from the incoming request to sub-MCP instances.
+ * Request-scoped context for storing client credentials (Authorization header). This allows
+ * credentials to be forwarded from the incoming request to sub-MCP instances.
  */
 @RequestScoped
 public class ClientCredentialsContext {

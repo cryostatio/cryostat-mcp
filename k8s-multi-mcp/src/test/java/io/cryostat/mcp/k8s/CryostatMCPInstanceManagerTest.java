@@ -3,13 +3,15 @@ package io.cryostat.mcp.k8s;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.cryostat.mcp.CryostatMCP;
-import io.cryostat.mcp.CryostatRESTClient;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+
+import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.CryostatRESTClient;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,8 +53,7 @@ class CryostatMCPInstanceManagerTest {
 
     @Test
     void testCreateInstanceSuccess() {
-        try (MockedStatic<RestClientBuilder> mockedBuilder =
-                mockStatic(RestClientBuilder.class)) {
+        try (MockedStatic<RestClientBuilder> mockedBuilder = mockStatic(RestClientBuilder.class)) {
             mockedBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
             when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
             when(restClientBuilder.build(CryostatRESTClient.class)).thenReturn(restClient);
@@ -68,8 +69,7 @@ class CryostatMCPInstanceManagerTest {
 
     @Test
     void testCreateInstanceWithCredentials() {
-        try (MockedStatic<RestClientBuilder> mockedBuilder =
-                mockStatic(RestClientBuilder.class)) {
+        try (MockedStatic<RestClientBuilder> mockedBuilder = mockStatic(RestClientBuilder.class)) {
             mockedBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
             when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
             when(restClientBuilder.register(any(Object.class))).thenReturn(restClientBuilder);
@@ -104,8 +104,7 @@ class CryostatMCPInstanceManagerTest {
 
     @Test
     void testCreateInstanceForDifferentNamespaces() {
-        try (MockedStatic<RestClientBuilder> mockedBuilder =
-                mockStatic(RestClientBuilder.class)) {
+        try (MockedStatic<RestClientBuilder> mockedBuilder = mockStatic(RestClientBuilder.class)) {
             CryostatInstance instance1 =
                     new CryostatInstance(
                             "cryostat-1",
@@ -139,8 +138,7 @@ class CryostatMCPInstanceManagerTest {
 
     @Test
     void testCreateInstanceMultipleTimes() {
-        try (MockedStatic<RestClientBuilder> mockedBuilder =
-                mockStatic(RestClientBuilder.class)) {
+        try (MockedStatic<RestClientBuilder> mockedBuilder = mockStatic(RestClientBuilder.class)) {
             mockedBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
             when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
             when(restClientBuilder.build(CryostatRESTClient.class)).thenReturn(restClient);

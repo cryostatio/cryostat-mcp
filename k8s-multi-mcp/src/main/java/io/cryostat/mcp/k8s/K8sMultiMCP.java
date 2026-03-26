@@ -1,7 +1,16 @@
 package io.cryostat.mcp.k8s;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import io.cryostat.mcp.CryostatMCP;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import io.quarkiverse.mcp.server.ToolManager;
@@ -10,20 +19,11 @@ import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
 /**
- * Multi-tenant MCP server that wraps CryostatMCP tools with namespace-based routing.
- * Uses reflection to discover tools from CryostatMCP and programmatically adds namespace
- * parameters.
+ * Multi-tenant MCP server that wraps CryostatMCP tools with namespace-based routing. Uses
+ * reflection to discover tools from CryostatMCP and programmatically adds namespace parameters.
  */
 @ApplicationScoped
 public class K8sMultiMCP {
@@ -80,7 +80,8 @@ public class K8sMultiMCP {
         String namespaceDesc =
                 namespaceRequired
                         ? "The namespace where the target application is running."
-                        : "The namespace of the Cryostat instance to query. If not provided, queries the first available instance.";
+                        : "The namespace of the Cryostat instance to query. If not provided,"
+                                + " queries the first available instance.";
         toolBuilder.addArgument("namespace", namespaceDesc, namespaceRequired, String.class);
 
         // Add original method parameters
@@ -110,8 +111,7 @@ public class K8sMultiMCP {
                         return ToolResponse.success(jsonResult);
                     } catch (Exception e) {
                         LOG.errorf(e, "Failed to invoke tool '%s'", toolName);
-                        return ToolResponse.error(
-                                "Tool invocation failed: " + e.getMessage());
+                        return ToolResponse.error("Tool invocation failed: " + e.getMessage());
                     }
                 });
 
@@ -123,8 +123,10 @@ public class K8sMultiMCP {
     private String buildToolDescription(String originalDescription, boolean namespaceRequired) {
         String namespaceInfo =
                 namespaceRequired
-                        ? " Namespace parameter is required to identify the Cryostat instance managing the target."
-                        : " If namespace is provided, routes to that specific Cryostat instance; otherwise aggregates results from all available instances.";
+                        ? " Namespace parameter is required to identify the Cryostat instance"
+                                + " managing the target."
+                        : " If namespace is provided, routes to that specific Cryostat instance;"
+                                + " otherwise aggregates results from all available instances.";
 
         return originalDescription + namespaceInfo;
     }
@@ -153,50 +155,52 @@ public class K8sMultiMCP {
             Method method, java.util.Map<String, Object> args, boolean namespaceRequired)
             throws Exception {
         String namespace = (String) args.get("namespace");
-        
+
         if ((namespace == null || namespace.isEmpty()) && !namespaceRequired) {
             return aggregateResults(method, args);
         }
-        
+
         if (namespace == null || namespace.isEmpty()) {
             throw new IllegalArgumentException("Namespace is required for this operation");
         }
-        
+
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         Object[] methodArgs = prepareMethodArguments(method, args);
         return method.invoke(mcp, methodArgs);
     }
-    
+
     private Object aggregateResults(Method method, java.util.Map<String, Object> args)
             throws Exception {
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
         if (instances.isEmpty()) {
             throw new IllegalStateException("No Cryostat instances available");
         }
-        
+
         String methodName = method.getName();
-        LOG.infof("Aggregating results from %d instances for tool '%s'", instances.size(), methodName);
-        
+        LOG.infof(
+                "Aggregating results from %d instances for tool '%s'",
+                instances.size(), methodName);
+
         // Currently only scrapeMetrics supports aggregation
         if ("scrapeMetrics".equals(methodName)) {
             return aggregateMetrics(method, args, instances);
         }
-        
+
         throw new UnsupportedOperationException(
                 "Aggregation not supported for tool: " + methodName);
     }
-    
+
     private String aggregateMetrics(
             Method method, java.util.Map<String, Object> args, List<CryostatInstance> instances)
             throws Exception {
         List<String> allMetrics = new ArrayList<>();
-        
+
         for (CryostatInstance instance : instances) {
             try {
                 CryostatMCP mcp = instanceManager.createInstance(instance.namespace());
                 Object[] methodArgs = prepareMethodArguments(method, args);
                 String metrics = (String) method.invoke(mcp, methodArgs);
-                
+
                 if (metrics != null && !metrics.isEmpty()) {
                     allMetrics.add(metrics);
                 }
@@ -209,11 +213,11 @@ public class K8sMultiMCP {
                 // Continue with other instances
             }
         }
-        
+
         if (allMetrics.isEmpty()) {
             return "";
         }
-        
+
         // Concatenate, sort, and deduplicate metrics
         return allMetrics.stream()
                 .flatMap(metrics -> Arrays.stream(metrics.split("\n")))
@@ -223,9 +227,7 @@ public class K8sMultiMCP {
                 .collect(Collectors.joining("\n"));
     }
 
-
-    private Object[] prepareMethodArguments(
-            Method method, java.util.Map<String, Object> args) {
+    private Object[] prepareMethodArguments(Method method, java.util.Map<String, Object> args) {
         Parameter[] parameters = method.getParameters();
         Object[] methodArgs = new Object[parameters.length];
 

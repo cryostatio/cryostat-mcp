@@ -17,9 +17,10 @@ package io.cryostat.mcp.k8s.model;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

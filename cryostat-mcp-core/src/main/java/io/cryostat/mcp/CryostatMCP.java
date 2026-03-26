@@ -1,7 +1,9 @@
 package io.cryostat.mcp;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
 import io.cryostat.mcp.model.DiscoveryNodeFilter;
@@ -9,12 +11,12 @@ import io.cryostat.mcp.model.EventTemplate;
 import io.cryostat.mcp.model.Health;
 import io.cryostat.mcp.model.RecordingDescriptor;
 import io.cryostat.mcp.model.Target;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.inject.Inject;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 public class CryostatMCP {

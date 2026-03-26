@@ -8,8 +8,8 @@ import jakarta.ws.rs.ext.Provider;
 import org.jboss.logging.Logger;
 
 /**
- * Request filter that extracts the Authorization header from incoming requests
- * and stores it in the ClientCredentialsContext for forwarding to Cryostat instances.
+ * Request filter that extracts the Authorization header from incoming requests and stores it in the
+ * ClientCredentialsContext for forwarding to Cryostat instances.
  */
 @Provider
 @ApplicationScoped
@@ -22,7 +22,7 @@ public class AuthorizationHeaderFilter implements ContainerRequestFilter {
     @Override
     public void filter(ContainerRequestContext requestContext) {
         String authHeader = requestContext.getHeaderString("Authorization");
-        
+
         if (authHeader != null && !authHeader.isEmpty()) {
             LOG.debugf("Captured Authorization header from incoming request");
             credentialsContext.setAuthorizationHeader(authHeader);

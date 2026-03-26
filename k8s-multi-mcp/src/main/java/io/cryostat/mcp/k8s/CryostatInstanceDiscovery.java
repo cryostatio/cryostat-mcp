@@ -15,7 +15,19 @@
  */
 package io.cryostat.mcp.k8s;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
 import io.cryostat.mcp.k8s.model.Cryostat;
+
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -27,16 +39,6 @@ import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
@@ -94,8 +96,7 @@ public class CryostatInstanceDiscovery {
                                         @Override
                                         public void onClose(WatcherException e) {
                                             if (e != null) {
-                                                LOG.error(
-                                                        "Watch closed with error, restarting", e);
+                                                LOG.error("Watch closed with error, restarting", e);
                                                 startWatch();
                                             } else {
                                                 LOG.info("Watch closed normally");
@@ -214,8 +215,7 @@ public class CryostatInstanceDiscovery {
                 ServicePort port = findServicePort(svc);
                 if (port != null) {
                     boolean tls =
-                            port.getAppProtocol() != null
-                                    && port.getAppProtocol().equals("https");
+                            port.getAppProtocol() != null && port.getAppProtocol().equals("https");
                     return String.format(
                             "http%s://%s.%s.svc:%d",
                             tls ? "s" : "", name, namespace, port.getPort());
@@ -282,7 +282,8 @@ public class CryostatInstanceDiscovery {
 
         if (matches.size() > 1) {
             LOG.warnf(
-                    "Multiple Cryostat instances monitor namespace '%s': %s. Selected: %s (deterministic tiebreaker)",
+                    "Multiple Cryostat instances monitor namespace '%s': %s. Selected: %s"
+                            + " (deterministic tiebreaker)",
                     namespace,
                     matches.stream().map(CryostatInstance::name).toList(),
                     matches.get(0).name());
