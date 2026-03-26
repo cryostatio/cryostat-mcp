@@ -5,7 +5,10 @@ kind: Kustomization
 namespace: k8s-mcp
 
 resources:
-  - ../
+  - ../namespace.yaml
+  - ../rbac.yaml
+  - ../deployment.yaml
+  - ../service.yaml
 
 images:
   - name: quay.io/cryostat/k8s-multi-mcp
