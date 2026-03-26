@@ -19,9 +19,19 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 public class CryostatMCP {
 
-    @Inject @RestClient CryostatRESTClient rest;
-    @Inject CryostatGraphQLClient graphql;
-    @Inject ObjectMapper mapper;
+    private final CryostatRESTClient rest;
+    private final CryostatGraphQLClient graphql;
+    private final ObjectMapper mapper;
+
+    @Inject
+    public CryostatMCP(
+            @RestClient CryostatRESTClient rest,
+            CryostatGraphQLClient graphql,
+            ObjectMapper mapper) {
+        this.rest = rest;
+        this.graphql = graphql;
+        this.mapper = mapper;
+    }
 
     @Tool(description = "Get Cryostat server health and configuration")
     Health getHealth() {
