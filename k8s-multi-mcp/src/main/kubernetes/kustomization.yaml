@@ -1,0 +1,122 @@
+---
+# Kustomization file for k8s-multi-mcp deployment
+# This allows easy customization of the deployment without modifying base manifests
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Namespace where all resources will be created
+namespace: cryostat-mcp-system
+
+# Create the namespace if it doesn't exist
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - deployment.yaml
+  - service.yaml
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/version: "1.0.0"
+
+# Common annotations applied to all resources
+commonAnnotations:
+  description: "Kubernetes Multi-MCP for Cryostat"
+
+# Name prefix for all resources (optional)
+# Uncomment to add a prefix to all resource names
+# namePrefix: dev-
+
+# Name suffix for all resources (optional)
+# Uncomment to add a suffix to all resource names
+# nameSuffix: -v1
+
+# Images to use - customize the image name and tag here
+images:
+  - name: quay.io/cryostat/k8s-multi-mcp
+    newName: quay.io/cryostat/k8s-multi-mcp
+    newTag: latest
+
+# ConfigMap generator (optional)
+# Uncomment to generate ConfigMaps from files or literals
+# configMapGenerator:
+#   - name: k8s-multi-mcp-config
+#     literals:
+#       - QUARKUS_LOG_LEVEL=INFO
+#       - QUARKUS_LOG_CATEGORY__IO_CRYOSTAT_MCP_K8S__LEVEL=DEBUG
+
+# Secret generator (optional)
+# Uncomment to generate Secrets from files or literals
+# secretGenerator:
+#   - name: k8s-multi-mcp-secrets
+#     literals:
+#       - API_KEY=changeme
+
+# Replicas (optional)
+# Uncomment to override replica count
+# replicas:
+#   - name: k8s-multi-mcp
+#     count: 2
+
+# Patches for customization
+# Uncomment and modify as needed
+patches:
+  # Example: Patch to change service type to LoadBalancer
+  # - target:
+  #     kind: Service
+  #     name: k8s-multi-mcp
+  #   patch: |-
+  #     - op: replace
+  #       path: /spec/type
+  #       value: LoadBalancer
+
+  # Example: Patch to add resource limits
+  # - target:
+  #     kind: Deployment
+  #     name: k8s-multi-mcp
+  #   patch: |-
+  #     - op: replace
+  #       path: /spec/template/spec/containers/0/resources/limits/memory
+  #       value: 1Gi
+  #     - op: replace
+  #       path: /spec/template/spec/containers/0/resources/limits/cpu
+  #       value: 1000m
+
+  # Example: Patch to add environment variables
+  # - target:
+  #     kind: Deployment
+  #     name: k8s-multi-mcp
+  #   patch: |-
+  #     - op: add
+  #       path: /spec/template/spec/containers/0/env/-
+  #       value:
+  #         name: CUSTOM_ENV_VAR
+  #         value: custom-value
+
+# Strategic merge patches (alternative to JSON patches)
+# patchesStrategicMerge:
+#   - |-
+#     apiVersion: apps/v1
+#     kind: Deployment
+#     metadata:
+#       name: k8s-multi-mcp
+#     spec:
+#       replicas: 3
+#       template:
+#         spec:
+#           containers:
+#             - name: mcp-server
+#               resources:
+#                 limits:
+#                   memory: 1Gi
+#                   cpu: 1000m
+
+# Vars for variable substitution (optional)
+# vars:
+#   - name: SERVICE_NAME
+#     objref:
+#       kind: Service
+#       name: k8s-multi-mcp
+#       apiVersion: v1
+#     fieldref:
+#       fieldpath: metadata.name

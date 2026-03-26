@@ -386,5 +386,3 @@ class CryostatMCPTest {
         assertEquals(query, example.query());
     }
 }
-
-// Made with Bob

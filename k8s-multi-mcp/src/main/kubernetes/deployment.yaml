@@ -1,0 +1,147 @@
+---
+# Deployment for k8s-multi-mcp service
+# This deployment runs the MCP server that multiplexes requests to multiple Cryostat instances
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-multi-mcp
+  namespace: cryostat-mcp-system
+  labels:
+    app: k8s-multi-mcp
+    app.kubernetes.io/name: k8s-multi-mcp
+    app.kubernetes.io/component: mcp-server
+    app.kubernetes.io/part-of: cryostat-mcp
+spec:
+  # Single replica by default - can be scaled horizontally if needed
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8s-multi-mcp
+  template:
+    metadata:
+      labels:
+        app: k8s-multi-mcp
+        app.kubernetes.io/name: k8s-multi-mcp
+        app.kubernetes.io/component: mcp-server
+        app.kubernetes.io/part-of: cryostat-mcp
+      annotations:
+        # Prometheus scraping annotations (if metrics are enabled)
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/q/metrics"
+    spec:
+      # ServiceAccount for Kubernetes API access (listing CRs)
+      # NOT used for Cryostat access - client credentials are forwarded
+      serviceAccountName: k8s-multi-mcp
+
+      # Security context for the pod
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: mcp-server
+          # Image - update with your registry and tag
+          # For JVM mode: quay.io/cryostat/k8s-multi-mcp:latest
+          # For native mode: quay.io/cryostat/k8s-multi-mcp:latest-native
+          image: quay.io/cryostat/k8s-multi-mcp:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          # Environment variables for configuration
+          env:
+            # HTTP server port
+            - name: QUARKUS_HTTP_PORT
+              value: "8080"
+
+            # Logging configuration
+            - name: QUARKUS_LOG_LEVEL
+              value: "INFO"
+
+            # k8s-multi-mcp specific logging (more verbose for troubleshooting)
+            - name: QUARKUS_LOG_CATEGORY__IO_CRYOSTAT_MCP_K8S__LEVEL
+              value: "DEBUG"
+
+            # Kubernetes client configuration
+            # Trust cluster certificates (set to false in production with proper CA)
+            - name: QUARKUS_KUBERNETES_CLIENT_TRUST_CERTS
+              value: "true"
+
+            # Optional: Limit CR discovery to specific namespace
+            # Leave empty to watch all namespaces (default)
+            # - name: QUARKUS_KUBERNETES_CLIENT_NAMESPACE
+            #   value: ""
+
+          # Resource requests and limits
+          # Adjust based on your workload and cluster capacity
+          resources:
+            requests:
+              # JVM mode: ~256Mi, Native mode: ~64Mi
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              # JVM mode: ~512Mi, Native mode: ~128Mi
+              memory: "512Mi"
+              cpu: "500m"
+
+          # Liveness probe - checks if the application is running
+          # Kubernetes will restart the pod if this fails
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+
+          # Readiness probe - checks if the application is ready to serve traffic
+          # Kubernetes will not send traffic until this succeeds
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+
+          # Startup probe - gives the application time to start
+          # Useful for slow-starting applications
+          startupProbe:
+            httpGet:
+              path: /q/health/started
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 30
+
+          # Security context for the container
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false  # Quarkus needs write access to /tmp
+
+      # Restart policy
+      restartPolicy: Always
+
+      # DNS policy
+      dnsPolicy: ClusterFirst
+
+      # Termination grace period
+      terminationGracePeriodSeconds: 30
