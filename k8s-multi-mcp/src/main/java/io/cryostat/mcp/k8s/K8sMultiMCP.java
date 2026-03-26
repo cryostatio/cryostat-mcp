@@ -126,7 +126,11 @@ public class K8sMultiMCP {
                         return ToolResponse.success(jsonResult);
                     } catch (Exception e) {
                         LOG.errorf(e, "Failed to invoke tool '%s'", toolName);
-                        return ToolResponse.error("Tool invocation failed: " + e.getMessage());
+                        String errorMsg = e.getMessage();
+                        if (errorMsg == null || errorMsg.isEmpty()) {
+                            errorMsg = e.getClass().getSimpleName() + ": " + e.toString();
+                        }
+                        return ToolResponse.error("Tool invocation failed: " + errorMsg);
                     }
                 });
 
