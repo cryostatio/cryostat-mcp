@@ -7,6 +7,11 @@ namespace: k8s-mcp
 resources:
   - ../
 
+images:
+  - name: quay.io/cryostat/k8s-multi-mcp
+    newName: quay.io/andrewazores/cryostat-k8s-multi-mcp
+    newTag: latest
+
 patches:
   - target:
       kind: Namespace
@@ -14,5 +19,3 @@ patches:
       - op: replace
         path: /metadata/name
         value: k8s-mcp
-
-# Made with Bob
