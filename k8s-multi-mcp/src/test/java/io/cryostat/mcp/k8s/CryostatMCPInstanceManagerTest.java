@@ -152,8 +152,8 @@ class CryostatMCPInstanceManagerTest {
 
             assertNotNull(mcp1);
             assertNotNull(mcp2);
-            assertNotSame(mcp1, mcp2);
-            verify(discovery, times(2)).findByNamespace("app-namespace");
+            assertSame(mcp1, mcp2);
+            verify(discovery, times(1)).findByNamespace("app-namespace");
         }
     }
 }
