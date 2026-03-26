@@ -15,16 +15,17 @@
  */
 package io.cryostat.mcp.k8s;
 
-import jakarta.enterprise.context.RequestScoped;
+import jakarta.enterprise.context.ApplicationScoped;
 
 /**
- * Request-scoped context for storing client credentials (Authorization header). This allows
- * credentials to be forwarded from the incoming request to sub-MCP instances.
+ * Thread-safe context for storing client credentials (Authorization header). Uses ThreadLocal to
+ * ensure thread-safety for concurrent requests. This allows credentials to be forwarded from the
+ * incoming request to sub-MCP instances.
  */
-@RequestScoped
+@ApplicationScoped
 public class ClientCredentialsContext {
 
-    private String authorizationHeader;
+    private final ThreadLocal<String> authorizationHeader = new ThreadLocal<>();
 
     /**
      * Get the Authorization header value from the current request.
@@ -32,7 +33,7 @@ public class ClientCredentialsContext {
      * @return the Authorization header value, or null if not set
      */
     public String getAuthorizationHeader() {
-        return authorizationHeader;
+        return authorizationHeader.get();
     }
 
     /**
@@ -41,7 +42,15 @@ public class ClientCredentialsContext {
      * @param authorizationHeader the Authorization header value
      */
     public void setAuthorizationHeader(String authorizationHeader) {
-        this.authorizationHeader = authorizationHeader;
+        this.authorizationHeader.set(authorizationHeader);
+    }
+
+    /**
+     * Clear the Authorization header value for the current thread. Should be called after request
+     * processing to prevent memory leaks.
+     */
+    public void clear() {
+        authorizationHeader.remove();
     }
 
     /**
@@ -50,6 +59,7 @@ public class ClientCredentialsContext {
      * @return true if Authorization header is set, false otherwise
      */
     public boolean hasCredentials() {
-        return authorizationHeader != null && !authorizationHeader.isEmpty();
+        String header = authorizationHeader.get();
+        return header != null && !header.isEmpty();
     }
 }

@@ -15,20 +15,26 @@
  */
 package io.cryostat.mcp.k8s;
 
+import java.io.IOException;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.container.ContainerResponseContext;
+import jakarta.ws.rs.container.ContainerResponseFilter;
 import jakarta.ws.rs.ext.Provider;
 import org.jboss.logging.Logger;
 
 /**
- * Request filter that extracts the Authorization header from incoming requests and stores it in the
- * ClientCredentialsContext for forwarding to Cryostat instances.
+ * JAX-RS request/response filter that extracts the Authorization header from incoming requests and
+ * stores it in the ClientCredentialsContext for forwarding to Cryostat instances. This filter
+ * handles JAX-RS endpoints (if any exist). For Vert.x-handled MCP endpoints, see
+ * VertxAuthorizationInterceptor.
  */
 @Provider
 @ApplicationScoped
-public class AuthorizationHeaderFilter implements ContainerRequestFilter {
+public class AuthorizationHeaderFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
     private static final Logger LOG = Logger.getLogger(AuthorizationHeaderFilter.class);
 
@@ -39,10 +45,18 @@ public class AuthorizationHeaderFilter implements ContainerRequestFilter {
         String authHeader = requestContext.getHeaderString("Authorization");
 
         if (authHeader != null && !authHeader.isEmpty()) {
-            LOG.debugf("Captured Authorization header from incoming request");
+            LOG.debugf("Captured Authorization header from JAX-RS request");
             credentialsContext.setAuthorizationHeader(authHeader);
         } else {
-            LOG.debugf("No Authorization header in incoming request");
+            LOG.debugf("No Authorization header in JAX-RS request");
         }
+    }
+
+    @Override
+    public void filter(
+            ContainerRequestContext requestContext, ContainerResponseContext responseContext)
+            throws IOException {
+        credentialsContext.clear();
+        LOG.debugf("Cleared Authorization header after JAX-RS request");
     }
 }
