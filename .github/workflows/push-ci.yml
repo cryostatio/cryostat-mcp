@@ -1,4 +1,4 @@
-name: PR CI build
+name: Push CI
 
 concurrency:
   group: ci-${{ github.run_id }}
@@ -11,34 +11,28 @@ on:
       - v[0-9]+
       - v[0-9]+.[0-9]+
       - cryostat-v[0-9]+.[0-9]+
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - labeled
-      - unlabeled
-    branches:
-      - main
-      - v[0-9]+
-      - v[0-9]+.[0-9]+
-      - cryostat-v[0-9]+.[0-9]+
 
 jobs:
-  build:
+  get-pom-properties:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'cryostatio' }}
+    outputs:
+      artifact-version: ${{ steps.query-pom.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Get artifact version from POM
+        id: query-pom
+        run: |
+          echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> "$GITHUB_OUTPUT"
+
+  build-and-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         JVM_version: ['17', '21']
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
-    - name: Fail if PR and safe-to-test label NOT applied
-      if: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
-      run: exit 1
     - uses: actions/checkout@v6
-      with:
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
-        ref: ${{ github.event.pull_request.head.ref }}
     - uses: actions/setup-java@v5
       with:
         java-version: ${{ matrix.JVM_version }}
@@ -53,16 +47,13 @@ jobs:
 
   build-jar:
     name: Build fat JAR
+    needs: [get-pom-properties, build-and-test]
     runs-on: ubuntu-24.04
     if: ${{ github.repository_owner == 'cryostatio' }}
+    env:
+      ARTIFACT_VERSION: ${{ needs.get-pom-properties.outputs.artifact-version }}
     steps:
-    - name: Fail if PR and safe-to-test label NOT applied
-      if: ${{ !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
-      run: exit 1
     - uses: actions/checkout@v6
-      with:
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
-        ref: ${{ github.event.pull_request.head.ref }}
     - uses: actions/setup-java@v5
       with:
         java-version: '17'
@@ -77,5 +68,13 @@ jobs:
           clean package
     - uses: actions/upload-artifact@v6
       with:
-        name: cryostat-mcp-jar
-        path: target/cryostat-mcp-*-runner.jar
+        name: cryostat-mcp-${{ env.ARTIFACT_VERSION }}-jar
+        path: target/cryostat-mcp-${{ env.ARTIFACT_VERSION }}-runner.jar
+
+  publish-snapshot:
+    needs: [get-pom-properties, build-jar]
+    uses: ./.github/workflows/maven-central-publish.yml
+    secrets: inherit
+    with:
+      publish-cmd: './release-snapshot.sh'
+    if: ${{ github.repository_owner == 'cryostatio' && endsWith(needs.get-pom-properties.outputs.artifact-version, '-SNAPSHOT') }}
