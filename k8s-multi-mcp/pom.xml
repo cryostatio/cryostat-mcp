@@ -11,6 +11,10 @@
     <artifactId>cryostat-k8s-multi-mcp</artifactId>
     <name>cryostat-k8s-multi-mcp</name>
 
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.cryostat</groupId>
