@@ -28,6 +28,7 @@ import io.smallrye.graphql.client.typesafe.api.TypesafeGraphQLClientBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MultivaluedMap;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
 import org.eclipse.microprofile.rest.client.ext.ClientHeadersFactory;
 import org.jboss.logging.Logger;
@@ -44,8 +45,13 @@ public class CryostatMCPInstanceManager {
     private final ConcurrentHashMap<String, CryostatMCP> instanceCache = new ConcurrentHashMap<>();
 
     @Inject CryostatInstanceDiscovery discovery;
-    @Inject ClientCredentialsContext credentialsContext;
     @Inject ObjectMapper mapper;
+
+    @ConfigProperty(name = "k8s.multi.mcp.authorization.header")
+    Optional<String> authorizationHeaderConfig;
+
+    @ConfigProperty(name = "cryostat.graphql.path", defaultValue = "/api/v4/graphql")
+    String graphqlPath;
 
     /**
      * Get or create a CryostatMCP instance for the given namespace. Instances are cached to avoid
@@ -57,10 +63,36 @@ public class CryostatMCPInstanceManager {
      * @throws IllegalStateException if no Cryostat instance is found for the namespace
      */
     public CryostatMCP createInstance(String namespace) {
-        return instanceCache.computeIfAbsent(namespace, this::createNewInstance);
+        return createInstance(namespace, null);
     }
 
-    private CryostatMCP createNewInstance(String namespace) {
+    /**
+     * Get or create a CryostatMCP instance for the given namespace with explicit authorization
+     * header. Instances are cached to avoid recreating clients repeatedly. Finds the appropriate
+     * Cryostat instance and configures clients with credentials.
+     *
+     * @param namespace the target namespace
+     * @param authorizationHeader the Authorization header to use, or null to fall back to
+     *     ConfigProperty
+     * @return a configured CryostatMCP instance
+     * @throws IllegalStateException if no Cryostat instance is found for the namespace
+     */
+    public CryostatMCP createInstance(String namespace, String authorizationHeader) {
+        // Note: We don't cache instances with explicit auth headers to avoid credential leakage
+        // between requests
+        if (authorizationHeader != null) {
+            return createNewInstance(namespace, authorizationHeader);
+        }
+        return instanceCache.computeIfAbsent(namespace, ns -> createNewInstance(ns, null));
+    }
+
+    private CryostatMCP createNewInstance(String namespace, String authorizationHeader) {
+        LOG.infof(
+                "Creating CryostatMCP instance for namespace '%s' on thread %s with %s auth header",
+                namespace,
+                Thread.currentThread().getName(),
+                authorizationHeader != null ? "explicit" : "context-based");
+
         Optional<CryostatInstance> instanceOpt = discovery.findByNamespace(namespace);
 
         if (instanceOpt.isEmpty()) {
@@ -75,23 +107,32 @@ public class CryostatMCPInstanceManager {
 
         CryostatInstance instance = instanceOpt.get();
         LOG.infof(
-                "Creating CryostatMCP instance for namespace '%s' using Cryostat '%s' at %s",
-                namespace, instance.name(), instance.applicationUrl());
+                "Found Cryostat instance '%s' at %s for namespace '%s'",
+                instance.name(), instance.applicationUrl(), namespace);
 
-        CryostatRESTClient restClient = createRESTClient(instance);
-        CryostatGraphQLClient graphqlClient = createGraphQLClient(instance);
+        CryostatRESTClient restClient = createRESTClient(instance, authorizationHeader);
+        CryostatGraphQLClient graphqlClient = createGraphQLClient(instance, authorizationHeader);
 
         return new CryostatMCP(restClient, graphqlClient, mapper);
     }
 
-    private CryostatRESTClient createRESTClient(CryostatInstance instance) {
+    private CryostatRESTClient createRESTClient(
+            CryostatInstance instance, String authorizationHeader) {
         RestClientBuilder builder =
                 RestClientBuilder.newBuilder()
                         .baseUri(URI.create(instance.applicationUrl()))
                         .followRedirects(true);
 
-        if (credentialsContext.hasCredentials()) {
-            String authHeader = credentialsContext.getAuthorizationHeader();
+        // Use explicit auth header if provided, otherwise fall back to config property
+        String authHeader =
+                authorizationHeader != null
+                        ? authorizationHeader
+                        : authorizationHeaderConfig.orElse(null);
+
+        if (authHeader != null && !authHeader.isEmpty()) {
+            LOG.debugf(
+                    "Forwarding Authorization header to REST client for %s (source: %s)",
+                    instance.applicationUrl(), authorizationHeader != null ? "explicit" : "config");
             builder.register(
                     new ClientHeadersFactory() {
                         @Override
@@ -107,14 +148,23 @@ public class CryostatMCPInstanceManager {
         return builder.build(CryostatRESTClient.class);
     }
 
-    private CryostatGraphQLClient createGraphQLClient(CryostatInstance instance) {
-        String graphqlEndpoint = instance.applicationUrl() + "/api/v2.2/graphql";
+    private CryostatGraphQLClient createGraphQLClient(
+            CryostatInstance instance, String authorizationHeader) {
+        String graphqlEndpoint = instance.applicationUrl() + graphqlPath;
 
         TypesafeGraphQLClientBuilder builder =
                 TypesafeGraphQLClientBuilder.newBuilder().endpoint(graphqlEndpoint);
 
-        if (credentialsContext.hasCredentials()) {
-            String authHeader = credentialsContext.getAuthorizationHeader();
+        // Use explicit auth header if provided, otherwise fall back to config property
+        String authHeader =
+                authorizationHeader != null
+                        ? authorizationHeader
+                        : authorizationHeaderConfig.orElse(null);
+
+        if (authHeader != null && !authHeader.isEmpty()) {
+            LOG.debugf(
+                    "Forwarding Authorization header to GraphQL client for %s (source: %s)",
+                    graphqlEndpoint, authorizationHeader != null ? "explicit" : "config");
             builder.header("Authorization", authHeader);
         }
 

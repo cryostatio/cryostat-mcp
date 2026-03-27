@@ -6,7 +6,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: k8s-multi-mcp
-  namespace: cryostat-mcp-system
+  namespace: k8s-mcp
   labels:
     app: k8s-multi-mcp
     app.kubernetes.io/name: k8s-multi-mcp
@@ -77,7 +77,7 @@ subjects:
   # Reference to the ServiceAccount
   - kind: ServiceAccount
     name: k8s-multi-mcp
-    namespace: cryostat-mcp-system
+    namespace: k8s-mcp
 ---
 # Optional: Role for namespace-scoped permissions
 # Use this instead of ClusterRole if you want to limit CR discovery to specific namespaces

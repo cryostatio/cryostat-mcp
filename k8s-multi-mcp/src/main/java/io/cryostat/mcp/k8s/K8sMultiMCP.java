@@ -117,7 +117,8 @@ public class K8sMultiMCP {
         toolBuilder.setHandler(
                 toolArgs -> {
                     try {
-                        Object result = invokeTool(method, toolArgs.args(), namespaceRequired);
+                        Object result =
+                                invokeTool(method, toolArgs.args(), namespaceRequired, null);
                         // Serialize result to JSON string for ToolResponse
                         String jsonResult =
                                 result instanceof String
@@ -178,19 +179,22 @@ public class K8sMultiMCP {
     }
 
     private Object invokeTool(
-            Method method, java.util.Map<String, Object> args, boolean namespaceRequired)
+            Method method,
+            java.util.Map<String, Object> args,
+            boolean namespaceRequired,
+            String authorizationHeader)
             throws Exception {
         String namespace = (String) args.get("namespace");
 
         if ((namespace == null || namespace.isEmpty()) && !namespaceRequired) {
-            return aggregateResults(method, args);
+            return aggregateResults(method, args, authorizationHeader);
         }
 
         if (namespace == null || namespace.isEmpty()) {
             throw new IllegalArgumentException("Namespace is required for this operation");
         }
 
-        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        CryostatMCP mcp = instanceManager.createInstance(namespace, authorizationHeader);
         Object[] methodArgs = prepareMethodArguments(method, args);
         try {
             return method.invoke(mcp, methodArgs);
@@ -265,7 +269,8 @@ public class K8sMultiMCP {
         }
     }
 
-    private Object aggregateResults(Method method, java.util.Map<String, Object> args)
+    private Object aggregateResults(
+            Method method, java.util.Map<String, Object> args, String authorizationHeader)
             throws Exception {
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
         if (instances.isEmpty()) {
@@ -279,7 +284,7 @@ public class K8sMultiMCP {
 
         // Currently only scrapeMetrics supports aggregation
         if ("scrapeMetrics".equals(methodName)) {
-            return aggregateMetrics(method, args, instances);
+            return aggregateMetrics(method, args, instances, authorizationHeader);
         }
 
         throw new UnsupportedOperationException(
@@ -287,13 +292,17 @@ public class K8sMultiMCP {
     }
 
     private String aggregateMetrics(
-            Method method, java.util.Map<String, Object> args, List<CryostatInstance> instances)
+            Method method,
+            java.util.Map<String, Object> args,
+            List<CryostatInstance> instances,
+            String authorizationHeader)
             throws Exception {
         List<String> allMetrics = new ArrayList<>();
 
         for (CryostatInstance instance : instances) {
             try {
-                CryostatMCP mcp = instanceManager.createInstance(instance.namespace());
+                CryostatMCP mcp =
+                        instanceManager.createInstance(instance.namespace(), authorizationHeader);
                 Object[] methodArgs = prepareMethodArguments(method, args);
                 String metrics = (String) method.invoke(mcp, methodArgs);
 

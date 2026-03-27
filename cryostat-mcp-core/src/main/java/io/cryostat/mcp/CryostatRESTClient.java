@@ -40,7 +40,7 @@ import org.jboss.resteasy.reactive.RestQuery;
         configKey = "cryostat",
         baseUri = "http://localhost:8181" // this should always be overridden
         )
-@ClientHeaderParam(name = "Authorization", value = "${cryostat.auth.value}")
+@ClientHeaderParam(name = "Authorization", value = "${cryostat.auth.value:}", required = false)
 public interface CryostatRESTClient {
 
     @GET
