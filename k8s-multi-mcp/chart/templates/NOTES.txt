@@ -1,0 +1,72 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+=============================================================================
+
+k8s-multi-mcp has been deployed to namespace: {{ .Values.namespace }}
+
+The MCP server is now running and will automatically discover Cryostat instances
+in your cluster by watching for Cryostat Custom Resources.
+
+{{- if .Values.route.enabled }}
+
+OpenShift Route has been created for external access:
+{{- if .Values.route.host }}
+  URL: https://{{ .Values.route.host }}
+{{- else }}
+  URL: Check the route for the auto-generated hostname:
+  $ oc get route {{ include "cryostat-k8s-multi-mcp.fullname" . }} -n {{ .Values.namespace }}
+{{- end }}
+{{- else if .Values.ingress.enabled }}
+
+Kubernetes Ingress has been created for external access:
+{{- range .Values.ingress.hosts }}
+  URL: http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+
+The service is exposed as ClusterIP (internal only).
+To access it from outside the cluster, you can:
+
+1. Use port-forwarding:
+   $ kubectl port-forward -n {{ .Values.namespace }} svc/{{ include "cryostat-k8s-multi-mcp.fullname" . }} 8080:8080
+
+2. Enable OpenShift Route:
+   $ helm upgrade {{ .Release.Name }} {{ .Chart.Name }} --reuse-values --set route.enabled=true
+
+3. Enable Kubernetes Ingress:
+   $ helm upgrade {{ .Release.Name }} {{ .Chart.Name }} --reuse-values --set ingress.enabled=true
+{{- end }}
+
+=============================================================================
+
+Configuration:
+- Namespace: {{ .Values.namespace }}
+- Service: {{ include "cryostat-k8s-multi-mcp.fullname" . }}
+- Secret: {{ include "cryostat-k8s-multi-mcp.secretName" . }}
+{{- if .Values.auth.existingSecret }}
+  (Using existing secret)
+{{- else }}
+  (Created by Helm)
+{{- end }}
+
+To view the deployment status:
+  $ kubectl get deployment {{ include "cryostat-k8s-multi-mcp.fullname" . }} -n {{ .Values.namespace }}
+
+To view the pods:
+  $ kubectl get pods -n {{ .Values.namespace }} -l app.kubernetes.io/name={{ include "cryostat-k8s-multi-mcp.name" . }}
+
+To view the logs:
+  $ kubectl logs -n {{ .Values.namespace }} -l app.kubernetes.io/name={{ include "cryostat-k8s-multi-mcp.name" . }} -f
+
+=============================================================================
+
+For more information, visit:
+  - Documentation: https://github.com/cryostatio/cryostat-mcp
+  - Cryostat: https://cryostat.io

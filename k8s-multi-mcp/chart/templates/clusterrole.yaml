@@ -1,0 +1,27 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "cryostat-k8s-multi-mcp.fullname" . }}
+  labels:
+    {{- include "cryostat-k8s-multi-mcp.labels" . | nindent 4 }}
+rules:
+  # Permission to discover Cryostat Custom Resources
+  # Required for: Finding Cryostat instances and their target namespaces
+  - apiGroups:
+      - operator.cryostat.io
+    resources:
+      - cryostats
+    verbs:
+      - get      # Get individual CR details
+      - list     # List all CRs in the cluster
+      - watch    # Watch for CR changes in real-time
+
+  # Permission to discover Services
+  # Required for: Determining Cryostat service URLs for connection
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get      # Get individual service details
+      - list     # List services in namespaces

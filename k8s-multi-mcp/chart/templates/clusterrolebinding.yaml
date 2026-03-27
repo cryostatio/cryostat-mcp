@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "cryostat-k8s-multi-mcp.fullname" . }}
+  labels:
+    {{- include "cryostat-k8s-multi-mcp.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cryostat-k8s-multi-mcp.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cryostat-k8s-multi-mcp.fullname" . }}
+    namespace: {{ .Values.namespace }}
