@@ -5,11 +5,19 @@ metadata:
   labels:
     {{- include "cryostat-k8s-multi-mcp.labels" . | nindent 4 }}
 rules:
-  # Permission to discover Cryostat Services
-  # Required for: Finding Cryostat instances by their Service labels
-  # Cryostat instances (both Operator-deployed and Helm-deployed) are identified
-  # by Services with labels: app.kubernetes.io/part-of=cryostat and
-  # app.kubernetes.io/component=cryostat
+  # Permission to discover Cryostat Custom Resources
+  # Required for: Finding Cryostat instances and their target namespaces
+  - apiGroups:
+      - operator.cryostat.io
+    resources:
+      - cryostats
+    verbs:
+      - get      # Get individual CR details
+      - list     # List all CRs in the cluster
+      - watch    # Watch for CR changes in real-time
+
+  # Permission to discover Services
+  # Required for: Determining Cryostat service URLs for connection
   - apiGroups:
       - ""
     resources:
@@ -17,4 +25,3 @@ rules:
     verbs:
       - get      # Get individual service details
       - list     # List services in namespaces
-      - watch    # Watch for service changes in real-time

@@ -17,7 +17,6 @@ package io.cryostat.mcp.k8s;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.util.Collection;
@@ -26,13 +25,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import io.cryostat.mcp.k8s.model.Cryostat;
+import io.cryostat.mcp.k8s.model.CryostatSpec;
+import io.cryostat.mcp.k8s.model.CryostatStatus;
+
+import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
-import io.fabric8.kubernetes.api.model.ServiceList;
 import io.fabric8.kubernetes.api.model.ServicePortBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.FilterWatchListDeletable;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
+import io.fabric8.kubernetes.client.dsl.Resource;
+import io.fabric8.kubernetes.client.dsl.ServiceResource;
 import io.quarkus.runtime.StartupEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,34 +53,52 @@ class CryostatInstanceDiscoveryTest {
 
     @Mock
     @SuppressWarnings("rawtypes")
+    MixedOperation cryostatOperation;
+
+    @Mock
+    @SuppressWarnings("rawtypes")
+    NonNamespaceOperation cryostatNonNamespaceOperation;
+
+    @Mock Resource<Cryostat> cryostatResource;
+
+    @Mock
+    @SuppressWarnings("rawtypes")
     MixedOperation serviceOperation;
 
     @Mock
     @SuppressWarnings("rawtypes")
-    FilterWatchListDeletable serviceFilterable;
+    NonNamespaceOperation serviceNonNamespaceOperation;
+
+    @Mock ServiceResource<Service> serviceResource;
 
     @InjectMocks CryostatInstanceDiscovery discovery;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setup() {
-        when(k8sClient.services()).thenReturn(serviceOperation);
-        when(serviceOperation.inAnyNamespace()).thenReturn(serviceOperation);
-        when(serviceOperation.withLabel(anyString(), anyString())).thenReturn(serviceFilterable);
-        when(serviceFilterable.withLabel(anyString(), anyString())).thenReturn(serviceFilterable);
+        lenient().when(k8sClient.resources(Cryostat.class)).thenReturn(cryostatOperation);
+        lenient()
+                .when(cryostatOperation.inAnyNamespace())
+                .thenReturn(cryostatNonNamespaceOperation);
+        lenient().when(k8sClient.services()).thenReturn(serviceOperation);
+        lenient()
+                .when(serviceOperation.inNamespace(any()))
+                .thenReturn(serviceNonNamespaceOperation);
+        lenient().when(serviceNonNamespaceOperation.withName(any())).thenReturn(serviceResource);
+        lenient().when(serviceResource.get()).thenReturn(null);
     }
 
     @Test
     void testFindByNamespaceWithSingleMatch() throws Exception {
-        Service svc = createService("cryostat-1", "cryostat-ns", 8181, "https");
+        Cryostat cr = createCryostat("cryostat-1", "cryostat-ns", List.of("app-ns"));
 
-        when(serviceFilterable.list()).thenReturn(createServiceList(svc));
-        when(serviceFilterable.watch(any())).thenReturn(null);
+        when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr));
+        when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
 
-        Optional<CryostatInstance> result = discovery.findByNamespace("cryostat-ns");
+        Optional<CryostatInstance> result = discovery.findByNamespace("app-ns");
 
         assertTrue(result.isPresent());
         assertEquals("cryostat-1", result.get().name());
@@ -84,37 +107,28 @@ class CryostatInstanceDiscoveryTest {
 
     @Test
     void testFindByNamespaceWithMultipleMatches() throws Exception {
-        Service svc1 = createService("cryostat-beta", "ns1", 8181, "https");
-        Service svc2 = createService("cryostat-alpha", "ns2", 8181, "https");
-        Service svc3 = createService("cryostat-gamma", "ns3", 8181, "https");
+        Cryostat cr1 = createCryostat("cryostat-beta", "ns1", List.of("shared-ns"));
+        Cryostat cr2 = createCryostat("cryostat-alpha", "ns2", List.of("shared-ns"));
+        Cryostat cr3 = createCryostat("cryostat-gamma", "ns3", List.of("shared-ns"));
 
-        when(serviceFilterable.list()).thenReturn(createServiceList(svc1, svc2, svc3));
-        when(serviceFilterable.watch(any())).thenReturn(null);
+        when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr1, cr2, cr3));
+        when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
 
-        // All services default to monitoring their own namespace
-        Optional<CryostatInstance> result1 = discovery.findByNamespace("ns1");
-        Optional<CryostatInstance> result2 = discovery.findByNamespace("ns2");
-        Optional<CryostatInstance> result3 = discovery.findByNamespace("ns3");
+        Optional<CryostatInstance> result = discovery.findByNamespace("shared-ns");
 
-        assertTrue(result1.isPresent());
-        assertEquals("cryostat-beta", result1.get().name());
-
-        assertTrue(result2.isPresent());
-        assertEquals("cryostat-alpha", result2.get().name());
-
-        assertTrue(result3.isPresent());
-        assertEquals("cryostat-gamma", result3.get().name());
+        assertTrue(result.isPresent());
+        assertEquals("cryostat-alpha", result.get().name());
     }
 
     @Test
     void testFindByNamespaceWithNoMatch() throws Exception {
-        Service svc = createService("cryostat-1", "cryostat-ns", 8181, "https");
+        Cryostat cr = createCryostat("cryostat-1", "cryostat-ns", List.of("app-ns"));
 
-        when(serviceFilterable.list()).thenReturn(createServiceList(svc));
-        when(serviceFilterable.watch(any())).thenReturn(null);
+        lenient().when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr));
+        lenient().when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
@@ -125,12 +139,30 @@ class CryostatInstanceDiscoveryTest {
     }
 
     @Test
-    void testGetAllInstances() throws Exception {
-        Service svc1 = createService("cryostat-1", "ns1", 8181, "https");
-        Service svc2 = createService("cryostat-2", "ns2", 8181, "https");
+    void testFindAllByNamespace() throws Exception {
+        Cryostat cr1 = createCryostat("cryostat-1", "ns1", List.of("shared-ns"));
+        Cryostat cr2 = createCryostat("cryostat-2", "ns2", List.of("shared-ns"));
 
-        when(serviceFilterable.list()).thenReturn(createServiceList(svc1, svc2));
-        when(serviceFilterable.watch(any())).thenReturn(null);
+        when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr1, cr2));
+        when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
+
+        discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
+
+        List<CryostatInstance> results = discovery.findAllByNamespace("shared-ns");
+
+        assertEquals(2, results.size());
+        assertEquals("cryostat-1", results.get(0).name());
+        assertEquals("cryostat-2", results.get(1).name());
+    }
+
+    @Test
+    void testGetAllInstances() throws Exception {
+        Cryostat cr1 = createCryostat("cryostat-1", "ns1", List.of("app-ns-1"));
+        Cryostat cr2 = createCryostat("cryostat-2", "ns2", List.of("app-ns-2"));
+
+        when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr1, cr2));
+        when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
@@ -142,31 +174,33 @@ class CryostatInstanceDiscoveryTest {
 
     @Test
     void testGetNamespaceMapping() throws Exception {
-        Service svc1 = createService("cryostat-1", "ns1", 8181, "https");
-        Service svc2 = createService("cryostat-2", "ns2", 8181, "https");
+        Cryostat cr1 = createCryostat("cryostat-1", "ns1", List.of("app-ns-1", "app-ns-2"));
+        Cryostat cr2 = createCryostat("cryostat-2", "ns2", List.of("app-ns-2", "app-ns-3"));
 
-        when(serviceFilterable.list()).thenReturn(createServiceList(svc1, svc2));
-        when(serviceFilterable.watch(any())).thenReturn(null);
+        when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr1, cr2));
+        when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
 
         Map<String, List<CryostatInstance>> mapping = discovery.getNamespaceMapping();
 
-        assertEquals(2, mapping.size());
-        assertTrue(mapping.containsKey("ns1"));
-        assertTrue(mapping.containsKey("ns2"));
+        assertEquals(3, mapping.size());
+        assertTrue(mapping.containsKey("app-ns-1"));
+        assertTrue(mapping.containsKey("app-ns-2"));
+        assertTrue(mapping.containsKey("app-ns-3"));
 
-        assertEquals(1, mapping.get("ns1").size());
-        assertEquals(1, mapping.get("ns2").size());
+        assertEquals(1, mapping.get("app-ns-1").size());
+        assertEquals(2, mapping.get("app-ns-2").size());
+        assertEquals(1, mapping.get("app-ns-3").size());
     }
 
     @Test
-    void testServiceWithHttpsAppProtocol() throws Exception {
-        Service svc = createService("cryostat-1", "cryostat-ns", 8181, "https");
+    void testCryostatWithNullTargetNamespacesDefaultsToOwnNamespace() throws Exception {
+        Cryostat cr = createCryostat("cryostat-1", "cryostat-ns", null);
 
-        when(serviceFilterable.list()).thenReturn(createServiceList(svc));
-        when(serviceFilterable.watch(any())).thenReturn(null);
+        when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr));
+        when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
@@ -174,15 +208,16 @@ class CryostatInstanceDiscoveryTest {
         Optional<CryostatInstance> result = discovery.findByNamespace("cryostat-ns");
 
         assertTrue(result.isPresent());
-        assertEquals("https://cryostat-1.cryostat-ns.svc:8181", result.get().applicationUrl());
+        assertEquals("cryostat-1", result.get().name());
+        assertTrue(result.get().targetNamespaces().contains("cryostat-ns"));
     }
 
     @Test
-    void testServiceWithHttpAppProtocol() throws Exception {
-        Service svc = createService("cryostat-1", "cryostat-ns", 8080, "http");
+    void testCryostatWithEmptyTargetNamespacesDefaultsToOwnNamespace() throws Exception {
+        Cryostat cr = createCryostat("cryostat-1", "cryostat-ns", List.of());
 
-        when(serviceFilterable.list()).thenReturn(createServiceList(svc));
-        when(serviceFilterable.watch(any())).thenReturn(null);
+        when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr));
+        when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
@@ -190,40 +225,57 @@ class CryostatInstanceDiscoveryTest {
         Optional<CryostatInstance> result = discovery.findByNamespace("cryostat-ns");
 
         assertTrue(result.isPresent());
-        assertEquals("http://cryostat-1.cryostat-ns.svc:8080", result.get().applicationUrl());
+        assertEquals("cryostat-1", result.get().name());
+        assertTrue(result.get().targetNamespaces().contains("cryostat-ns"));
     }
 
     @Test
-    void testServiceWithoutRequiredLabelsIsIgnored() throws Exception {
-        Service svc =
-                new ServiceBuilder()
-                        .withNewMetadata()
-                        .withName("not-cryostat")
-                        .withNamespace("test-ns")
-                        .addToLabels("some-label", "some-value")
-                        .endMetadata()
-                        .withNewSpec()
-                        .withPorts(
-                                new ServicePortBuilder()
-                                        .withPort(8181)
-                                        .withAppProtocol("https")
-                                        .build())
-                        .endSpec()
-                        .build();
+    void testApplicationUrlFromStatus() throws Exception {
+        Cryostat cr = createCryostat("cryostat-1", "cryostat-ns", List.of("app-ns"));
+        CryostatStatus status = new CryostatStatus();
+        status.setApplicationUrl("https://cryostat-1.apps.cluster.example.com");
+        cr.setStatus(status);
 
-        when(serviceFilterable.list()).thenReturn(createServiceList(svc));
-        when(serviceFilterable.watch(any())).thenReturn(null);
+        when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr));
+        when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
 
-        Collection<CryostatInstance> instances = discovery.getAllInstances();
+        Optional<CryostatInstance> result = discovery.findByNamespace("app-ns");
 
-        assertEquals(0, instances.size());
+        assertTrue(result.isPresent());
+        assertEquals("https://cryostat-1.apps.cluster.example.com", result.get().applicationUrl());
     }
 
     private void waitForDiscovery() throws InterruptedException {
         TimeUnit.MILLISECONDS.sleep(100);
+    }
+
+    private Cryostat createCryostat(String name, String namespace, List<String> targetNamespaces) {
+        Cryostat cr = new Cryostat();
+        cr.setMetadata(new ObjectMetaBuilder().withName(name).withNamespace(namespace).build());
+
+        CryostatSpec spec = new CryostatSpec();
+        spec.setTargetNamespaces(targetNamespaces);
+        cr.setSpec(spec);
+
+        return cr;
+    }
+
+    private io.fabric8.kubernetes.api.model.KubernetesResourceList<Cryostat> createCryostatList(
+            Cryostat... crs) {
+        return new io.fabric8.kubernetes.api.model.KubernetesResourceList<Cryostat>() {
+            @Override
+            public List<Cryostat> getItems() {
+                return List.of(crs);
+            }
+
+            @Override
+            public io.fabric8.kubernetes.api.model.ListMeta getMetadata() {
+                return null;
+            }
+        };
     }
 
     private Service createService(String name, String namespace, int port, String protocol) {
@@ -231,19 +283,11 @@ class CryostatInstanceDiscoveryTest {
                 .withNewMetadata()
                 .withName(name)
                 .withNamespace(namespace)
-                .addToLabels("app.kubernetes.io/part-of", "cryostat")
-                .addToLabels("app.kubernetes.io/component", "cryostat")
                 .endMetadata()
                 .withNewSpec()
                 .withPorts(
                         new ServicePortBuilder().withPort(port).withAppProtocol(protocol).build())
                 .endSpec()
                 .build();
-    }
-
-    private ServiceList createServiceList(Service... services) {
-        ServiceList list = new ServiceList();
-        list.setItems(List.of(services));
-        return list;
     }
 }
