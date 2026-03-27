@@ -299,5 +299,3 @@ class K8sMultiMCPTest {
         verify(instanceManager).createInstance("namespace-2", authHeader);
     }
 }
-
-// Made with Bob

@@ -1,0 +1,62 @@
+# k8s-multi-mcp Helm values for e2e testing
+# Uses local image built from source
+# Override default namespace
+namespace: cryostat-multi-mcp
+createNamespace: false
+
+# Authentication configuration
+# Basic auth credentials for connecting to Cryostat instances (user:pass)
+auth:
+  authorizationHeader: "Basic dXNlcjpwYXNz"
+
+image:
+  repository: localhost/cryostat-k8s-multi-mcp
+  tag: latest
+  pullPolicy: Never
+
+service:
+  type: NodePort
+  port: 8080
+  nodePort: 30082
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Service account with cluster-wide permissions to discover Cryostat instances
+serviceAccount:
+  create: true
+  name: cryostat-k8s-multi-mcp
+
+# RBAC for discovering Cryostat CRs across all namespaces
+rbac:
+  create: true
+  clusterRole: true
+
+# Environment variables for configuration
+env:
+  logLevel: "INFO"
+  k8sLogLevel: "INFO"
+
+# Health and readiness probes
+# livenessProbe:
+#   httpGet:
+#     path: /q/health/live
+#     port: 8080
+#   initialDelaySeconds: 30
+#   periodSeconds: 10
+#   timeoutSeconds: 5
+#   failureThreshold: 3
+
+# readinessProbe:
+#   httpGet:
+#     path: /q/health/ready
+#     port: 8080
+#   initialDelaySeconds: 10
+#   periodSeconds: 5
+#   timeoutSeconds: 3
+#   failureThreshold: 3

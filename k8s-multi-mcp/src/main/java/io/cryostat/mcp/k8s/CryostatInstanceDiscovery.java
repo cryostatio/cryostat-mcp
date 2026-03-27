@@ -370,5 +370,3 @@ public class CryostatInstanceDiscovery {
         return instance.namespace() + "/" + instance.name();
     }
 }
-
-// Made with Bob
