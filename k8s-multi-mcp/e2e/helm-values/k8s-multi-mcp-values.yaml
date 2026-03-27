@@ -42,21 +42,32 @@ env:
   logLevel: "INFO"
   k8sLogLevel: "INFO"
 
-# Health and readiness probes
+# Health probes configuration
+# Using the default values from chart/values.yaml
+# Uncomment and customize if needed for e2e testing
 # livenessProbe:
-#   httpGet:
-#     path: /q/health/live
-#     port: 8080
-#   initialDelaySeconds: 30
+#   enabled: true
+#   path: /q/health/live
+#   initialDelaySeconds: 10
 #   periodSeconds: 10
-#   timeoutSeconds: 5
+#   timeoutSeconds: 3
+#   successThreshold: 1
 #   failureThreshold: 3
 
 # readinessProbe:
-#   httpGet:
-#     path: /q/health/ready
-#     port: 8080
-#   initialDelaySeconds: 10
+#   enabled: true
+#   path: /q/health/ready
+#   initialDelaySeconds: 5
 #   periodSeconds: 5
 #   timeoutSeconds: 3
+#   successThreshold: 1
 #   failureThreshold: 3
+
+# startupProbe:
+#   enabled: true
+#   path: /q/health/started
+#   initialDelaySeconds: 0
+#   periodSeconds: 5
+#   timeoutSeconds: 3
+#   successThreshold: 1
+#   failureThreshold: 30
