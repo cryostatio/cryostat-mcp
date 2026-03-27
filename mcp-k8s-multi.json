@@ -2,7 +2,7 @@
     "mcpServers": {
         "k8s-multi-mcp": {
             "type": "sse",
-            "url": "http://k8s-multi-mcp-k8s-mcp.apps-crc.testing/mcp/sse"
+            "url": "http://cryostat-mcp-cryostat-k8s-multi-mcp-k8s-multi-mcp.apps-crc.testing/mcp/sse"
         }
     }
 }
