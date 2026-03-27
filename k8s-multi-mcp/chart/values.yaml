@@ -63,6 +63,57 @@ resources:
     # CPU limit
     cpu: "500m"
 
+# Liveness probe configuration
+livenessProbe:
+  # Enable liveness probe
+  enabled: true
+  # Path to the liveness endpoint
+  path: /q/health/live
+  # Initial delay before first probe (seconds)
+  initialDelaySeconds: 10
+  # How often to perform the probe (seconds)
+  periodSeconds: 10
+  # Timeout for the probe (seconds)
+  timeoutSeconds: 3
+  # Minimum consecutive successes for the probe to be considered successful
+  successThreshold: 1
+  # Minimum consecutive failures for the probe to be considered failed
+  failureThreshold: 3
+
+# Readiness probe configuration
+readinessProbe:
+  # Enable readiness probe
+  enabled: true
+  # Path to the readiness endpoint
+  path: /q/health/ready
+  # Initial delay before first probe (seconds)
+  initialDelaySeconds: 5
+  # How often to perform the probe (seconds)
+  periodSeconds: 5
+  # Timeout for the probe (seconds)
+  timeoutSeconds: 3
+  # Minimum consecutive successes for the probe to be considered successful
+  successThreshold: 1
+  # Minimum consecutive failures for the probe to be considered failed
+  failureThreshold: 3
+
+# Startup probe configuration
+startupProbe:
+  # Enable startup probe
+  enabled: true
+  # Path to the startup endpoint
+  path: /q/health/started
+  # Initial delay before first probe (seconds)
+  initialDelaySeconds: 0
+  # How often to perform the probe (seconds)
+  periodSeconds: 5
+  # Timeout for the probe (seconds)
+  timeoutSeconds: 3
+  # Minimum consecutive successes for the probe to be considered successful
+  successThreshold: 1
+  # Minimum consecutive failures for the probe to be considered failed
+  failureThreshold: 30
+
 # Environment variables for the application
 env:
   # Logging configuration
