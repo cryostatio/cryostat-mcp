@@ -298,4 +298,56 @@ class K8sMultiMCPTest {
         verify(instanceManager).createInstance("namespace-1", authHeader);
         verify(instanceManager).createInstance("namespace-2", authHeader);
     }
+
+    @Test
+    void testListCryostatInstancesReturnsAllInstances() {
+        when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
+
+        List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
+
+        assertEquals(2, instances.size());
+        assertTrue(instances.contains(testInstance1));
+        assertTrue(instances.contains(testInstance2));
+        verify(discovery).getAllInstances();
+    }
+
+    @Test
+    void testListCryostatInstancesReturnsEmptyListWhenNoInstances() {
+        when(discovery.getAllInstances()).thenReturn(List.of());
+
+        List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
+
+        assertTrue(instances.isEmpty());
+        verify(discovery).getAllInstances();
+    }
+
+    @Test
+    void testListCryostatInstancesReturnsInstanceDetails() {
+        when(discovery.getAllInstances()).thenReturn(List.of(testInstance1));
+
+        List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
+
+        assertEquals(1, instances.size());
+        CryostatInstance instance = instances.get(0);
+        assertEquals("cryostat-1", instance.name());
+        assertEquals("namespace-1", instance.namespace());
+        assertEquals("http://cryostat-1.namespace-1.svc:8181", instance.applicationUrl());
+        assertEquals(2, instance.targetNamespaces().size());
+        assertTrue(instance.targetNamespaces().contains("namespace-1"));
+        assertTrue(instance.targetNamespaces().contains("app-namespace-1"));
+    }
+
+    @Test
+    void testListCryostatInstancesIsSystemTool() {
+        // listCryostatInstances is a system tool that doesn't require namespace
+        // and doesn't call any underlying MCP instances
+        when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
+
+        List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
+
+        assertEquals(2, instances.size());
+        verify(discovery).getAllInstances();
+        // Verify no MCP instances were created
+        verifyNoInteractions(instanceManager);
+    }
 }

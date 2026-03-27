@@ -36,13 +36,15 @@ import org.jboss.logging.Logger;
 /**
  * Multi-tenant MCP server that wraps CryostatMCP tools with namespace-based routing.
  *
- * <p>This server provides two types of tools:
+ * <p>This server provides three types of tools:
  *
  * <ul>
  *   <li><b>Directed tools:</b> All CryostatMCP tools are registered as directed tools, requiring a
  *       namespace parameter to route requests to a specific Cryostat instance.
  *   <li><b>Non-directed tools:</b> Custom tools that query all available Cryostat instances and
  *       aggregate results using configurable aggregation strategies.
+ *   <li><b>System tools:</b> Tools that operate on the multi-MCP system itself, such as listing
+ *       discovered Cryostat instances, without calling any underlying MCP instances.
  * </ul>
  */
 @ApplicationScoped
@@ -59,6 +61,7 @@ public class K8sMultiMCP {
         LOG.info("Registering multi-tenant MCP tools");
         registerToolsFromCryostatMCP();
         registerNonDirectedTools();
+        registerSystemTools();
     }
 
     /**
@@ -118,6 +121,43 @@ public class K8sMultiMCP {
         registerNonDirectedTool(scrapeGlobalMetrics);
 
         LOG.info("Registered 1 non-directed tool");
+    }
+
+    /**
+     * Registers system tools that operate on the multi-MCP system itself. These tools do not call
+     * any underlying Cryostat MCP instances.
+     */
+    private void registerSystemTools() {
+        // Register listCryostatInstances tool
+        var toolBuilder =
+                toolManager
+                        .newTool("listCryostatInstances")
+                        .setDescription(
+                                "List all discovered Cryostat instances (services) in the"
+                                        + " Kubernetes cluster. Returns information about each"
+                                        + " instance including name, namespace, application URL,"
+                                        + " and target namespaces being monitored.");
+
+        toolBuilder.setHandler(
+                toolArgs -> {
+                    try {
+                        List<CryostatInstance> instances =
+                                discovery.getAllInstances().stream().toList();
+                        String jsonResult = objectMapper.writeValueAsString(instances);
+                        return ToolResponse.success(jsonResult);
+                    } catch (Exception e) {
+                        LOG.errorf(e, "Failed to list Cryostat instances");
+                        String errorMsg = e.getMessage();
+                        if (errorMsg == null || errorMsg.isEmpty()) {
+                            errorMsg = e.getClass().getSimpleName() + ": " + e.toString();
+                        }
+                        return ToolResponse.error("Failed to list instances: " + errorMsg);
+                    }
+                });
+
+        toolBuilder.register();
+
+        LOG.info("Registered 1 system tool");
     }
 
     /**
