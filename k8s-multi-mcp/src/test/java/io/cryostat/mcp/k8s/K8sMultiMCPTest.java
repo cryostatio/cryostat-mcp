@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import io.cryostat.mcp.CryostatMCP;
 
@@ -61,11 +62,17 @@ class K8sMultiMCPTest {
 
         testInstance1 =
                 new CryostatInstance(
-                        "cryostat-1", "namespace-1", "http://cryostat-1.namespace-1.svc:8181");
+                        "cryostat-1",
+                        "namespace-1",
+                        "http://cryostat-1.namespace-1.svc:8181",
+                        Set.of("namespace-1", "app-namespace-1"));
 
         testInstance2 =
                 new CryostatInstance(
-                        "cryostat-2", "namespace-2", "http://cryostat-2.namespace-2.svc:8181");
+                        "cryostat-2",
+                        "namespace-2",
+                        "http://cryostat-2.namespace-2.svc:8181",
+                        Set.of("namespace-2", "app-namespace-2"));
     }
 
     @Test
@@ -233,6 +240,8 @@ class K8sMultiMCPTest {
         assertEquals("cryostat-1", testInstance1.name());
         assertEquals("namespace-1", testInstance1.namespace());
         assertEquals("http://cryostat-1.namespace-1.svc:8181", testInstance1.applicationUrl());
+        assertTrue(testInstance1.targetNamespaces().contains("namespace-1"));
+        assertTrue(testInstance1.targetNamespaces().contains("app-namespace-1"));
     }
 
     @Test
@@ -323,6 +332,9 @@ class K8sMultiMCPTest {
         assertEquals("cryostat-1", instance.name());
         assertEquals("namespace-1", instance.namespace());
         assertEquals("http://cryostat-1.namespace-1.svc:8181", instance.applicationUrl());
+        assertEquals(2, instance.targetNamespaces().size());
+        assertTrue(instance.targetNamespaces().contains("namespace-1"));
+        assertTrue(instance.targetNamespaces().contains("app-namespace-1"));
     }
 
     @Test

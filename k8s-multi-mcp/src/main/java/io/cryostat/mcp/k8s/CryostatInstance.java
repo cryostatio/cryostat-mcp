@@ -15,15 +15,14 @@
  */
 package io.cryostat.mcp.k8s;
 
-public record CryostatInstance(String name, String namespace, String applicationUrl)
+import java.util.Set;
+
+public record CryostatInstance(
+        String name, String namespace, String applicationUrl, Set<String> targetNamespaces)
         implements Comparable<CryostatInstance> {
 
     @Override
     public int compareTo(CryostatInstance other) {
-        int nsCompare = this.namespace.compareTo(other.namespace);
-        if (nsCompare != 0) {
-            return nsCompare;
-        }
         return this.name.compareTo(other.name);
     }
 }

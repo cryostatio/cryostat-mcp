@@ -15,21 +15,18 @@
  */
 package io.cryostat.mcp.k8s;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
-
-import io.cryostat.mcp.CryostatRESTClient;
-import io.cryostat.mcp.model.DiscoveryNode;
 
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServicePort;
@@ -42,10 +39,6 @@ import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.core.MultivaluedMap;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.eclipse.microprofile.rest.client.RestClientBuilder;
-import org.eclipse.microprofile.rest.client.ext.ClientHeadersFactory;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
@@ -57,14 +50,12 @@ public class CryostatInstanceDiscovery {
     private static final String CRYOSTAT_PART_OF = "cryostat";
     private static final String CRYOSTAT_COMPONENT = "cryostat";
 
-    private final ExecutorService discoveryExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ExecutorService discoveryExecutor = Executors.newSingleThreadExecutor();
     private final Map<String, CryostatInstance> instances = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> namespaceToInstances = new ConcurrentHashMap<>();
     private Watch watch;
 
     @Inject KubernetesClient k8sClient;
-
-    @ConfigProperty(name = "k8s.multi.mcp.authorization.header")
-    Optional<String> authorizationHeaderConfig;
 
     void onStart(@Observes StartupEvent event) {
         LOG.info("Starting Cryostat instance discovery");
@@ -172,6 +163,7 @@ public class CryostatInstanceDiscovery {
         if (instance != null) {
             String key = instanceKey(instance);
             instances.put(key, instance);
+            updateNamespaceMapping(instance, null);
         }
     }
 
@@ -179,7 +171,9 @@ public class CryostatInstanceDiscovery {
         CryostatInstance newInstance = toCryostatInstance(svc);
         if (newInstance != null) {
             String key = instanceKey(newInstance);
+            CryostatInstance oldInstance = instances.get(key);
             instances.put(key, newInstance);
+            updateNamespaceMapping(newInstance, oldInstance);
         }
     }
 
@@ -187,7 +181,33 @@ public class CryostatInstanceDiscovery {
         String namespace = svc.getMetadata().getNamespace();
         String name = svc.getMetadata().getName();
         String key = namespace + "/" + name;
-        instances.remove(key);
+        CryostatInstance instance = instances.remove(key);
+        if (instance != null) {
+            updateNamespaceMapping(null, instance);
+        }
+    }
+
+    private void updateNamespaceMapping(
+            CryostatInstance newInstance, CryostatInstance oldInstance) {
+        if (oldInstance != null) {
+            for (String ns : oldInstance.targetNamespaces()) {
+                Set<String> instanceNames = namespaceToInstances.get(ns);
+                if (instanceNames != null) {
+                    instanceNames.remove(oldInstance.name());
+                    if (instanceNames.isEmpty()) {
+                        namespaceToInstances.remove(ns);
+                    }
+                }
+            }
+        }
+
+        if (newInstance != null) {
+            for (String ns : newInstance.targetNamespaces()) {
+                namespaceToInstances
+                        .computeIfAbsent(ns, k -> ConcurrentHashMap.newKeySet())
+                        .add(newInstance.name());
+            }
+        }
     }
 
     private CryostatInstance toCryostatInstance(Service svc) {
@@ -205,10 +225,16 @@ public class CryostatInstanceDiscovery {
             return null;
         }
 
+        // Determine target namespaces
+        // For Helm-deployed instances, we need to check the Cryostat configuration
+        // For now, default to monitoring the same namespace as the service
+        Set<String> targetNamespaces = new HashSet<>();
+        targetNamespaces.add(namespace);
+
         // Determine the application URL
         String applicationUrl = determineApplicationUrl(svc);
 
-        return new CryostatInstance(name, namespace, applicationUrl);
+        return new CryostatInstance(name, namespace, applicationUrl, targetNamespaces);
     }
 
     private String determineApplicationUrl(Service svc) {
@@ -260,36 +286,20 @@ public class CryostatInstanceDiscovery {
     }
 
     public Optional<CryostatInstance> findByNamespace(String namespace) {
-        return findByNamespace(namespace, null);
-    }
+        Set<String> instanceNames = namespaceToInstances.get(namespace);
+        if (instanceNames == null || instanceNames.isEmpty()) {
+            return Optional.empty();
+        }
 
-    public Optional<CryostatInstance> findByNamespace(
-            String namespace, String authorizationHeader) {
-        // Query all Cryostat instances in parallel to find which ones have targets in this
-        // namespace
-        List<CompletableFuture<CryostatInstance>> futures =
-                instances.values().stream()
-                        .map(
-                                instance ->
-                                        CompletableFuture.supplyAsync(
-                                                () -> {
-                                                    if (instanceHasTargetsInNamespace(
-                                                            instance,
-                                                            namespace,
-                                                            authorizationHeader)) {
-                                                        return instance;
-                                                    }
-                                                    return null;
-                                                },
-                                                discoveryExecutor))
-                        .collect(Collectors.toList());
-
-        // Wait for all queries to complete and collect non-null results
-        List<CryostatInstance> matches =
-                futures.stream()
-                        .map(CompletableFuture::join)
-                        .filter(instance -> instance != null)
-                        .collect(Collectors.toList());
+        List<CryostatInstance> matches = new ArrayList<>();
+        for (String instanceName : instanceNames) {
+            for (CryostatInstance instance : instances.values()) {
+                if (instance.name().equals(instanceName)) {
+                    matches.add(instance);
+                    break;
+                }
+            }
+        }
 
         if (matches.isEmpty()) {
             return Optional.empty();
@@ -309,70 +319,51 @@ public class CryostatInstanceDiscovery {
         return Optional.of(matches.get(0));
     }
 
-    boolean instanceHasTargetsInNamespace(CryostatInstance instance, String namespace) {
-        return instanceHasTargetsInNamespace(instance, namespace, null);
-    }
-
-    boolean instanceHasTargetsInNamespace(
-            CryostatInstance instance, String namespace, String authorizationHeader) {
-        try {
-            URI baseUri = URI.create(instance.applicationUrl());
-            RestClientBuilder builder = RestClientBuilder.newBuilder().baseUri(baseUri);
-
-            String authHeader =
-                    authorizationHeader != null
-                            ? authorizationHeader
-                            : authorizationHeaderConfig.orElse(null);
-
-            if (authHeader != null && !authHeader.isEmpty()) {
-                LOG.debugf(
-                        "Using Authorization header for discovery query to %s (source: %s)",
-                        instance.applicationUrl(),
-                        authorizationHeader != null ? "explicit" : "config");
-                builder.register(
-                        new ClientHeadersFactory() {
-                            @Override
-                            public MultivaluedMap<String, String> update(
-                                    MultivaluedMap<String, String> incomingHeaders,
-                                    MultivaluedMap<String, String> clientOutgoingHeaders) {
-                                clientOutgoingHeaders.putSingle("Authorization", authHeader);
-                                return clientOutgoingHeaders;
-                            }
-                        });
-            }
-
-            CryostatRESTClient client = builder.build(CryostatRESTClient.class);
-            DiscoveryNode tree = client.getDiscoveryTree(true);
-            return hasNamespaceNode(tree, namespace);
-        } catch (Exception e) {
-            LOG.warnf(
-                    e,
-                    "Failed to query Cryostat instance %s/%s for namespace %s",
-                    instance.namespace(),
-                    instance.name(),
-                    namespace);
-            return false;
-        }
-    }
-
-    private boolean hasNamespaceNode(DiscoveryNode node, String targetNamespace) {
-        if ("Namespace".equals(node.nodeType()) && targetNamespace.equals(node.name())) {
-            return true;
+    public List<CryostatInstance> findAllByNamespace(String namespace) {
+        Set<String> instanceNames = namespaceToInstances.get(namespace);
+        if (instanceNames == null || instanceNames.isEmpty()) {
+            return List.of();
         }
 
-        if (node.children() != null) {
-            for (DiscoveryNode child : node.children()) {
-                if (hasNamespaceNode(child, targetNamespace)) {
-                    return true;
+        List<CryostatInstance> matches = new ArrayList<>();
+        for (String instanceName : instanceNames) {
+            for (CryostatInstance instance : instances.values()) {
+                if (instance.name().equals(instanceName)) {
+                    matches.add(instance);
+                    break;
                 }
             }
         }
 
-        return false;
+        Collections.sort(matches);
+        return matches;
     }
 
     public Collection<CryostatInstance> getAllInstances() {
         return new ArrayList<>(instances.values());
+    }
+
+    public Map<String, List<CryostatInstance>> getNamespaceMapping() {
+        Map<String, List<CryostatInstance>> mapping = new HashMap<>();
+
+        for (Map.Entry<String, Set<String>> entry : namespaceToInstances.entrySet()) {
+            String namespace = entry.getKey();
+            List<CryostatInstance> instanceList = new ArrayList<>();
+
+            for (String instanceName : entry.getValue()) {
+                for (CryostatInstance instance : instances.values()) {
+                    if (instance.name().equals(instanceName)) {
+                        instanceList.add(instance);
+                        break;
+                    }
+                }
+            }
+
+            Collections.sort(instanceList);
+            mapping.put(namespace, instanceList);
+        }
+
+        return mapping;
     }
 
     private String instanceKey(CryostatInstance instance) {

@@ -22,11 +22,9 @@ import static org.mockito.Mockito.*;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-
-import io.cryostat.mcp.CryostatRESTClient;
-import io.cryostat.mcp.model.DiscoveryNode;
 
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
@@ -36,10 +34,10 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.FilterWatchListDeletable;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.quarkus.runtime.StartupEvent;
-import org.eclipse.microprofile.rest.client.RestClientBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -56,18 +54,11 @@ class CryostatInstanceDiscoveryTest {
     @SuppressWarnings("rawtypes")
     FilterWatchListDeletable serviceFilterable;
 
-    @Mock CryostatRESTClient restClient;
-
-    @Mock RestClientBuilder restClientBuilder;
-
-    CryostatInstanceDiscovery discovery;
+    @InjectMocks CryostatInstanceDiscovery discovery;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setup() {
-        discovery = new CryostatInstanceDiscovery();
-        discovery.k8sClient = k8sClient;
-
         when(k8sClient.services()).thenReturn(serviceOperation);
         when(serviceOperation.inAnyNamespace()).thenReturn(serviceOperation);
         when(serviceOperation.withLabel(anyString(), anyString())).thenReturn(serviceFilterable);
@@ -81,21 +72,10 @@ class CryostatInstanceDiscoveryTest {
         when(serviceFilterable.list()).thenReturn(createServiceList(svc));
         when(serviceFilterable.watch(any())).thenReturn(null);
 
-        CryostatInstanceDiscovery spy = spy(discovery);
-        doAnswer(
-                        invocation -> {
-                            CryostatInstance instance = invocation.getArgument(0);
-                            String namespace = invocation.getArgument(1);
-                            return namespace.equals(instance.namespace());
-                        })
-                .when(spy)
-                .instanceHasTargetsInNamespace(
-                        any(CryostatInstance.class), anyString(), nullable(String.class));
-
-        spy.onStart(mock(StartupEvent.class));
+        discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
 
-        Optional<CryostatInstance> result = spy.findByNamespace("cryostat-ns");
+        Optional<CryostatInstance> result = discovery.findByNamespace("cryostat-ns");
 
         assertTrue(result.isPresent());
         assertEquals("cryostat-1", result.get().name());
@@ -111,24 +91,13 @@ class CryostatInstanceDiscoveryTest {
         when(serviceFilterable.list()).thenReturn(createServiceList(svc1, svc2, svc3));
         when(serviceFilterable.watch(any())).thenReturn(null);
 
-        CryostatInstanceDiscovery spy = spy(discovery);
-        doAnswer(
-                        invocation -> {
-                            CryostatInstance instance = invocation.getArgument(0);
-                            String namespace = invocation.getArgument(1);
-                            return namespace.equals(instance.namespace());
-                        })
-                .when(spy)
-                .instanceHasTargetsInNamespace(
-                        any(CryostatInstance.class), anyString(), nullable(String.class));
-
-        spy.onStart(mock(StartupEvent.class));
+        discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
 
         // All services default to monitoring their own namespace
-        Optional<CryostatInstance> result1 = spy.findByNamespace("ns1");
-        Optional<CryostatInstance> result2 = spy.findByNamespace("ns2");
-        Optional<CryostatInstance> result3 = spy.findByNamespace("ns3");
+        Optional<CryostatInstance> result1 = discovery.findByNamespace("ns1");
+        Optional<CryostatInstance> result2 = discovery.findByNamespace("ns2");
+        Optional<CryostatInstance> result3 = discovery.findByNamespace("ns3");
 
         assertTrue(result1.isPresent());
         assertEquals("cryostat-beta", result1.get().name());
@@ -172,27 +141,37 @@ class CryostatInstanceDiscoveryTest {
     }
 
     @Test
+    void testGetNamespaceMapping() throws Exception {
+        Service svc1 = createService("cryostat-1", "ns1", 8181, "https");
+        Service svc2 = createService("cryostat-2", "ns2", 8181, "https");
+
+        when(serviceFilterable.list()).thenReturn(createServiceList(svc1, svc2));
+        when(serviceFilterable.watch(any())).thenReturn(null);
+
+        discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
+
+        Map<String, List<CryostatInstance>> mapping = discovery.getNamespaceMapping();
+
+        assertEquals(2, mapping.size());
+        assertTrue(mapping.containsKey("ns1"));
+        assertTrue(mapping.containsKey("ns2"));
+
+        assertEquals(1, mapping.get("ns1").size());
+        assertEquals(1, mapping.get("ns2").size());
+    }
+
+    @Test
     void testServiceWithHttpsAppProtocol() throws Exception {
         Service svc = createService("cryostat-1", "cryostat-ns", 8181, "https");
 
         when(serviceFilterable.list()).thenReturn(createServiceList(svc));
         when(serviceFilterable.watch(any())).thenReturn(null);
 
-        CryostatInstanceDiscovery spy = spy(discovery);
-        doAnswer(
-                        invocation -> {
-                            CryostatInstance instance = invocation.getArgument(0);
-                            String namespace = invocation.getArgument(1);
-                            return namespace.equals(instance.namespace());
-                        })
-                .when(spy)
-                .instanceHasTargetsInNamespace(
-                        any(CryostatInstance.class), anyString(), nullable(String.class));
-
-        spy.onStart(mock(StartupEvent.class));
+        discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
 
-        Optional<CryostatInstance> result = spy.findByNamespace("cryostat-ns");
+        Optional<CryostatInstance> result = discovery.findByNamespace("cryostat-ns");
 
         assertTrue(result.isPresent());
         assertEquals("https://cryostat-1.cryostat-ns.svc:8181", result.get().applicationUrl());
@@ -205,21 +184,10 @@ class CryostatInstanceDiscoveryTest {
         when(serviceFilterable.list()).thenReturn(createServiceList(svc));
         when(serviceFilterable.watch(any())).thenReturn(null);
 
-        CryostatInstanceDiscovery spy = spy(discovery);
-        doAnswer(
-                        invocation -> {
-                            CryostatInstance instance = invocation.getArgument(0);
-                            String namespace = invocation.getArgument(1);
-                            return namespace.equals(instance.namespace());
-                        })
-                .when(spy)
-                .instanceHasTargetsInNamespace(
-                        any(CryostatInstance.class), anyString(), nullable(String.class));
-
-        spy.onStart(mock(StartupEvent.class));
+        discovery.onStart(mock(StartupEvent.class));
         waitForDiscovery();
 
-        Optional<CryostatInstance> result = spy.findByNamespace("cryostat-ns");
+        Optional<CryostatInstance> result = discovery.findByNamespace("cryostat-ns");
 
         assertTrue(result.isPresent());
         assertEquals("http://cryostat-1.cryostat-ns.svc:8080", result.get().applicationUrl());
@@ -255,7 +223,7 @@ class CryostatInstanceDiscoveryTest {
     }
 
     private void waitForDiscovery() throws InterruptedException {
-        TimeUnit.MILLISECONDS.sleep(500);
+        TimeUnit.MILLISECONDS.sleep(100);
     }
 
     private Service createService(String name, String namespace, int port, String protocol) {
@@ -277,13 +245,5 @@ class CryostatInstanceDiscoveryTest {
         ServiceList list = new ServiceList();
         list.setItems(List.of(services));
         return list;
-    }
-
-    private DiscoveryNode createNamespaceNode(String namespace) {
-        return new DiscoveryNode(1L, namespace, "Namespace", List.of(), List.of(), null);
-    }
-
-    private DiscoveryNode createRootNode(DiscoveryNode child) {
-        return new DiscoveryNode(0L, "Universe", "Universe", List.of(), List.of(child), null);
     }
 }
