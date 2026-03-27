@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import io.cryostat.mcp.k8s.model.Cryostat;
 import io.cryostat.mcp.k8s.model.CryostatSpec;
@@ -80,16 +81,22 @@ class CryostatInstanceDiscoveryTest {
                 .when(cryostatOperation.inAnyNamespace())
                 .thenReturn(cryostatNonNamespaceOperation);
         lenient().when(k8sClient.services()).thenReturn(serviceOperation);
+        lenient()
+                .when(serviceOperation.inNamespace(any()))
+                .thenReturn(serviceNonNamespaceOperation);
+        lenient().when(serviceNonNamespaceOperation.withName(any())).thenReturn(serviceResource);
+        lenient().when(serviceResource.get()).thenReturn(null);
     }
 
     @Test
-    void testFindByNamespaceWithSingleMatch() {
+    void testFindByNamespaceWithSingleMatch() throws Exception {
         Cryostat cr = createCryostat("cryostat-1", "cryostat-ns", List.of("app-ns"));
 
         when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr));
         when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
 
         Optional<CryostatInstance> result = discovery.findByNamespace("app-ns");
 
@@ -99,7 +106,7 @@ class CryostatInstanceDiscoveryTest {
     }
 
     @Test
-    void testFindByNamespaceWithMultipleMatches() {
+    void testFindByNamespaceWithMultipleMatches() throws Exception {
         Cryostat cr1 = createCryostat("cryostat-beta", "ns1", List.of("shared-ns"));
         Cryostat cr2 = createCryostat("cryostat-alpha", "ns2", List.of("shared-ns"));
         Cryostat cr3 = createCryostat("cryostat-gamma", "ns3", List.of("shared-ns"));
@@ -108,6 +115,7 @@ class CryostatInstanceDiscoveryTest {
         when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
 
         Optional<CryostatInstance> result = discovery.findByNamespace("shared-ns");
 
@@ -116,13 +124,14 @@ class CryostatInstanceDiscoveryTest {
     }
 
     @Test
-    void testFindByNamespaceWithNoMatch() {
+    void testFindByNamespaceWithNoMatch() throws Exception {
         Cryostat cr = createCryostat("cryostat-1", "cryostat-ns", List.of("app-ns"));
 
-        when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr));
-        when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
+        lenient().when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr));
+        lenient().when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
 
         Optional<CryostatInstance> result = discovery.findByNamespace("non-existent-ns");
 
@@ -130,7 +139,7 @@ class CryostatInstanceDiscoveryTest {
     }
 
     @Test
-    void testFindAllByNamespace() {
+    void testFindAllByNamespace() throws Exception {
         Cryostat cr1 = createCryostat("cryostat-1", "ns1", List.of("shared-ns"));
         Cryostat cr2 = createCryostat("cryostat-2", "ns2", List.of("shared-ns"));
 
@@ -138,6 +147,7 @@ class CryostatInstanceDiscoveryTest {
         when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
 
         List<CryostatInstance> results = discovery.findAllByNamespace("shared-ns");
 
@@ -147,7 +157,7 @@ class CryostatInstanceDiscoveryTest {
     }
 
     @Test
-    void testGetAllInstances() {
+    void testGetAllInstances() throws Exception {
         Cryostat cr1 = createCryostat("cryostat-1", "ns1", List.of("app-ns-1"));
         Cryostat cr2 = createCryostat("cryostat-2", "ns2", List.of("app-ns-2"));
 
@@ -155,6 +165,7 @@ class CryostatInstanceDiscoveryTest {
         when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
 
         Collection<CryostatInstance> instances = discovery.getAllInstances();
 
@@ -162,7 +173,7 @@ class CryostatInstanceDiscoveryTest {
     }
 
     @Test
-    void testGetNamespaceMapping() {
+    void testGetNamespaceMapping() throws Exception {
         Cryostat cr1 = createCryostat("cryostat-1", "ns1", List.of("app-ns-1", "app-ns-2"));
         Cryostat cr2 = createCryostat("cryostat-2", "ns2", List.of("app-ns-2", "app-ns-3"));
 
@@ -170,6 +181,7 @@ class CryostatInstanceDiscoveryTest {
         when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
 
         Map<String, List<CryostatInstance>> mapping = discovery.getNamespaceMapping();
 
@@ -184,13 +196,14 @@ class CryostatInstanceDiscoveryTest {
     }
 
     @Test
-    void testCryostatWithNullTargetNamespacesDefaultsToOwnNamespace() {
+    void testCryostatWithNullTargetNamespacesDefaultsToOwnNamespace() throws Exception {
         Cryostat cr = createCryostat("cryostat-1", "cryostat-ns", null);
 
         when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr));
         when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
 
         Optional<CryostatInstance> result = discovery.findByNamespace("cryostat-ns");
 
@@ -200,13 +213,14 @@ class CryostatInstanceDiscoveryTest {
     }
 
     @Test
-    void testCryostatWithEmptyTargetNamespacesDefaultsToOwnNamespace() {
+    void testCryostatWithEmptyTargetNamespacesDefaultsToOwnNamespace() throws Exception {
         Cryostat cr = createCryostat("cryostat-1", "cryostat-ns", List.of());
 
         when(cryostatNonNamespaceOperation.list()).thenReturn(createCryostatList(cr));
         when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
 
         Optional<CryostatInstance> result = discovery.findByNamespace("cryostat-ns");
 
@@ -216,7 +230,7 @@ class CryostatInstanceDiscoveryTest {
     }
 
     @Test
-    void testApplicationUrlFromStatus() {
+    void testApplicationUrlFromStatus() throws Exception {
         Cryostat cr = createCryostat("cryostat-1", "cryostat-ns", List.of("app-ns"));
         CryostatStatus status = new CryostatStatus();
         status.setApplicationUrl("https://cryostat-1.apps.cluster.example.com");
@@ -226,11 +240,16 @@ class CryostatInstanceDiscoveryTest {
         when(cryostatNonNamespaceOperation.watch(any())).thenReturn(null);
 
         discovery.onStart(mock(StartupEvent.class));
+        waitForDiscovery();
 
         Optional<CryostatInstance> result = discovery.findByNamespace("app-ns");
 
         assertTrue(result.isPresent());
         assertEquals("https://cryostat-1.apps.cluster.example.com", result.get().applicationUrl());
+    }
+
+    private void waitForDiscovery() throws InterruptedException {
+        TimeUnit.MILLISECONDS.sleep(100);
     }
 
     private Cryostat createCryostat(String name, String namespace, List<String> targetNamespaces) {

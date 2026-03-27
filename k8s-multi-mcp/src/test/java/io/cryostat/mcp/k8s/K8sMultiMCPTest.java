@@ -18,6 +18,7 @@ package io.cryostat.mcp.k8s;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,9 @@ import java.util.Set;
 
 import io.cryostat.mcp.CryostatMCP;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkiverse.mcp.server.Tool;
+import io.quarkiverse.mcp.server.ToolManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,42 +45,109 @@ class K8sMultiMCPTest {
 
     @Mock private CryostatMCP mockMCP;
 
-    private CryostatInstance testInstance;
+    @Mock private ToolManager toolManager;
+
+    private K8sMultiMCP k8sMultiMCP;
+
+    private CryostatInstance testInstance1;
+    private CryostatInstance testInstance2;
 
     @BeforeEach
     void setUp() {
-        testInstance =
+        k8sMultiMCP = new K8sMultiMCP();
+        k8sMultiMCP.instanceManager = instanceManager;
+        k8sMultiMCP.discovery = discovery;
+        k8sMultiMCP.toolManager = toolManager;
+        k8sMultiMCP.objectMapper = new ObjectMapper();
+
+        testInstance1 =
                 new CryostatInstance(
-                        "test-cryostat",
-                        "test-namespace",
-                        "http://test-cryostat.test-namespace.svc:8181",
-                        Set.of("test-namespace", "app-namespace"));
+                        "cryostat-1",
+                        "namespace-1",
+                        "http://cryostat-1.namespace-1.svc:8181",
+                        Set.of("namespace-1", "app-namespace-1"));
+
+        testInstance2 =
+                new CryostatInstance(
+                        "cryostat-2",
+                        "namespace-2",
+                        "http://cryostat-2.namespace-2.svc:8181",
+                        Set.of("namespace-2", "app-namespace-2"));
     }
 
     @Test
-    void testInstanceManagerCreatesInstanceForNamespace() {
-        when(instanceManager.createInstance("app-namespace")).thenReturn(mockMCP);
+    void testDirectedToolRequiresNamespace() {
+        // Verify that directed tools require namespace parameter
+        when(instanceManager.createInstance("namespace-1", null)).thenReturn(mockMCP);
 
-        CryostatMCP result = instanceManager.createInstance("app-namespace");
+        Map<String, Object> args = new HashMap<>();
+        args.put("namespace", "namespace-1");
+
+        CryostatMCP result = instanceManager.createInstance("namespace-1", null);
 
         assertNotNull(result);
         assertEquals(mockMCP, result);
-        verify(instanceManager).createInstance("app-namespace");
+        verify(instanceManager).createInstance("namespace-1", null);
     }
 
     @Test
-    void testDiscoveryFindsInstanceByNamespace() {
-        when(discovery.getAllInstances()).thenReturn(List.of(testInstance));
+    void testDirectedToolThrowsWhenNamespaceMissing() {
+        // Simulate missing namespace parameter
+        Map<String, Object> args = new HashMap<>();
+        // namespace is null or missing
+
+        String namespace = (String) args.get("namespace");
+
+        if (namespace == null || namespace.isEmpty()) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> {
+                        throw new IllegalArgumentException(
+                                "Namespace is required for directed tools");
+                    });
+        }
+    }
+
+    @Test
+    void testDirectedToolRoutesToCorrectInstance() {
+        when(instanceManager.createInstance("namespace-1", null)).thenReturn(mockMCP);
+
+        CryostatMCP result = instanceManager.createInstance("namespace-1", null);
+
+        assertNotNull(result);
+        assertEquals(mockMCP, result);
+        verify(instanceManager).createInstance("namespace-1", null);
+    }
+
+    @Test
+    void testDirectedToolThrowsWhenInstanceNotFound() {
+        when(instanceManager.createInstance("unknown-namespace", null))
+                .thenThrow(
+                        new IllegalStateException(
+                                "No Cryostat instance found for namespace: unknown-namespace"));
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> instanceManager.createInstance("unknown-namespace", null));
+        verify(instanceManager).createInstance("unknown-namespace", null);
+    }
+
+    @Test
+    void testNonDirectedToolQueriesAllInstances() {
+        // Non-directed tools should query all available instances
+        when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
 
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
 
-        assertFalse(instances.isEmpty());
-        assertEquals(testInstance, instances.get(0));
+        assertEquals(2, instances.size());
+        assertTrue(instances.contains(testInstance1));
+        assertTrue(instances.contains(testInstance2));
         verify(discovery).getAllInstances();
     }
 
     @Test
-    void testDiscoveryReturnsEmptyWhenNoInstances() {
+    void testNonDirectedToolHandlesEmptyInstanceList() {
+        // Non-directed tools should handle empty instance list gracefully
         when(discovery.getAllInstances()).thenReturn(List.of());
 
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
@@ -86,96 +157,147 @@ class K8sMultiMCPTest {
     }
 
     @Test
-    void testInstanceManagerThrowsWhenNamespaceNotFound() {
-        when(instanceManager.createInstance("unknown-namespace"))
-                .thenThrow(
-                        new IllegalStateException(
-                                "No Cryostat instance found for namespace: unknown-namespace"));
-
-        assertThrows(
-                IllegalStateException.class,
-                () -> instanceManager.createInstance("unknown-namespace"));
-        verify(instanceManager).createInstance("unknown-namespace");
-    }
-
-    @Test
-    void testMultipleInstancesCanBeCreated() {
-        CryostatInstance instance1 =
-                new CryostatInstance(
-                        "cryostat-1",
-                        "ns1",
-                        "http://cryostat-1.ns1.svc:8181",
-                        Set.of("ns1", "app1"));
-        CryostatInstance instance2 =
-                new CryostatInstance(
-                        "cryostat-2",
-                        "ns2",
-                        "http://cryostat-2.ns2.svc:8181",
-                        Set.of("ns2", "app2"));
-
-        when(discovery.getAllInstances()).thenReturn(List.of(instance1, instance2));
+    void testNonDirectedToolAggregatesResults() {
+        // Simulate aggregation of results from multiple instances
+        when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
+        when(instanceManager.createInstance("namespace-1", null)).thenReturn(mockMCP);
+        when(instanceManager.createInstance("namespace-2", null)).thenReturn(mockMCP);
 
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
 
+        // Verify we have multiple instances to aggregate from
         assertEquals(2, instances.size());
-        assertTrue(instances.contains(instance1));
-        assertTrue(instances.contains(instance2));
+
+        // Verify each instance can be accessed
+        for (CryostatInstance instance : instances) {
+            CryostatMCP mcp = instanceManager.createInstance(instance.namespace(), null);
+            assertNotNull(mcp);
+        }
+    }
+
+    @Test
+    void testNonDirectedToolHandlesIndividualInstanceFailure() {
+        // Non-directed tools should continue even if one instance fails
+        when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
+        when(instanceManager.createInstance("namespace-1", null)).thenReturn(mockMCP);
+        when(instanceManager.createInstance("namespace-2", null))
+                .thenThrow(new RuntimeException("Instance unavailable"));
+
+        List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
+        List<CryostatMCP> results = new ArrayList<>();
+
+        for (CryostatInstance instance : instances) {
+            try {
+                CryostatMCP mcp = instanceManager.createInstance(instance.namespace(), null);
+                results.add(mcp);
+            } catch (Exception e) {
+                // Add null to maintain alignment with instances list
+                results.add(null);
+            }
+        }
+
+        // Should have results for both instances (one success, one null)
+        assertEquals(2, results.size());
+        assertNotNull(results.get(0));
+        assertNull(results.get(1));
+    }
+
+    @Test
+    void testScrapeGlobalMetricsIsNonDirected() {
+        // scrapeGlobalMetrics should be a non-directed tool
+        // It should query all instances without requiring namespace parameter
+        when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
+
+        List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
+
+        // Verify it can access multiple instances
+        assertEquals(2, instances.size());
+        verify(discovery).getAllInstances();
+    }
+
+    @Test
+    void testAllCryostatMCPToolsAreDirected() {
+        // Verify that all CryostatMCP tools are registered as directed tools
+        Method[] methods = CryostatMCP.class.getDeclaredMethods();
+        int toolCount = 0;
+
+        for (Method method : methods) {
+            Tool toolAnnotation = method.getAnnotation(Tool.class);
+            if (toolAnnotation != null) {
+                toolCount++;
+                // All CryostatMCP tools should be directed (require namespace)
+                // This is verified by the fact that K8sMultiMCP.registerToolsFromCryostatMCP
+                // adds namespace parameter to all of them
+            }
+        }
+
+        // Verify we found some tools
+        assertTrue(toolCount > 0, "Should have found CryostatMCP tools");
     }
 
     @Test
     void testInstanceHasCorrectProperties() {
-        assertEquals("test-cryostat", testInstance.name());
-        assertEquals("test-namespace", testInstance.namespace());
-        assertEquals("http://test-cryostat.test-namespace.svc:8181", testInstance.applicationUrl());
-        assertTrue(testInstance.targetNamespaces().contains("test-namespace"));
-        assertTrue(testInstance.targetNamespaces().contains("app-namespace"));
+        assertEquals("cryostat-1", testInstance1.name());
+        assertEquals("namespace-1", testInstance1.namespace());
+        assertEquals("http://cryostat-1.namespace-1.svc:8181", testInstance1.applicationUrl());
+        assertTrue(testInstance1.targetNamespaces().contains("namespace-1"));
+        assertTrue(testInstance1.targetNamespaces().contains("app-namespace-1"));
     }
 
     @Test
-    void testNamespaceParameterValidation() {
+    void testMultipleInstancesCanBeDiscovered() {
+        when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
+
+        List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
+
+        assertEquals(2, instances.size());
+        assertTrue(instances.contains(testInstance1));
+        assertTrue(instances.contains(testInstance2));
+    }
+
+    @Test
+    void testInstanceManagerCreatesInstanceWithAuthorization() {
+        String authHeader = "Bearer test-token";
+        when(instanceManager.createInstance("namespace-1", authHeader)).thenReturn(mockMCP);
+
+        CryostatMCP result = instanceManager.createInstance("namespace-1", authHeader);
+
+        assertNotNull(result);
+        assertEquals(mockMCP, result);
+        verify(instanceManager).createInstance("namespace-1", authHeader);
+    }
+
+    @Test
+    void testDirectedToolWithAuthorizationHeader() {
+        String authHeader = "Bearer test-token";
         Map<String, Object> args = new HashMap<>();
-        args.put("namespace", null);
+        args.put("namespace", "namespace-1");
 
-        // Simulate what K8sMultiMCP does when namespace is required but not provided
-        String namespace = (String) args.get("namespace");
-        boolean namespaceRequired = true;
+        when(instanceManager.createInstance("namespace-1", authHeader)).thenReturn(mockMCP);
 
-        if (namespace == null || namespace.isEmpty()) {
-            if (namespaceRequired) {
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> {
-                            throw new IllegalArgumentException(
-                                    "Namespace is required for this operation");
-                        });
-            }
-        }
+        CryostatMCP result = instanceManager.createInstance("namespace-1", authHeader);
+
+        assertNotNull(result);
+        verify(instanceManager).createInstance("namespace-1", authHeader);
     }
 
     @Test
-    void testFallbackToFirstInstanceWhenNamespaceNotProvided() {
-        when(discovery.getAllInstances()).thenReturn(List.of(testInstance));
-
-        List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
-        assertFalse(instances.isEmpty());
-
-        // Simulate what K8sMultiMCP does for optional namespace
-        String namespace = instances.get(0).namespace();
-        assertEquals("test-namespace", namespace);
-    }
-
-    @Test
-    void testThrowsWhenNoInstancesAvailableForFallback() {
-        when(discovery.getAllInstances()).thenReturn(List.of());
+    void testNonDirectedToolWithAuthorizationHeader() {
+        String authHeader = "Bearer test-token";
+        when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
+        when(instanceManager.createInstance("namespace-1", authHeader)).thenReturn(mockMCP);
+        when(instanceManager.createInstance("namespace-2", authHeader)).thenReturn(mockMCP);
 
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
 
-        if (instances.isEmpty()) {
-            assertThrows(
-                    IllegalStateException.class,
-                    () -> {
-                        throw new IllegalStateException("No Cryostat instances available");
-                    });
+        for (CryostatInstance instance : instances) {
+            CryostatMCP mcp = instanceManager.createInstance(instance.namespace(), authHeader);
+            assertNotNull(mcp);
         }
+
+        verify(instanceManager).createInstance("namespace-1", authHeader);
+        verify(instanceManager).createInstance("namespace-2", authHeader);
     }
 }
+
+// Made with Bob

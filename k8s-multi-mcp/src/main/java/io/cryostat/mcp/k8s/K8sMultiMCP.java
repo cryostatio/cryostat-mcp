@@ -18,10 +18,7 @@ package io.cryostat.mcp.k8s;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import io.cryostat.mcp.CryostatMCP;
 
@@ -37,8 +34,16 @@ import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 /**
- * Multi-tenant MCP server that wraps CryostatMCP tools with namespace-based routing. Uses
- * reflection to discover tools from CryostatMCP and programmatically adds namespace parameters.
+ * Multi-tenant MCP server that wraps CryostatMCP tools with namespace-based routing.
+ *
+ * <p>This server provides two types of tools:
+ *
+ * <ul>
+ *   <li><b>Directed tools:</b> All CryostatMCP tools are registered as directed tools, requiring a
+ *       namespace parameter to route requests to a specific Cryostat instance.
+ *   <li><b>Non-directed tools:</b> Custom tools that query all available Cryostat instances and
+ *       aggregate results using configurable aggregation strategies.
+ * </ul>
  */
 @ApplicationScoped
 public class K8sMultiMCP {
@@ -49,20 +54,20 @@ public class K8sMultiMCP {
     @Inject CryostatMCPInstanceManager instanceManager;
     @Inject CryostatInstanceDiscovery discovery;
     @Inject ObjectMapper objectMapper;
-    @Inject K8sMultiMCPConfig config;
-
-    private Set<String> namespaceRequiredTools;
-    private Set<String> namespaceOptionalTools;
 
     void onStart(@Observes StartupEvent event) {
-        namespaceRequiredTools = config.namespaceRequiredTools();
-        namespaceOptionalTools = config.namespaceOptionalTools();
-        LOG.info("Registering multi-tenant MCP tools using reflection");
+        LOG.info("Registering multi-tenant MCP tools");
         registerToolsFromCryostatMCP();
+        registerNonDirectedTools();
     }
 
+    /**
+     * Registers all CryostatMCP tools as directed tools with required namespace parameter. Uses
+     * reflection to discover tools and programmatically adds namespace routing.
+     */
     private void registerToolsFromCryostatMCP() {
         Method[] methods = CryostatMCP.class.getDeclaredMethods();
+        int registeredCount = 0;
 
         for (Method method : methods) {
             Tool toolAnnotation = method.getAnnotation(Tool.class);
@@ -71,33 +76,68 @@ public class K8sMultiMCP {
             }
 
             String toolName = method.getName();
-            if (!namespaceRequiredTools.contains(toolName)
-                    && !namespaceOptionalTools.contains(toolName)) {
-                LOG.debugf("Skipping tool '%s' - not in allowlist", toolName);
-                continue;
-            }
-
-            registerTool(method, toolAnnotation, toolName);
+            registerDirectedTool(method, toolAnnotation, toolName);
+            registeredCount++;
         }
 
-        LOG.infof(
-                "Registered %d multi-tenant tools",
-                namespaceRequiredTools.size() + namespaceOptionalTools.size());
+        LOG.infof("Registered %d directed tools from CryostatMCP", registeredCount);
     }
 
-    private void registerTool(Method method, Tool toolAnnotation, String toolName) {
-        boolean namespaceRequired = namespaceRequiredTools.contains(toolName);
+    /**
+     * Registers non-directed tools that operate across all Cryostat instances. These tools query
+     * all available instances and aggregate results.
+     */
+    private void registerNonDirectedTools() {
+        // Register scrapeGlobalMetrics tool
+        NonDirectedToolDescriptor<String> scrapeGlobalMetrics =
+                NonDirectedToolDescriptor.<String>builder()
+                        .name("scrapeGlobalMetrics")
+                        .description(
+                                "Scrape Prometheus metrics from all discovered Cryostat instances"
+                                        + " and aggregate them. Returns metrics in Prometheus text"
+                                        + " format, sorted and deduplicated.")
+                        .addArgument(
+                                new ToolArgumentDescriptor(
+                                        "minTargetScore",
+                                        "Minimum target score for filtering metrics",
+                                        false,
+                                        Number.class))
+                        .invoker(
+                                (mcp, args) -> {
+                                    Object minTargetScoreObj = args.get("minTargetScore");
+                                    long minTargetScore =
+                                            minTargetScoreObj != null
+                                                    ? ((Number) minTargetScoreObj).longValue()
+                                                    : 0L;
+                                    return mcp.scrapeMetrics(minTargetScore);
+                                })
+                        .aggregationStrategy(new PrometheusMetricsAggregationStrategy())
+                        .returnType(String.class)
+                        .build();
 
-        String description = buildToolDescription(toolAnnotation.description(), namespaceRequired);
+        registerNonDirectedTool(scrapeGlobalMetrics);
+
+        LOG.info("Registered 1 non-directed tool");
+    }
+
+    /**
+     * Registers a directed tool with required namespace parameter.
+     *
+     * @param method The CryostatMCP method to wrap
+     * @param toolAnnotation The @Tool annotation from the method
+     * @param toolName The name of the tool
+     */
+    private void registerDirectedTool(Method method, Tool toolAnnotation, String toolName) {
+        String description = buildDirectedToolDescription(toolAnnotation.description());
 
         var toolBuilder = toolManager.newTool(toolName).setDescription(description);
 
-        String namespaceDesc =
-                namespaceRequired
-                        ? "The namespace where the target application is running."
-                        : "The namespace of the Cryostat instance to query. If not provided,"
-                                + " queries the first available instance.";
-        toolBuilder.addArgument("namespace", namespaceDesc, namespaceRequired, String.class);
+        // Add required namespace parameter
+        toolBuilder.addArgument(
+                "namespace",
+                "The namespace of the Cryostat instance to query (required).",
+                true,
+                String.class);
 
         // Add original method parameters
         Parameter[] parameters = method.getParameters();
@@ -113,12 +153,11 @@ public class K8sMultiMCP {
                     paramName, argAnnotation.description(), argAnnotation.required(), paramType);
         }
 
-        // Set the handler that routes to the appropriate instance
+        // Set the handler that routes to the specific namespace
         toolBuilder.setHandler(
                 toolArgs -> {
                     try {
-                        Object result =
-                                invokeTool(method, toolArgs.args(), namespaceRequired, null);
+                        Object result = invokeDirectedTool(method, toolArgs.args(), null);
                         // Serialize result to JSON string for ToolResponse
                         String jsonResult =
                                 result instanceof String
@@ -126,7 +165,7 @@ public class K8sMultiMCP {
                                         : objectMapper.writeValueAsString(result);
                         return ToolResponse.success(jsonResult);
                     } catch (Exception e) {
-                        LOG.errorf(e, "Failed to invoke tool '%s'", toolName);
+                        LOG.errorf(e, "Failed to invoke directed tool '%s'", toolName);
 
                         // Unwrap InvocationTargetException to get the real cause
                         Throwable cause = e;
@@ -144,18 +183,65 @@ public class K8sMultiMCP {
 
         toolBuilder.register();
 
-        LOG.debugf("Registered tool '%s' with namespace parameter", toolName);
+        LOG.debugf("Registered directed tool '%s'", toolName);
     }
 
-    private String buildToolDescription(String originalDescription, boolean namespaceRequired) {
-        String namespaceInfo =
-                namespaceRequired
-                        ? " Namespace parameter is required to identify the Cryostat instance"
-                                + " managing the target."
-                        : " If namespace is provided, routes to that specific Cryostat instance;"
-                                + " otherwise aggregates results from all available instances.";
+    /**
+     * Registers a non-directed tool that queries all instances and aggregates results.
+     *
+     * @param descriptor The non-directed tool descriptor
+     * @param <T> The return type of the tool
+     */
+    private <T> void registerNonDirectedTool(NonDirectedToolDescriptor<T> descriptor) {
+        var toolBuilder =
+                toolManager
+                        .newTool(descriptor.getName())
+                        .setDescription(descriptor.getDescription());
 
-        return originalDescription + namespaceInfo;
+        // Add arguments from descriptor
+        for (ToolArgumentDescriptor arg : descriptor.getArguments()) {
+            toolBuilder.addArgument(
+                    arg.getName(), arg.getDescription(), arg.isRequired(), arg.getType());
+        }
+
+        // Set handler that aggregates results from all instances
+        toolBuilder.setHandler(
+                toolArgs -> {
+                    try {
+                        T result = invokeNonDirectedTool(descriptor, toolArgs.args(), null);
+                        // Serialize result to JSON string for ToolResponse
+                        String jsonResult =
+                                result instanceof String
+                                        ? (String) result
+                                        : objectMapper.writeValueAsString(result);
+                        return ToolResponse.success(jsonResult);
+                    } catch (Exception e) {
+                        LOG.errorf(
+                                e, "Failed to invoke non-directed tool '%s'", descriptor.getName());
+
+                        String errorMsg = e.getMessage();
+                        if (errorMsg == null || errorMsg.isEmpty()) {
+                            errorMsg = e.getClass().getSimpleName() + ": " + e.toString();
+                        }
+                        return ToolResponse.error("Tool invocation failed: " + errorMsg);
+                    }
+                });
+
+        toolBuilder.register();
+
+        LOG.debugf("Registered non-directed tool '%s'", descriptor.getName());
+    }
+
+    /**
+     * Builds the description for a directed tool.
+     *
+     * @param originalDescription The original tool description from CryostatMCP
+     * @return Enhanced description explaining namespace requirement
+     */
+    private String buildDirectedToolDescription(String originalDescription) {
+        return originalDescription
+                + " Namespace parameter is required to identify the Cryostat instance managing the"
+                + " target.";
     }
 
     private Class<?> getArgumentType(Class<?> javaType) {
@@ -178,20 +264,22 @@ public class K8sMultiMCP {
         }
     }
 
-    private Object invokeTool(
-            Method method,
-            java.util.Map<String, Object> args,
-            boolean namespaceRequired,
-            String authorizationHeader)
+    /**
+     * Invokes a directed tool on a specific Cryostat instance identified by namespace.
+     *
+     * @param method The CryostatMCP method to invoke
+     * @param args The tool arguments including namespace
+     * @param authorizationHeader Optional authorization header
+     * @return The result from the tool invocation
+     * @throws Exception if invocation fails
+     */
+    private Object invokeDirectedTool(
+            Method method, java.util.Map<String, Object> args, String authorizationHeader)
             throws Exception {
         String namespace = (String) args.get("namespace");
 
-        if ((namespace == null || namespace.isEmpty()) && !namespaceRequired) {
-            return aggregateResults(method, args, authorizationHeader);
-        }
-
         if (namespace == null || namespace.isEmpty()) {
-            throw new IllegalArgumentException("Namespace is required for this operation");
+            throw new IllegalArgumentException("Namespace is required for directed tools");
         }
 
         CryostatMCP mcp = instanceManager.createInstance(namespace, authorizationHeader);
@@ -269,69 +357,62 @@ public class K8sMultiMCP {
         }
     }
 
-    private Object aggregateResults(
-            Method method, java.util.Map<String, Object> args, String authorizationHeader)
+    /**
+     * Invokes a non-directed tool across all Cryostat instances and aggregates results.
+     *
+     * @param descriptor The non-directed tool descriptor
+     * @param args The tool arguments
+     * @param authorizationHeader Optional authorization header
+     * @param <T> The return type of the tool
+     * @return The aggregated result
+     * @throws Exception if invocation or aggregation fails
+     */
+    private <T> T invokeNonDirectedTool(
+            NonDirectedToolDescriptor<T> descriptor,
+            java.util.Map<String, Object> args,
+            String authorizationHeader)
             throws Exception {
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
         if (instances.isEmpty()) {
-            throw new IllegalStateException("No Cryostat instances available");
+            LOG.warn("No Cryostat instances available for non-directed tool invocation");
+            // Return empty result based on type
+            return descriptor.getAggregationStrategy().aggregate(List.of(), instances);
         }
 
-        String methodName = method.getName();
         LOG.infof(
-                "Aggregating results from %d instances for tool '%s'",
-                instances.size(), methodName);
+                "Invoking non-directed tool '%s' across %d instances",
+                descriptor.getName(), instances.size());
 
-        // Currently only scrapeMetrics supports aggregation
-        if ("scrapeMetrics".equals(methodName)) {
-            return aggregateMetrics(method, args, instances, authorizationHeader);
-        }
-
-        throw new UnsupportedOperationException(
-                "Aggregation not supported for tool: " + methodName);
-    }
-
-    private String aggregateMetrics(
-            Method method,
-            java.util.Map<String, Object> args,
-            List<CryostatInstance> instances,
-            String authorizationHeader)
-            throws Exception {
-        List<String> allMetrics = new ArrayList<>();
+        List<T> results = new ArrayList<>();
 
         for (CryostatInstance instance : instances) {
             try {
                 CryostatMCP mcp =
                         instanceManager.createInstance(instance.namespace(), authorizationHeader);
-                Object[] methodArgs = prepareMethodArguments(method, args);
-                String metrics = (String) method.invoke(mcp, methodArgs);
-
-                if (metrics != null && !metrics.isEmpty()) {
-                    allMetrics.add(metrics);
-                }
+                T result = descriptor.getInvoker().invoke(mcp, args);
+                results.add(result);
             } catch (Exception e) {
                 LOG.warnf(
                         e,
-                        "Failed to scrape metrics from instance '%s' in namespace '%s'",
+                        "Failed to invoke tool '%s' on instance '%s' in namespace '%s'",
+                        descriptor.getName(),
                         instance.name(),
                         instance.namespace());
-                // Continue with other instances
+                // Add null to maintain alignment with instances list
+                results.add(null);
             }
         }
 
-        if (allMetrics.isEmpty()) {
-            return "";
-        }
-
-        // Concatenate, sort, and deduplicate metrics
-        return allMetrics.stream()
-                .flatMap(metrics -> Arrays.stream(metrics.split("\n")))
-                .filter(line -> !line.isEmpty())
-                .sorted()
-                .distinct()
-                .collect(Collectors.joining("\n"));
+        return descriptor.getAggregationStrategy().aggregate(results, instances);
     }
 
+    /**
+     * Prepares method arguments from the tool arguments map, handling type conversions.
+     *
+     * @param method The method to prepare arguments for
+     * @param args The tool arguments map
+     * @return Array of method arguments in the correct order and types
+     */
     private Object[] prepareMethodArguments(Method method, java.util.Map<String, Object> args) {
         Parameter[] parameters = method.getParameters();
         Object[] methodArgs = new Object[parameters.length];
