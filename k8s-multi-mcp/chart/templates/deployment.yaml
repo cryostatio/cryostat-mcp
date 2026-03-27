@@ -34,6 +34,8 @@ spec:
               value: "8080"
 
             # Logging configuration
+            - name: QUARKUS_LOG_CONSOLE_ENABLED
+              value: "true"
             - name: QUARKUS_LOG_LEVEL
               value: {{ .Values.env.logLevel | quote }}
 

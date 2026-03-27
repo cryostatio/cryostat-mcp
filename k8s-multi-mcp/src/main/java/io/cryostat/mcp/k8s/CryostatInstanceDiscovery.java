@@ -28,8 +28,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import io.cryostat.mcp.k8s.model.Cryostat;
-
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -47,6 +45,10 @@ import org.jboss.logging.Logger;
 public class CryostatInstanceDiscovery {
 
     private static final Logger LOG = Logger.getLogger(CryostatInstanceDiscovery.class);
+    private static final String LABEL_PART_OF = "app.kubernetes.io/part-of";
+    private static final String LABEL_COMPONENT = "app.kubernetes.io/component";
+    private static final String CRYOSTAT_PART_OF = "cryostat";
+    private static final String CRYOSTAT_COMPONENT = "cryostat";
 
     private final ExecutorService discoveryExecutor = Executors.newSingleThreadExecutor();
     private final Map<String, CryostatInstance> instances = new ConcurrentHashMap<>();
@@ -80,11 +82,17 @@ public class CryostatInstanceDiscovery {
 
     private void discoverInstances() {
         try {
-            List<Cryostat> crs =
-                    k8sClient.resources(Cryostat.class).inAnyNamespace().list().getItems();
+            List<Service> services =
+                    k8sClient
+                            .services()
+                            .inAnyNamespace()
+                            .withLabel(LABEL_PART_OF, CRYOSTAT_PART_OF)
+                            .withLabel(LABEL_COMPONENT, CRYOSTAT_COMPONENT)
+                            .list()
+                            .getItems();
 
-            for (Cryostat cr : crs) {
-                handleCryostatAdded(cr);
+            for (Service svc : services) {
+                handleServiceAdded(svc);
             }
 
             LOG.infof("Discovered %d Cryostat instances", instances.size());
@@ -97,13 +105,15 @@ public class CryostatInstanceDiscovery {
         try {
             watch =
                     k8sClient
-                            .resources(Cryostat.class)
+                            .services()
                             .inAnyNamespace()
+                            .withLabel(LABEL_PART_OF, CRYOSTAT_PART_OF)
+                            .withLabel(LABEL_COMPONENT, CRYOSTAT_COMPONENT)
                             .watch(
-                                    new Watcher<Cryostat>() {
+                                    new Watcher<Service>() {
                                         @Override
-                                        public void eventReceived(Action action, Cryostat cr) {
-                                            handleWatchEvent(action, cr);
+                                        public void eventReceived(Action action, Service svc) {
+                                            handleWatchEvent(action, svc);
                                         }
 
                                         @Override
@@ -116,56 +126,60 @@ public class CryostatInstanceDiscovery {
                                             }
                                         }
                                     });
-            LOG.info("Started watching Cryostat CRs");
+            LOG.info("Started watching Cryostat Services");
         } catch (Exception e) {
             LOG.error("Failed to start watch", e);
         }
     }
 
-    private void handleWatchEvent(Watcher.Action action, Cryostat cr) {
-        String namespace = cr.getMetadata().getNamespace();
-        String name = cr.getMetadata().getName();
+    private void handleWatchEvent(Watcher.Action action, Service svc) {
+        String namespace = svc.getMetadata().getNamespace();
+        String name = svc.getMetadata().getName();
 
         switch (action) {
             case ADDED:
-                LOG.infof("Cryostat CR added: %s/%s", namespace, name);
-                handleCryostatAdded(cr);
+                LOG.infof("Cryostat Service added: %s/%s", namespace, name);
+                handleServiceAdded(svc);
                 break;
 
             case MODIFIED:
-                LOG.infof("Cryostat CR modified: %s/%s", namespace, name);
-                handleCryostatModified(cr);
+                LOG.infof("Cryostat Service modified: %s/%s", namespace, name);
+                handleServiceModified(svc);
                 break;
 
             case DELETED:
-                LOG.infof("Cryostat CR deleted: %s/%s", namespace, name);
-                handleCryostatDeleted(cr);
+                LOG.infof("Cryostat Service deleted: %s/%s", namespace, name);
+                handleServiceDeleted(svc);
                 break;
 
             case ERROR:
-                LOG.errorf("Watch error for CR: %s/%s", namespace, name);
+                LOG.errorf("Watch error for Service: %s/%s", namespace, name);
                 break;
         }
     }
 
-    private void handleCryostatAdded(Cryostat cr) {
-        CryostatInstance instance = toCryostatInstance(cr);
-        String key = instanceKey(instance);
-        instances.put(key, instance);
-        updateNamespaceMapping(instance, null);
+    private void handleServiceAdded(Service svc) {
+        CryostatInstance instance = toCryostatInstance(svc);
+        if (instance != null) {
+            String key = instanceKey(instance);
+            instances.put(key, instance);
+            updateNamespaceMapping(instance, null);
+        }
     }
 
-    private void handleCryostatModified(Cryostat cr) {
-        CryostatInstance newInstance = toCryostatInstance(cr);
-        String key = instanceKey(newInstance);
-        CryostatInstance oldInstance = instances.get(key);
-        instances.put(key, newInstance);
-        updateNamespaceMapping(newInstance, oldInstance);
+    private void handleServiceModified(Service svc) {
+        CryostatInstance newInstance = toCryostatInstance(svc);
+        if (newInstance != null) {
+            String key = instanceKey(newInstance);
+            CryostatInstance oldInstance = instances.get(key);
+            instances.put(key, newInstance);
+            updateNamespaceMapping(newInstance, oldInstance);
+        }
     }
 
-    private void handleCryostatDeleted(Cryostat cr) {
-        String namespace = cr.getMetadata().getNamespace();
-        String name = cr.getMetadata().getName();
+    private void handleServiceDeleted(Service svc) {
+        String namespace = svc.getMetadata().getNamespace();
+        String name = svc.getMetadata().getName();
         String key = namespace + "/" + name;
         CryostatInstance instance = instances.remove(key);
         if (instance != null) {
@@ -196,54 +210,52 @@ public class CryostatInstanceDiscovery {
         }
     }
 
-    private CryostatInstance toCryostatInstance(Cryostat cr) {
-        String namespace = cr.getMetadata().getNamespace();
-        String name = cr.getMetadata().getName();
+    private CryostatInstance toCryostatInstance(Service svc) {
+        String namespace = svc.getMetadata().getNamespace();
+        String name = svc.getMetadata().getName();
 
+        // Verify the service has the expected labels
+        Map<String, String> labels = svc.getMetadata().getLabels();
+        if (labels == null
+                || !CRYOSTAT_PART_OF.equals(labels.get(LABEL_PART_OF))
+                || !CRYOSTAT_COMPONENT.equals(labels.get(LABEL_COMPONENT))) {
+            LOG.warnf(
+                    "Service %s/%s does not have expected Cryostat labels, skipping",
+                    namespace, name);
+            return null;
+        }
+
+        // Determine target namespaces
+        // For Helm-deployed instances, we need to check the Cryostat configuration
+        // For now, default to monitoring the same namespace as the service
         Set<String> targetNamespaces = new HashSet<>();
-        if (cr.getSpec() != null && cr.getSpec().getTargetNamespaces() != null) {
-            targetNamespaces.addAll(cr.getSpec().getTargetNamespaces());
-        }
-        if (targetNamespaces.isEmpty()) {
-            targetNamespaces.add(namespace);
-        }
+        targetNamespaces.add(namespace);
 
-        String applicationUrl = determineApplicationUrl(cr);
+        // Determine the application URL
+        String applicationUrl = determineApplicationUrl(svc);
 
         return new CryostatInstance(name, namespace, applicationUrl, targetNamespaces);
     }
 
-    private String determineApplicationUrl(Cryostat cr) {
-        String namespace = cr.getMetadata().getNamespace();
-        String name = cr.getMetadata().getName();
+    private String determineApplicationUrl(Service svc) {
+        String namespace = svc.getMetadata().getNamespace();
+        String name = svc.getMetadata().getName();
 
-        if (cr.getStatus() != null && cr.getStatus().getApplicationUrl() != null) {
-            return cr.getStatus().getApplicationUrl();
+        ServicePort port = findServicePort(svc);
+        if (port != null) {
+            boolean tls = port.getAppProtocol() != null && port.getAppProtocol().equals("https");
+            return String.format(
+                    "http%s://%s.%s.svc:%d", tls ? "s" : "", name, namespace, port.getPort());
         }
 
-        try {
-            Service svc = k8sClient.services().inNamespace(namespace).withName(name).get();
-
-            if (svc != null) {
-                ServicePort port = findServicePort(svc);
-                if (port != null) {
-                    boolean tls =
-                            port.getAppProtocol() != null && port.getAppProtocol().equals("https");
-                    return String.format(
-                            "http%s://%s.%s.svc:%d",
-                            tls ? "s" : "", name, namespace, port.getPort());
-                }
-            }
-        } catch (Exception e) {
-            LOG.errorf(e, "Failed to determine service URL for %s/%s", namespace, name);
-        }
-
+        // Fallback to default HTTPS port
         return String.format("https://%s.%s.svc:8181", name, namespace);
     }
 
     private ServicePort findServicePort(Service svc) {
         List<ServicePort> ports = svc.getSpec().getPorts();
 
+        // First, try to find by appProtocol, preferring https over http
         for (ServicePort port : ports) {
             if ("https".equals(port.getAppProtocol())) {
                 return port;
@@ -256,6 +268,7 @@ public class CryostatInstanceDiscovery {
             }
         }
 
+        // If no appProtocol match, try to find by port name
         for (ServicePort port : ports) {
             if (port.getName() != null && port.getName().endsWith("https")) {
                 return port;
@@ -268,6 +281,7 @@ public class CryostatInstanceDiscovery {
             }
         }
 
+        // Return the first port as a last resort
         return ports.isEmpty() ? null : ports.get(0);
     }
 
@@ -356,3 +370,5 @@ public class CryostatInstanceDiscovery {
         return instance.namespace() + "/" + instance.name();
     }
 }
+
+// Made with Bob
