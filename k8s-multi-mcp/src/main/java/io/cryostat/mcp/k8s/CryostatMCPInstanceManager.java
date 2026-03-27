@@ -93,7 +93,12 @@ public class CryostatMCPInstanceManager {
                 Thread.currentThread().getName(),
                 authorizationHeader != null ? "explicit" : "context-based");
 
-        Optional<CryostatInstance> instanceOpt = discovery.findByNamespace(namespace);
+        String authHeader =
+                authorizationHeader != null
+                        ? authorizationHeader
+                        : authorizationHeaderConfig.orElse(null);
+
+        Optional<CryostatInstance> instanceOpt = discovery.findByNamespace(namespace, authHeader);
 
         if (instanceOpt.isEmpty()) {
             String message =

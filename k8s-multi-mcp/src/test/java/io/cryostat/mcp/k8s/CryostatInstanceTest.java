@@ -17,8 +17,6 @@ package io.cryostat.mcp.k8s;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.util.Set;
-
 import org.junit.jupiter.api.Test;
 
 class CryostatInstanceTest {
@@ -29,28 +27,21 @@ class CryostatInstanceTest {
                 new CryostatInstance(
                         "cryostat-1",
                         "cryostat-operator",
-                        "https://cryostat-1.cryostat-operator.svc:8181",
-                        Set.of("app-namespace-1", "app-namespace-2"));
+                        "https://cryostat-1.cryostat-operator.svc:8181");
 
         assertEquals("cryostat-1", instance.name());
         assertEquals("cryostat-operator", instance.namespace());
         assertEquals("https://cryostat-1.cryostat-operator.svc:8181", instance.applicationUrl());
-        assertEquals(2, instance.targetNamespaces().size());
-        assertTrue(instance.targetNamespaces().contains("app-namespace-1"));
-        assertTrue(instance.targetNamespaces().contains("app-namespace-2"));
     }
 
     @Test
     void testCompareTo() {
         CryostatInstance instance1 =
-                new CryostatInstance(
-                        "cryostat-a", "ns1", "https://cryostat-a.ns1.svc:8181", Set.of("app-ns"));
+                new CryostatInstance("cryostat-a", "ns1", "https://cryostat-a.ns1.svc:8181");
         CryostatInstance instance2 =
-                new CryostatInstance(
-                        "cryostat-b", "ns2", "https://cryostat-b.ns2.svc:8181", Set.of("app-ns"));
+                new CryostatInstance("cryostat-b", "ns2", "https://cryostat-b.ns2.svc:8181");
         CryostatInstance instance3 =
-                new CryostatInstance(
-                        "cryostat-c", "ns3", "https://cryostat-c.ns3.svc:8181", Set.of("app-ns"));
+                new CryostatInstance("cryostat-c", "ns3", "https://cryostat-c.ns3.svc:8181");
 
         assertTrue(instance1.compareTo(instance2) < 0);
         assertTrue(instance2.compareTo(instance1) > 0);
@@ -62,22 +53,12 @@ class CryostatInstanceTest {
     void testDeterministicTiebreaker() {
         CryostatInstance instance1 =
                 new CryostatInstance(
-                        "cryostat-alpha",
-                        "ns1",
-                        "https://cryostat-alpha.ns1.svc:8181",
-                        Set.of("shared-ns"));
+                        "cryostat-alpha", "ns1", "https://cryostat-alpha.ns1.svc:8181");
         CryostatInstance instance2 =
-                new CryostatInstance(
-                        "cryostat-beta",
-                        "ns2",
-                        "https://cryostat-beta.ns2.svc:8181",
-                        Set.of("shared-ns"));
+                new CryostatInstance("cryostat-beta", "ns2", "https://cryostat-beta.ns2.svc:8181");
         CryostatInstance instance3 =
                 new CryostatInstance(
-                        "cryostat-gamma",
-                        "ns3",
-                        "https://cryostat-gamma.ns3.svc:8181",
-                        Set.of("shared-ns"));
+                        "cryostat-gamma", "ns3", "https://cryostat-gamma.ns3.svc:8181");
 
         assertTrue(instance1.compareTo(instance2) < 0);
         assertTrue(instance1.compareTo(instance3) < 0);

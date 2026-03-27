@@ -21,7 +21,6 @@ import static org.mockito.Mockito.*;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import io.cryostat.mcp.CryostatGraphQLClient;
 import io.cryostat.mcp.CryostatMCP;
@@ -63,8 +62,7 @@ class CryostatMCPInstanceManagerTest {
                 new CryostatInstance(
                         "test-cryostat",
                         "test-namespace",
-                        "http://test-cryostat.test-namespace.svc:8181",
-                        Set.of("test-namespace", "app-namespace"));
+                        "http://test-cryostat.test-namespace.svc:8181");
         manager = new CryostatMCPInstanceManager();
         manager.discovery = discovery;
         manager.mapper = mapper;
@@ -89,12 +87,13 @@ class CryostatMCPInstanceManagerTest {
             when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
             when(graphqlClientBuilder.build(CryostatGraphQLClient.class)).thenReturn(graphqlClient);
 
-            when(discovery.findByNamespace("app-namespace")).thenReturn(Optional.of(testInstance));
+            when(discovery.findByNamespace("app-namespace", null))
+                    .thenReturn(Optional.of(testInstance));
 
             CryostatMCP mcp = manager.createInstance("app-namespace");
 
             assertNotNull(mcp);
-            verify(discovery).findByNamespace("app-namespace");
+            verify(discovery).findByNamespace("app-namespace", null);
         }
     }
 
@@ -118,7 +117,8 @@ class CryostatMCPInstanceManagerTest {
                     .thenReturn(graphqlClientBuilder);
             when(graphqlClientBuilder.build(CryostatGraphQLClient.class)).thenReturn(graphqlClient);
 
-            when(discovery.findByNamespace("app-namespace")).thenReturn(Optional.of(testInstance));
+            when(discovery.findByNamespace("app-namespace", "Bearer test-token"))
+                    .thenReturn(Optional.of(testInstance));
             manager.authorizationHeaderConfig = Optional.of("Bearer test-token");
 
             CryostatMCP mcp = manager.createInstance("app-namespace");
@@ -131,7 +131,7 @@ class CryostatMCPInstanceManagerTest {
 
     @Test
     void testCreateInstanceNoInstanceFound() {
-        when(discovery.findByNamespace("unknown-namespace")).thenReturn(Optional.empty());
+        when(discovery.findByNamespace("unknown-namespace", null)).thenReturn(Optional.empty());
         when(discovery.getAllInstances()).thenReturn(List.of(testInstance));
 
         IllegalStateException exception =
@@ -141,7 +141,7 @@ class CryostatMCPInstanceManagerTest {
 
         assertTrue(exception.getMessage().contains("No Cryostat instance found"));
         assertTrue(exception.getMessage().contains("unknown-namespace"));
-        verify(discovery).findByNamespace("unknown-namespace");
+        verify(discovery).findByNamespace("unknown-namespace", null);
         verify(discovery).getAllInstances();
     }
 
@@ -152,17 +152,9 @@ class CryostatMCPInstanceManagerTest {
                 MockedStatic<TypesafeGraphQLClientBuilder> mockedGraphQLBuilder =
                         mockStatic(TypesafeGraphQLClientBuilder.class)) {
             CryostatInstance instance1 =
-                    new CryostatInstance(
-                            "cryostat-1",
-                            "ns1",
-                            "http://cryostat-1.ns1.svc:8181",
-                            Set.of("ns1", "app1"));
+                    new CryostatInstance("cryostat-1", "ns1", "http://cryostat-1.ns1.svc:8181");
             CryostatInstance instance2 =
-                    new CryostatInstance(
-                            "cryostat-2",
-                            "ns2",
-                            "http://cryostat-2.ns2.svc:8181",
-                            Set.of("ns2", "app2"));
+                    new CryostatInstance("cryostat-2", "ns2", "http://cryostat-2.ns2.svc:8181");
 
             mockedRestBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
             when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
@@ -175,8 +167,8 @@ class CryostatMCPInstanceManagerTest {
             when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
             when(graphqlClientBuilder.build(CryostatGraphQLClient.class)).thenReturn(graphqlClient);
 
-            when(discovery.findByNamespace("app1")).thenReturn(Optional.of(instance1));
-            when(discovery.findByNamespace("app2")).thenReturn(Optional.of(instance2));
+            when(discovery.findByNamespace("app1", null)).thenReturn(Optional.of(instance1));
+            when(discovery.findByNamespace("app2", null)).thenReturn(Optional.of(instance2));
 
             CryostatMCP mcp1 = manager.createInstance("app1");
             CryostatMCP mcp2 = manager.createInstance("app2");
@@ -184,8 +176,8 @@ class CryostatMCPInstanceManagerTest {
             assertNotNull(mcp1);
             assertNotNull(mcp2);
             assertNotSame(mcp1, mcp2);
-            verify(discovery).findByNamespace("app1");
-            verify(discovery).findByNamespace("app2");
+            verify(discovery).findByNamespace("app1", null);
+            verify(discovery).findByNamespace("app2", null);
         }
     }
 
@@ -206,7 +198,8 @@ class CryostatMCPInstanceManagerTest {
             when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
             when(graphqlClientBuilder.build(CryostatGraphQLClient.class)).thenReturn(graphqlClient);
 
-            when(discovery.findByNamespace("app-namespace")).thenReturn(Optional.of(testInstance));
+            when(discovery.findByNamespace("app-namespace", null))
+                    .thenReturn(Optional.of(testInstance));
 
             CryostatMCP mcp1 = manager.createInstance("app-namespace");
             CryostatMCP mcp2 = manager.createInstance("app-namespace");
@@ -214,7 +207,7 @@ class CryostatMCPInstanceManagerTest {
             assertNotNull(mcp1);
             assertNotNull(mcp2);
             assertSame(mcp1, mcp2);
-            verify(discovery, times(1)).findByNamespace("app-namespace");
+            verify(discovery, times(1)).findByNamespace("app-namespace", null);
         }
     }
 }
