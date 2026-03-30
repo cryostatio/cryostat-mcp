@@ -5,9 +5,10 @@ namespace: cryostat-multi-mcp
 createNamespace: false
 
 # Authentication configuration
-# Basic auth credentials for connecting to Cryostat instances (user:pass)
+# Authorization header for connecting to Cryostat instances
+# This will be set dynamically by the installation script using 'oc whoami --show-token'
 auth:
-  authorizationHeader: "Basic dXNlcjpwYXNz"
+  authorizationHeader: ""  # Set by installation script
 
 image:
   repository: default-route-openshift-image-registry.apps-crc.testing/cryostat-multi-mcp/cryostat-k8s-multi-mcp

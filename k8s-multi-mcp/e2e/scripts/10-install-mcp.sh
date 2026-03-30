@@ -47,6 +47,25 @@ echo "Using chart from: ${CHART_DIR}"
 echo "Using values from: ${VALUES_FILE}"
 echo ""
 
+# Get OpenShift token for authentication
+# User can provide OC_TOKEN via environment variable, otherwise obtain it from oc
+if [[ -z "$OC_TOKEN" ]]; then
+    echo "Obtaining OpenShift authentication token..."
+    OC_TOKEN=$(oc whoami --show-token)
+    if [[ -z "$OC_TOKEN" ]]; then
+        echo "✗ Error: Failed to obtain OpenShift token"
+        echo "Make sure you are logged in to OpenShift or set OC_TOKEN environment variable"
+        exit 1
+    fi
+    echo "✓ Token obtained from oc"
+else
+    echo "Using OC_TOKEN from environment variable"
+fi
+echo ""
+
+# Create Bearer token for Cryostat authentication
+BEARER_TOKEN="Bearer ${OC_TOKEN}"
+
 # Check if release already exists
 if helm list -n "$NAMESPACE" | grep -q "^${RELEASE_NAME}[[:space:]]"; then
     echo "Release '${RELEASE_NAME}' already exists in project '${NAMESPACE}'"
@@ -54,6 +73,7 @@ if helm list -n "$NAMESPACE" | grep -q "^${RELEASE_NAME}[[:space:]]"; then
     helm upgrade "$RELEASE_NAME" "$CHART_DIR" \
         --namespace "$NAMESPACE" \
         --values "$VALUES_FILE" \
+        --set "auth.authorizationHeader=${BEARER_TOKEN}" \
         --wait \
         --timeout 5m
     echo "✓ Upgrade complete"
@@ -62,6 +82,7 @@ else
     helm install "$RELEASE_NAME" "$CHART_DIR" \
         --namespace "$NAMESPACE" \
         --values "$VALUES_FILE" \
+        --set "auth.authorizationHeader=${BEARER_TOKEN}" \
         --wait \
         --timeout 5m
     echo "✓ Installation complete"

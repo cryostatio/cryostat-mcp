@@ -53,11 +53,8 @@ spec:
             - name: QUARKUS_TLS_TRUST_ALL
               value: {{ .Values.env.trustAllTls | quote }}
 
-            # Static GraphQL client configuration (placeholder - actual auth is dynamic)
-            - name: QUARKUS_SMALLRYE_GRAPHQL_CLIENT_CRYOSTAT_HEADER_AUTHORIZATION
-              value: "Bearer placeholder-token-replaced-at-runtime"
-
             # Authorization header for MCP client authentication
+            # This is used by CryostatMCPInstanceManager to authenticate with Cryostat instances
             - name: K8S_MULTI_MCP_AUTHORIZATION_HEADER
               valueFrom:
                 secretKeyRef:
