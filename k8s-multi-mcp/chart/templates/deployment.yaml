@@ -37,6 +37,10 @@ spec:
             - name: QUARKUS_LOG_LEVEL
               value: {{ .Values.env.logLevel | quote }}
 
+            # Console logging configuration
+            - name: QUARKUS_LOG_CONSOLE_ENABLE
+              value: "true"
+
             # k8s-multi-mcp specific logging
             - name: QUARKUS_LOG_CATEGORY__IO_CRYOSTAT_MCP_K8S__LEVEL
               value: {{ .Values.env.k8sLogLevel | quote }}
