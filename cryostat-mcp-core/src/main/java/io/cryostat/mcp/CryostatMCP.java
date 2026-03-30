@@ -119,12 +119,20 @@ public class CryostatMCP {
                                     Label selectors use the Kubernetes selector syntax: "my-label=foo", "my-label != bar", "env in (prod, stage)", "!present".
                                     """,
                             required = false)
-                    List<String> labels) {
+                    List<String> labels,
+            @ToolArg(
+                            description =
+                                    """
+                                    Query historical targets from audit log. This is more expensive and should only be used when historical data is needed.
+                                    """,
+                            required = false,
+                            defaultValue = "false")
+                    Boolean useAuditLog) {
         DiscoveryNodeFilter filter = null;
         if (isPresent(ids) || isPresent(targetIds) || isPresent(names) || isPresent(labels)) {
             filter = DiscoveryNodeFilter.from(ids, targetIds, names, labels);
         }
-        return graphql.targetNodes(filter);
+        return graphql.targetNodes(filter, useAuditLog);
     }
 
     static boolean isPresent(Collection<?> filter) {

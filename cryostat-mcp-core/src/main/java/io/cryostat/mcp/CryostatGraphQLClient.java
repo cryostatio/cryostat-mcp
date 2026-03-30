@@ -24,5 +24,5 @@ import io.smallrye.graphql.client.typesafe.api.GraphQLClientApi;
 
 @GraphQLClientApi(configKey = "cryostat")
 public interface CryostatGraphQLClient {
-    List<DiscoveryNode> targetNodes(DiscoveryNodeFilter filter);
+    List<DiscoveryNode> targetNodes(DiscoveryNodeFilter filter, Boolean useAuditLog);
 }
