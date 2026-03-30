@@ -2,27 +2,22 @@
 set -euo pipefail
 
 # Script: 04-create-namespaces.sh
-# Purpose: Create all required namespaces for the e2e test
+# Purpose: Create all required OpenShift projects for the e2e test
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 E2E_DIR="$(dirname "$SCRIPT_DIR")"
 
-CLUSTER_NAME="cryostat-mcp-e2e"
+echo "=== Creating OpenShift projects ==="
 
-echo "=== Creating namespaces ==="
-
-# Check if cluster exists
-if ! kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
-    echo "Error: Cluster '${CLUSTER_NAME}' does not exist"
-    echo "Run 02-create-cluster.sh first"
+# Verify we're connected to OpenShift
+if ! oc cluster-info &> /dev/null; then
+    echo "✗ Error: Not connected to OpenShift cluster"
+    echo "Run 01-verify-crc.sh first"
     exit 1
 fi
 
-# Set context
-kubectl config use-context "kind-${CLUSTER_NAME}"
-
-# List of namespaces to create
-NAMESPACES=(
+# List of projects to create
+PROJECTS=(
     "cryostat-multi-mcp"  # k8s-multi-mcp deployment
     "c1"                   # Cryostat instance 1
     "apps1"                # Applications monitored by c1
@@ -30,21 +25,29 @@ NAMESPACES=(
     "apps2"                # Applications monitored by c2
 )
 
-echo "Creating namespaces..."
+echo "Creating projects..."
 echo ""
 
-for NS in "${NAMESPACES[@]}"; do
-    if kubectl get namespace "$NS" &> /dev/null; then
-        echo "  ✓ Namespace '${NS}' already exists"
+for PROJECT in "${PROJECTS[@]}"; do
+    if oc get project "$PROJECT" &> /dev/null; then
+        echo "  ✓ Project '${PROJECT}' already exists"
     else
-        echo "  → Creating namespace '${NS}'..."
-        kubectl create namespace "$NS"
+        echo "  → Creating project '${PROJECT}'..."
+        oc new-project "$PROJECT" --description="E2E test project for ${PROJECT}" || {
+            echo "  ✗ Failed to create project '${PROJECT}'"
+            echo "  Trying with kubectl create namespace..."
+            oc create namespace "$PROJECT"
+        }
         echo "  ✓ Created successfully"
     fi
 done
 
 echo ""
-echo "✓ All namespaces created"
+echo "✓ All projects created"
 echo ""
-echo "Namespace list:"
-kubectl get namespaces | grep -E "(NAME|cryostat-multi-mcp|^c1|^c2|apps1|apps2)"
+echo "Project list:"
+oc get projects | grep -E "(NAME|cryostat-multi-mcp|^c1|^c2|apps1|apps2)"
+
+echo ""
+echo "Note: In OpenShift, projects are namespaces with additional features"
+echo "You can use 'oc project <name>' to switch between projects"
