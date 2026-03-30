@@ -1,40 +1,68 @@
 # E2E Test Harness for cryostat-k8s-multi-mcp
 
-This directory contains a complete end-to-end (e2e) test harness for the `cryostat-k8s-multi-mcp` project. It sets up a local Kubernetes environment using kind (Kubernetes in Docker) with multiple Cryostat instances and sample applications to test the multi-instance MCP aggregation functionality.
+This directory contains a complete end-to-end (e2e) test harness for the `cryostat-k8s-multi-mcp` project. It sets up a local OpenShift environment using CRC (CodeReady Containers/OpenShift Local) with multiple Cryostat instances deployed via the Cryostat Operator and sample applications to test the multi-instance MCP aggregation functionality.
 
 ## Overview
 
 The e2e test environment creates:
 
-- **kind cluster**: `cryostat-mcp-e2e` with port mappings for local access
-- **5 namespaces**:
+- **CRC cluster**: OpenShift Local with native Routes for access
+- **5 OpenShift projects (namespaces)**:
   - `cryostat-multi-mcp`: k8s-multi-mcp deployment
   - `c1`: Cryostat instance 1
   - `apps1`: Sample applications monitored by c1
   - `c2`: Cryostat instance 2
   - `apps2`: Sample applications monitored by c2
-- **2 Cryostat instances**:
-  - c1: Monitors `apps1` namespace (accessible at http://localhost:8080)
-  - c2: Monitors `apps2` namespace (accessible at http://localhost:8081)
+- **Infrastructure**:
+  - cert-manager: Certificate management (v1.12.14)
+  - Cryostat Operator: Manages Cryostat instances (v4.2.0-dev-ocp)
+- **2 Cryostat instances** (via Custom Resources):
+  - c1: Monitors `apps1` namespace (accessible via OpenShift Route)
+  - c2: Monitors `apps2` namespace (accessible via OpenShift Route)
 - **2 sample applications**:
   - Quarkus app with Cryostat agent in `apps1`
   - WildFly app with Cryostat agent in `apps2`
-- **k8s-multi-mcp**: Aggregates both Cryostat instances (accessible at http://localhost:8082)
+- **k8s-multi-mcp**: Aggregates both Cryostat instances (accessible via OpenShift Route)
 
 ## Prerequisites
 
 Before running the e2e tests, ensure you have the following tools installed:
 
-- **Docker**: Container runtime (https://docs.docker.com/get-docker/)
+- **CRC (CodeReady Containers)**: OpenShift Local (https://developers.redhat.com/products/openshift-local/overview)
+- **oc**: OpenShift CLI (included with CRC)
 - **kubectl**: Kubernetes CLI (https://kubernetes.io/docs/tasks/tools/)
 - **Helm**: Kubernetes package manager (https://helm.sh/docs/intro/install/)
-- **kind**: Will be installed automatically if missing (https://kind.sigs.k8s.io/)
+- **operator-sdk**: Operator SDK CLI (https://sdk.operatorframework.io/docs/installation/)
+- **Docker/Podman**: Container runtime (CRC uses podman)
+- **jq**: JSON processor (https://stedolan.github.io/jq/)
+
+### CRC Configuration
+
+Configure CRC with sufficient resources before starting:
+
+```bash
+crc config set cpus 6
+crc config set memory 16384
+crc config set disk-size 40
+```
+
+**Recommended CRC Configuration:**
+- **CPUs**: 6 cores
+- **Memory**: 16 GB (16384 MB)
+- **Disk**: 40 GB
+
+Then start CRC:
+
+```bash
+crc start
+```
 
 ### System Requirements
 
-- At least 8GB of available RAM
-- At least 20GB of free disk space
+- At least 16GB of total RAM (CRC will use 16GB)
+- At least 50GB of free disk space (40GB for CRC + overhead)
 - Linux, macOS, or WSL2 on Windows
+- x86_64 architecture
 
 ## Quick Start
 
@@ -53,27 +81,26 @@ This will execute all setup scripts in sequence and verify the deployment.
 e2e/
 ├── e2e.sh                    # Main orchestrator script
 ├── README.md                 # This file
-├── manifests/                # Kubernetes manifests
-│   ├── kind-config.yaml      # kind cluster configuration
+├── MIGRATION_SUMMARY.md      # Migration details from kind to CRC
+├── OBSOLETE_FILES.md         # List of obsolete files from kind setup
+├── manifests/                # Kubernetes/OpenShift manifests
+│   ├── cryostat-c1.yaml      # Cryostat CR for instance 1
+│   ├── cryostat-c2.yaml      # Cryostat CR for instance 2
 │   ├── sample-app-apps1.yaml # Quarkus app deployment
 │   └── sample-app-apps2.yaml # WildFly app deployment
 ├── helm-values/              # Helm values files
-│   ├── cryostat-c1-values.yaml      # Cryostat c1 configuration
-│   ├── cryostat-c2-values.yaml      # Cryostat c2 configuration
 │   └── k8s-multi-mcp-values.yaml    # k8s-multi-mcp configuration
 └── scripts/                  # Setup scripts
-    ├── 01-setup-kind.sh      # Install kind if needed
-    ├── 02-create-cluster.sh  # Create kind cluster
-    ├── 03-load-images.sh     # Pre-load container images
-    ├── 04-create-namespaces.sh # Create required namespaces
-    ├── 05-add-helm-repo.sh   # Add Cryostat Helm repository
-    ├── 06-install-cryostat-c1.sh # Install Cryostat c1
-    ├── 07-install-cryostat-c2.sh # Install Cryostat c2
+    ├── 01-verify-crc.sh      # Verify CRC is running
+    ├── 02-install-cert-manager.sh # Install cert-manager
+    ├── 03-install-cryostat-operator.sh # Install Cryostat Operator
+    ├── 04-create-namespaces.sh # Create OpenShift projects
+    ├── 05-deploy-cryostat-instances.sh # Deploy Cryostat CRs
     ├── 08-deploy-sample-apps.sh  # Deploy sample applications
-    ├── 09-build-mcp-image.sh     # Build k8s-multi-mcp image
+    ├── 09-build-mcp-image.sh     # Build and push k8s-multi-mcp image
     ├── 10-install-mcp.sh         # Install k8s-multi-mcp
     ├── 11-verify.sh              # Verify all components
-    └── cleanup.sh                # Teardown script
+    └── cleanup.sh                # Cleanup script (no cluster deletion)
 ```
 
 ## Manual Step-by-Step Setup
@@ -83,59 +110,68 @@ If you prefer to run scripts individually or need to debug issues:
 ```bash
 cd k8s-multi-mcp/e2e/scripts
 
-# 1. Check/install kind
-./01-setup-kind.sh
+# 1. Verify CRC is running
+./01-verify-crc.sh
 
-# 2. Create kind cluster
-./02-create-cluster.sh
+# 2. Install cert-manager
+./02-install-cert-manager.sh
 
-# 3. Load container images
-./03-load-images.sh
+# 3. Install Cryostat Operator
+./03-install-cryostat-operator.sh
 
-# 4. Create namespaces
+# 4. Create OpenShift projects
 ./04-create-namespaces.sh
 
-# 5. Add Cryostat Helm repository
-./05-add-helm-repo.sh
+# 5. Deploy Cryostat instances
+./05-deploy-cryostat-instances.sh
 
-# 6. Install Cryostat c1
-./06-install-cryostat-c1.sh
-
-# 7. Install Cryostat c2
-./07-install-cryostat-c2.sh
-
-# 8. Deploy sample applications
+# 6. Deploy sample applications
 ./08-deploy-sample-apps.sh
 
-# 9. Build k8s-multi-mcp image
+# 7. Build and push k8s-multi-mcp image
 ./09-build-mcp-image.sh
 
-# 10. Install k8s-multi-mcp
+# 8. Install k8s-multi-mcp
 ./10-install-mcp.sh
 
-# 11. Verify deployment
+# 9. Verify deployment
 ./11-verify.sh
 ```
 
 ## Accessing Components
 
-Once the environment is set up, you can access:
+Once the environment is set up, you can access components via OpenShift Routes:
+
+### Get Route URLs
+
+```bash
+# Cryostat c1 route
+oc get route -n c1 cryostat-c1 -o jsonpath='{.spec.host}'
+
+# Cryostat c2 route
+oc get route -n c2 cryostat-c2 -o jsonpath='{.spec.host}'
+
+# k8s-multi-mcp route
+oc get route -n cryostat-multi-mcp k8s-multi-mcp -o jsonpath='{.spec.host}'
+```
 
 ### Cryostat Instances
 
-- **Cryostat c1**: http://localhost:8080
+- **Cryostat c1**: `https://cryostat-c1-c1.apps-crc.testing`
   - Monitors: `apps1` namespace
   - Sample app: quarkus-cryostat-agent
+  - Auth: Basic (user:pass)
   
-- **Cryostat c2**: http://localhost:8081
+- **Cryostat c2**: `https://cryostat-c2-c2.apps-crc.testing`
   - Monitors: `apps2` namespace
   - Sample app: wildfly-cryostat-agent
+  - Auth: Basic (user:pass)
 
 ### k8s-multi-mcp
 
-- **MCP Server**: http://localhost:8082
-- **Health endpoint**: http://localhost:8082/q/health
-- **Ready endpoint**: http://localhost:8082/q/health/ready
+- **MCP Server**: `http://k8s-multi-mcp-cryostat-multi-mcp.apps-crc.testing`
+- **Health endpoint**: `http://k8s-multi-mcp-cryostat-multi-mcp.apps-crc.testing/q/health`
+- **Ready endpoint**: `http://k8s-multi-mcp-cryostat-multi-mcp.apps-crc.testing/q/health/ready`
 
 ### Sample Applications
 
@@ -186,14 +222,17 @@ kubectl get all -n apps2
 ### Test MCP Endpoints
 
 ```bash
+# Get MCP route
+MCP_ROUTE=$(oc get route -n cryostat-multi-mcp k8s-multi-mcp -o jsonpath='{.spec.host}')
+
 # Health check
-curl http://localhost:8082/q/health
+curl -k https://${MCP_ROUTE}/q/health
 
 # Readiness check
-curl http://localhost:8082/q/health/ready
+curl -k https://${MCP_ROUTE}/q/health/ready
 
 # Liveness check
-curl http://localhost:8082/q/health/live
+curl -k https://${MCP_ROUTE}/q/health/live
 ```
 
 ### Verify Cryostat Discovery
@@ -202,10 +241,12 @@ Check that each Cryostat instance has discovered its respective sample applicati
 
 ```bash
 # Check c1 discovered targets (should see quarkus-cryostat-agent)
-kubectl exec -n c1 deployment/cryostat-c1 -- curl -s http://localhost:8181/api/v3/targets
+C1_ROUTE=$(oc get route -n c1 cryostat-c1 -o jsonpath='{.spec.host}')
+curl -k -u user:pass https://${C1_ROUTE}/api/v3/targets
 
 # Check c2 discovered targets (should see wildfly-cryostat-agent)
-kubectl exec -n c2 deployment/cryostat-c2 -- curl -s http://localhost:8181/api/v3/targets
+C2_ROUTE=$(oc get route -n c2 cryostat-c2 -o jsonpath='{.spec.host}')
+curl -k -u user:pass https://${C2_ROUTE}/api/v3/targets
 ```
 
 ## Troubleshooting
@@ -214,12 +255,34 @@ For detailed troubleshooting information, see [TROUBLESHOOTING.md](TROUBLESHOOTI
 
 ### Common Issues
 
-#### Cluster Creation Fails
+#### CRC Not Running
 
-If cluster creation fails, ensure Docker is running and you have sufficient resources:
+Ensure CRC is started and accessible:
 
 ```bash
-docker info
+crc status
+crc start
+```
+
+#### Insufficient Resources
+
+If pods are pending or failing due to resource constraints, check CRC configuration:
+
+```bash
+crc config view
+```
+
+Recommended settings:
+```bash
+crc config set cpus 6
+crc config set memory 16384
+crc config set disk-size 40
+```
+
+Then restart CRC:
+```bash
+crc stop
+crc start
 ```
 
 #### Pods Not Starting
@@ -227,40 +290,38 @@ docker info
 Check pod status and events:
 
 ```bash
-kubectl get pods -A
-kubectl describe pod <pod-name> -n <namespace>
-kubectl logs <pod-name> -n <namespace>
+oc get pods -A
+oc describe pod <pod-name> -n <namespace>
+oc logs <pod-name> -n <namespace>
 ```
 
 #### Image Pull Issues
 
-If images fail to pull, check your internet connection and Docker Hub rate limits. You can manually pull images:
+If images fail to pull, check your internet connection. CRC uses the internal registry for the MCP image, but Cryostat and sample app images are pulled from external registries.
+
+#### cert-manager Webhook Issues
+
+If Cryostat CRs fail to deploy with webhook errors, ensure cert-manager is fully ready:
 
 ```bash
-docker pull quay.io/cryostat/cryostat:4.2.0-SNAPSHOT
-docker pull quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest
-docker pull quay.io/redhat-java-monitoring/wildfly-28-cryostat-agent:latest
+oc get pods -n cert-manager
+oc get service cert-manager-webhook -n cert-manager
+oc get endpoints cert-manager-webhook -n cert-manager
 ```
 
-#### Port Conflicts
+#### Operator Installation Issues
 
-If ports 8080, 8081, or 8082 are already in use, you'll need to:
-
-1. Stop the conflicting service, or
-2. Modify the port mappings in `manifests/kind-config.yaml` and the corresponding Helm values files
-
-#### Helm Installation Fails
-
-Ensure the Helm repository is up to date:
+If the Cryostat operator fails to install, check OLM resources:
 
 ```bash
-helm repo update cryostat
-helm search repo cryostat
+oc get csv -A | grep cryostat
+oc get subscription -A | grep cryostat
+oc get catalogsource -A | grep cryostat
 ```
 
 ## Cleanup
 
-To completely remove the e2e environment:
+To clean up the e2e environment (without deleting the CRC cluster):
 
 ```bash
 cd k8s-multi-mcp/e2e/scripts
@@ -268,21 +329,31 @@ cd k8s-multi-mcp/e2e/scripts
 ```
 
 This will:
-- Delete the kind cluster and all its resources
-- Optionally remove local Docker images
+- Delete all e2e test resources (Cryostat instances, sample apps, MCP)
+- Remove the Cryostat operator
+- Remove cert-manager
+- Clean up all created namespaces
+- **Note**: CRC cluster itself is NOT deleted
+
+To completely remove CRC:
+
+```bash
+crc stop
+crc delete
+```
 
 ## Customization
 
 ### Modifying Cryostat Configuration
 
-Edit the Helm values files in `helm-values/`:
-- `cryostat-c1-values.yaml`: Configure Cryostat c1
-- `cryostat-c2-values.yaml`: Configure Cryostat c2
+Edit the Cryostat CR manifests in `manifests/`:
+- `cryostat-c1.yaml`: Configure Cryostat c1
+- `cryostat-c2.yaml`: Configure Cryostat c2
 
-Then re-run the installation script:
+Then re-deploy:
 
 ```bash
-./scripts/06-install-cryostat-c1.sh  # or 07 for c2
+./scripts/05-deploy-cryostat-instances.sh
 ```
 
 ### Modifying k8s-multi-mcp Configuration
@@ -303,14 +374,14 @@ Edit `helm-values/k8s-multi-mcp-values.yaml`, then:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    kind Cluster                              │
+│                    CRC (OpenShift Local)                     │
 │                                                              │
 │  ┌────────────────────┐  ┌────────────────────┐            │
-│  │   Namespace: c1    │  │   Namespace: c2    │            │
+│  │   Project: c1      │  │   Project: c2      │            │
 │  │                    │  │                    │            │
 │  │  ┌──────────────┐  │  │  ┌──────────────┐  │            │
 │  │  │  Cryostat c1 │  │  │  │  Cryostat c2 │  │            │
-│  │  │  :8181       │  │  │  │  :8181       │  │            │
+│  │  │  (CR)        │  │  │  │  (CR)        │  │            │
 │  │  └──────────────┘  │  │  └──────────────┘  │            │
 │  │         │          │  │         │          │            │
 │  │         │ monitors │  │         │ monitors │            │
@@ -318,7 +389,7 @@ Edit `helm-values/k8s-multi-mcp-values.yaml`, then:
 │  └────────────────────┘  └────────────────────┘            │
 │           │                        │                        │
 │  ┌────────▼──────────┐  ┌─────────▼─────────┐             │
-│  │ Namespace: apps1  │  │ Namespace: apps2  │             │
+│  │  Project: apps1   │  │  Project: apps2   │             │
 │  │                   │  │                   │             │
 │  │  ┌─────────────┐  │  │  ┌─────────────┐  │             │
 │  │  │ Quarkus App │  │  │  │ WildFly App │  │             │
@@ -327,20 +398,27 @@ Edit `helm-values/k8s-multi-mcp-values.yaml`, then:
 │  └───────────────────┘  └───────────────────┘             │
 │                                                              │
 │  ┌──────────────────────────────────────────────┐          │
-│  │      Namespace: cryostat-multi-mcp           │          │
+│  │      Project: cryostat-multi-mcp             │          │
 │  │                                              │          │
 │  │  ┌────────────────────────────────────────┐  │          │
 │  │  │        k8s-multi-mcp                   │  │          │
 │  │  │  (aggregates c1 and c2)                │  │          │
-│  │  │        :8080                           │  │          │
 │  │  └────────────────────────────────────────┘  │          │
+│  └──────────────────────────────────────────────┘          │
+│                                                              │
+│  ┌──────────────────────────────────────────────┐          │
+│  │      Infrastructure                          │          │
+│  │  - cert-manager (v1.12.14)                   │          │
+│  │  - Cryostat Operator (v4.2.0-dev-ocp)        │          │
 │  └──────────────────────────────────────────────┘          │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
          │                │                │
-         │ :8080          │ :8081          │ :8082
+         │ Route          │ Route          │ Route
          ▼                ▼                ▼
-    localhost:8080   localhost:8081   localhost:8082
+    cryostat-c1      cryostat-c2      k8s-multi-mcp
+    .apps-crc        .apps-crc        .apps-crc
+    .testing         .testing         .testing
 ```
 
 ## Contributing
