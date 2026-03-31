@@ -14,15 +14,14 @@ spec:
     metadata:
       labels:
         app: quarkus-cryostat-agent
+        cryostat.io/namespace: c1
+        cryostat.io/name: cryostat-c1
     spec:
       containers:
         - name: quarkus-cryostat-agent
           image: quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest
           imagePullPolicy: Always
           ports:
-            - name: jfr-jmx
-              containerPort: 9091
-              protocol: TCP
             - name: cryostat-agent
               containerPort: 9977
               protocol: TCP
@@ -45,6 +44,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: JAVA_OPTS_APPEND
+              value: ""
           resources:
             requests:
               memory: "256Mi"
@@ -63,10 +64,6 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - name: jfr-jmx
-      port: 9091
-      targetPort: 9091
-      protocol: TCP
     - name: cryostat-agent
       port: 9977
       targetPort: 9977
