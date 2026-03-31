@@ -19,11 +19,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import jakarta.enterprise.context.ApplicationScoped;
+
 /**
  * Aggregation strategy for Prometheus-formatted metrics. Concatenates metrics from multiple
  * instances, sorts lines alphabetically, and removes duplicates to provide a unified view of
  * metrics across all instances.
  */
+@ApplicationScoped
 public class PrometheusMetricsAggregationStrategy implements AggregationStrategy<String> {
 
     /**
