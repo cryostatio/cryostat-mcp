@@ -1,0 +1,216 @@
+# Default values for k8s-multi-mcp Helm chart
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Namespace configuration
+# The namespace where the chart will be installed
+namespace: cryostat-mcp-system
+
+# Whether to create the namespace if it doesn't exist
+createNamespace: true
+
+# Authentication configuration
+auth:
+  # Authorization header value for MCP client authentication
+  # If provided, a secret will be created with this value
+  # Leave empty to use existingSecret instead
+  # Example: "Bearer my-token-value"
+  authorizationHeader: ""
+  
+  # Name of an existing secret to use instead of creating one
+  # The secret must contain the authorization header value
+  # Leave empty to create a new secret from authorizationHeader
+  existingSecret: ""
+  
+  # Key name in the secret that contains the authorization header
+  secretKey: "authorization-header"
+
+# Image configuration
+image:
+  # Container image repository
+  repository: quay.io/cryostat/k8s-multi-mcp
+  
+  # Image tag (defaults to chart appVersion if not specified)
+  tag: latest
+  
+  # Image pull policy
+  pullPolicy: Always
+
+# Number of replicas
+replicaCount: 1
+
+# Service configuration
+service:
+  # Service type: ClusterIP, NodePort, or LoadBalancer
+  type: ClusterIP
+  
+  # Service port
+  port: 8080
+  
+  # Annotations for the service
+  annotations: {}
+
+# Resource requests and limits
+resources:
+  requests:
+    # Memory request (JVM mode: ~256Mi, Native mode: ~64Mi)
+    memory: "256Mi"
+    # CPU request
+    cpu: "100m"
+  limits:
+    # Memory limit (JVM mode: ~512Mi, Native mode: ~128Mi)
+    memory: "512Mi"
+    # CPU limit
+    cpu: "500m"
+
+# Liveness probe configuration
+livenessProbe:
+  # Enable liveness probe
+  enabled: true
+  # Path to the liveness endpoint
+  path: /q/health/live
+  # Initial delay before first probe (seconds)
+  initialDelaySeconds: 10
+  # How often to perform the probe (seconds)
+  periodSeconds: 10
+  # Timeout for the probe (seconds)
+  timeoutSeconds: 3
+  # Minimum consecutive successes for the probe to be considered successful
+  successThreshold: 1
+  # Minimum consecutive failures for the probe to be considered failed
+  failureThreshold: 3
+
+# Readiness probe configuration
+readinessProbe:
+  # Enable readiness probe
+  enabled: true
+  # Path to the readiness endpoint
+  path: /q/health/ready
+  # Initial delay before first probe (seconds)
+  initialDelaySeconds: 5
+  # How often to perform the probe (seconds)
+  periodSeconds: 5
+  # Timeout for the probe (seconds)
+  timeoutSeconds: 3
+  # Minimum consecutive successes for the probe to be considered successful
+  successThreshold: 1
+  # Minimum consecutive failures for the probe to be considered failed
+  failureThreshold: 3
+
+# Startup probe configuration
+startupProbe:
+  # Enable startup probe
+  enabled: true
+  # Path to the startup endpoint
+  path: /q/health/started
+  # Initial delay before first probe (seconds)
+  initialDelaySeconds: 0
+  # How often to perform the probe (seconds)
+  periodSeconds: 5
+  # Timeout for the probe (seconds)
+  timeoutSeconds: 3
+  # Minimum consecutive successes for the probe to be considered successful
+  successThreshold: 1
+  # Minimum consecutive failures for the probe to be considered failed
+  failureThreshold: 30
+
+# Environment variables for the application
+env:
+  # Logging configuration
+  logLevel: INFO
+  
+  # k8s-multi-mcp specific logging (more verbose for troubleshooting)
+  k8sLogLevel: DEBUG
+  
+  # Trust cluster certificates (set to false in production with proper CA)
+  trustCerts: true
+  
+  # Trust all TLS certificates (for development/test with self-signed certs)
+  # Set to true only in development/test environments with self-signed certificates
+  trustAllTls: false
+
+# OpenShift Route configuration (optional)
+# Routes provide external access on OpenShift clusters
+route:
+  # Enable OpenShift Route creation
+  enabled: false
+  
+  # Custom hostname for the route
+  # Leave empty for auto-generated hostname by OpenShift
+  host: ""
+  
+  # TLS configuration for the route
+  tls:
+    # Enable TLS termination
+    enabled: true
+    
+    # TLS termination type: edge, passthrough, or reencrypt
+    termination: edge
+    
+    # Policy for insecure traffic: Redirect, Allow, or None
+    insecureEdgeTerminationPolicy: Redirect
+  
+  # Annotations for the route
+  annotations: {}
+
+# Kubernetes Ingress configuration (optional)
+# Ingress provides external access on standard Kubernetes clusters
+ingress:
+  # Enable Ingress creation
+  enabled: false
+  
+  # Ingress class name (e.g., nginx, traefik)
+  className: ""
+  
+  # Annotations for the ingress
+  # Example for nginx:
+  # annotations:
+  #   nginx.ingress.kubernetes.io/rewrite-target: /
+  #   cert-manager.io/cluster-issuer: letsencrypt-prod
+  annotations: {}
+  
+  # Ingress hosts configuration
+  hosts:
+    - host: k8s-multi-mcp.local
+      paths:
+        - path: /
+          pathType: Prefix
+  
+  # TLS configuration for ingress
+  # Example:
+  # tls:
+  #   - secretName: k8s-multi-mcp-tls
+  #     hosts:
+  #       - k8s-multi-mcp.local
+  tls: []
+
+# Pod annotations
+podAnnotations:
+  # Prometheus scraping annotations (if metrics are enabled)
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/q/metrics"
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false  # Quarkus needs write access to /tmp
+
+# Node selector for pod assignment
+nodeSelector: {}
+
+# Tolerations for pod assignment
+tolerations: []
+
+# Affinity for pod assignment
+affinity: {}

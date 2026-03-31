@@ -211,5 +211,5 @@ public class CryostatMCP {
                         """));
     }
 
-    record QueryExample(String description, String query) {}
+    public record QueryExample(String description, String query) {}
 }
