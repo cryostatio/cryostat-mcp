@@ -27,7 +27,6 @@ import java.util.Set;
 
 import io.cryostat.mcp.CryostatMCP;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkiverse.mcp.server.Tool;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,6 +43,8 @@ class K8sMultiMCPTest {
 
     @Mock private CryostatMCP mockMCP;
 
+    @Mock private PrometheusMetricsAggregationStrategy prometheusAggregationStrategy;
+
     private DirectedTools directedTools;
     private NonDirectedTools nonDirectedTools;
     private SystemTools systemTools;
@@ -59,11 +60,10 @@ class K8sMultiMCPTest {
         nonDirectedTools = new NonDirectedTools();
         nonDirectedTools.discovery = discovery;
         nonDirectedTools.instanceManager = instanceManager;
-        nonDirectedTools.objectMapper = new ObjectMapper();
+        nonDirectedTools.prometheusAggregationStrategy = prometheusAggregationStrategy;
 
         systemTools = new SystemTools();
         systemTools.discovery = discovery;
-        systemTools.objectMapper = new ObjectMapper();
 
         testInstance1 =
                 new CryostatInstance(

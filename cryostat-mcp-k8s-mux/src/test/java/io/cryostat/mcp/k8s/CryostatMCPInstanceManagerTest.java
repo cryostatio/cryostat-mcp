@@ -23,14 +23,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import io.cryostat.mcp.CryostatGraphQLClient;
 import io.cryostat.mcp.CryostatMCP;
 import io.cryostat.mcp.CryostatRESTClient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.graphql.client.typesafe.api.TypesafeGraphQLClientBuilder;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
-import org.eclipse.microprofile.rest.client.ext.ClientHeadersFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,7 +49,7 @@ class CryostatMCPInstanceManagerTest {
 
     @Mock private CryostatRESTClient restClient;
 
-    @Mock private CryostatGraphQLClient graphqlClient;
+    @Mock private CryostatGraphQLClientImpl graphqlClient;
 
     private CryostatMCPInstanceManager manager;
 
@@ -87,7 +85,9 @@ class CryostatMCPInstanceManagerTest {
                     .when(TypesafeGraphQLClientBuilder::newBuilder)
                     .thenReturn(graphqlClientBuilder);
             when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.build(CryostatGraphQLClient.class)).thenReturn(graphqlClient);
+            when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
+            when(graphqlClientBuilder.build(CryostatGraphQLClientImpl.class))
+                    .thenReturn(graphqlClient);
 
             when(discovery.findByNamespace("app-namespace")).thenReturn(Optional.of(testInstance));
 
@@ -107,16 +107,18 @@ class CryostatMCPInstanceManagerTest {
             mockedRestBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
             when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
             when(restClientBuilder.followRedirects(anyBoolean())).thenReturn(restClientBuilder);
-            when(restClientBuilder.register(any(Object.class))).thenReturn(restClientBuilder);
+            when(restClientBuilder.header(anyString(), anyString())).thenReturn(restClientBuilder);
             when(restClientBuilder.build(CryostatRESTClient.class)).thenReturn(restClient);
 
             mockedGraphQLBuilder
                     .when(TypesafeGraphQLClientBuilder::newBuilder)
                     .thenReturn(graphqlClientBuilder);
             when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
+            when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
             when(graphqlClientBuilder.header(anyString(), anyString()))
                     .thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.build(CryostatGraphQLClient.class)).thenReturn(graphqlClient);
+            when(graphqlClientBuilder.build(CryostatGraphQLClientImpl.class))
+                    .thenReturn(graphqlClient);
 
             when(discovery.findByNamespace("app-namespace")).thenReturn(Optional.of(testInstance));
             manager.authorizationHeaderConfig = Optional.of("Bearer test-token");
@@ -124,7 +126,7 @@ class CryostatMCPInstanceManagerTest {
             CryostatMCP mcp = manager.createInstance("app-namespace");
 
             assertNotNull(mcp);
-            verify(restClientBuilder).register(any(ClientHeadersFactory.class));
+            verify(restClientBuilder).header("Authorization", "Bearer test-token");
             verify(graphqlClientBuilder).header("Authorization", "Bearer test-token");
         }
     }
@@ -173,7 +175,9 @@ class CryostatMCPInstanceManagerTest {
                     .when(TypesafeGraphQLClientBuilder::newBuilder)
                     .thenReturn(graphqlClientBuilder);
             when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.build(CryostatGraphQLClient.class)).thenReturn(graphqlClient);
+            when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
+            when(graphqlClientBuilder.build(CryostatGraphQLClientImpl.class))
+                    .thenReturn(graphqlClient);
 
             when(discovery.findByNamespace("app1")).thenReturn(Optional.of(instance1));
             when(discovery.findByNamespace("app2")).thenReturn(Optional.of(instance2));
@@ -204,7 +208,9 @@ class CryostatMCPInstanceManagerTest {
                     .when(TypesafeGraphQLClientBuilder::newBuilder)
                     .thenReturn(graphqlClientBuilder);
             when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.build(CryostatGraphQLClient.class)).thenReturn(graphqlClient);
+            when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
+            when(graphqlClientBuilder.build(CryostatGraphQLClientImpl.class))
+                    .thenReturn(graphqlClient);
 
             when(discovery.findByNamespace("app-namespace")).thenReturn(Optional.of(testInstance));
 
