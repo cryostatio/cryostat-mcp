@@ -439,9 +439,9 @@ cryostat-mcp-core/
 - Adjust JVM heap settings: `java -Xmx256m -jar ...`
 - Monitor with: `jcmd <pid> VM.native_memory summary`
 
-## Comparison with k8s-multi-mcp
+## Comparison with cryostat-mcp-k8s-mux
 
-| Feature | cryostat-mcp-core | k8s-multi-mcp |
+| Feature | cryostat-mcp-core | cryostat-mcp-k8s-mux |
 |---------|-------------------|---------------|
 | **Protocol** | stdio | HTTP |
 | **Instances** | Single | Multiple |
@@ -462,7 +462,7 @@ See the parent project for license information.
 ## Related Documentation
 
 - [Parent README](../README.md) - Project overview and quick start
-- [k8s-multi-mcp](../k8s-multi-mcp/README.md) - Multi-instance Kubernetes MCP
+- [cryostat-mcp-k8s-mux](../cryostat-mcp-k8s-mux/README.md) - Multi-instance Kubernetes MCP
 - [Cryostat Documentation](https://cryostat.io) - Cryostat user guide
 - [Model Context Protocol](https://modelcontextprotocol.io/) - MCP specification
 - [Quarkus](https://quarkus.io/) - Framework documentation

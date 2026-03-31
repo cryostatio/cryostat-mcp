@@ -22,7 +22,7 @@ A stdio-based MCP server that connects to a single Cryostat instance. Ideal for:
 
 **Documentation**: See [cryostat-mcp-core/README.md](./cryostat-mcp-core/README.md)
 
-### 2. k8s-multi-mcp (Kubernetes Multi-Instance)
+### 2. cryostat-mcp-k8s-mux (Kubernetes Multi-Instance)
 
 An HTTP-based MCP server that acts as a multiplexing proxy for multiple Cryostat instances in a Kubernetes cluster. Features:
 - Automatic discovery of Cryostat Custom Resources
@@ -30,7 +30,7 @@ An HTTP-based MCP server that acts as a multiplexing proxy for multiple Cryostat
 - Credential forwarding for secure access
 - Real-time CR change detection via Kubernetes Watch API
 
-**Documentation**: See [k8s-multi-mcp/README.md](./k8s-multi-mcp/README.md)
+**Documentation**: See [cryostat-mcp-k8s-mux/README.md](./cryostat-mcp-k8s-mux/README.md)
 
 ## Quick Start
 
@@ -49,7 +49,7 @@ Build specific module:
 ./mvnw clean install -pl cryostat-mcp
 
 # Multi-instance MCP
-./mvnw clean install -pl k8s-multi-mcp
+./mvnw clean install -pl cryostat-mcp-k8s-mux
 ```
 
 ### Choosing the Right MCP
@@ -57,11 +57,11 @@ Build specific module:
 | Use Case | Recommended MCP |
 |----------|----------------|
 | Single Cryostat instance | cryostat-mcp |
-| Multiple Cryostat instances in Kubernetes | k8s-multi-mcp |
-| Local development | cryostat-mcp |
-| Production Kubernetes deployment | k8s-multi-mcp |
-| Claude Desktop integration | cryostat-mcp |
-| Remote HTTP access | k8s-multi-mcp |
+| Multiple Cryostat instances in Kubernetes | cryostat-mcp-k8s-mux |
+| Local development | cryostat-mcp-single |
+| Production Kubernetes deployment | cryostat-mcp-k8s-mux |
+| Claude Desktop integration | cryostat-mcp-single |
+| Remote HTTP access | cryostat-mcp-k8s-mux |
 
 ## SEE ALSO
 
