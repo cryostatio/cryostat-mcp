@@ -1,0 +1,21 @@
+{
+    "mcpServers": {
+        "cryostat": {
+            "command": "jbang",
+            "args": [
+                "--quiet",
+                "io.cryostat:cryostat-mcp-single:1.0.0-SNAPSHOT:runner"
+            ],
+            "env": {
+                "CRYOSTAT_URL": "https://localhost:8443",
+                "CRYOSTAT_AUTH_VALUE": "Basic dXNlcjpwYXNz",
+                "QUARKUS_SMALLRYE_GRAPHQL_CLIENT_CRYOSTAT_HEADER_AUTHORIZATION": "Basic dXNlcjpwYXNz",
+                "QUARKUS_TLS_NOTLS_TRUST_ALL": "true",
+                "QUARKUS_TLS_NOTLS_HOSTNAME_VERIFICATION_ALGORITHM": "NONE",
+                "QUARKUS_REST_CLIENT_CRYOSTAT_VERIFY_HOST": "false",
+                "QUARKUS_REST_CLIENT_CRYOSTAT_TLS_CONFIGURATION_NAME": "notls",
+                "QUARKUS_SMALLRYE_GRAPHQL_CLIENT_CRYOSTAT_TLS_CONFIGURATION_NAME": "notls"
+            }
+        }
+    }
+}

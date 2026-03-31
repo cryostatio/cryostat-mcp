@@ -13,18 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat.mcp;
+package io.cryostat.mcp.single;
 
-import java.util.List;
+import io.cryostat.mcp.CryostatRESTClient;
 
-import io.cryostat.mcp.model.DiscoveryNodeFilter;
-import io.cryostat.mcp.model.graphql.DiscoveryNode;
+import org.eclipse.microprofile.rest.client.annotation.ClientHeaderParam;
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
-/**
- * Plain interface for GraphQL client operations. Runnable modules should extend this interface and
- * add framework-specific annotations.
- */
-public interface CryostatGraphQLClient {
-
-    List<DiscoveryNode> targetNodes(DiscoveryNodeFilter filter, Boolean useAuditLog);
-}
+/** Extension of CryostatRESTClient that adds authorization header injection from configuration. */
+@RegisterRestClient(configKey = "cryostat", baseUri = "http://localhost:8181")
+@ClientHeaderParam(name = "Authorization", value = "${cryostat.auth.value}")
+public interface CryostatRESTClientWithAuth extends CryostatRESTClient {}

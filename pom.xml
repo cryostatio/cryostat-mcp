@@ -9,6 +9,7 @@
 
     <modules>
         <module>cryostat-mcp-core</module>
+        <module>cryostat-mcp-single</module>
         <module>k8s-multi-mcp</module>
     </modules>
 

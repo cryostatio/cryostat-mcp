@@ -31,16 +31,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
-import org.eclipse.microprofile.rest.client.annotation.ClientHeaderParam;
-import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
-import org.jboss.resteasy.reactive.RestForm;
-import org.jboss.resteasy.reactive.RestQuery;
 
-@RegisterRestClient(
-        configKey = "cryostat",
-        baseUri = "http://localhost:8181" // this should always be overridden
-        )
-@ClientHeaderParam(name = "Authorization", value = "${cryostat.auth.value:}", required = false)
 public interface CryostatRESTClient {
 
     @GET
@@ -80,16 +71,16 @@ public interface CryostatRESTClient {
     @Path("/api/v4/targets/{targetId}/recordings")
     RecordingDescriptor startRecording(
             long targetId,
-            @RestForm String recordingName,
-            @RestForm String events,
-            @RestForm long duration,
-            @RestForm boolean toDisk,
-            @RestForm String metadata,
-            @RestForm boolean archiveOnStop);
+            @FormParam("recordingName") String recordingName,
+            @FormParam("events") String events,
+            @FormParam("duration") long duration,
+            @FormParam("toDisk") boolean toDisk,
+            @FormParam("metadata") String metadata,
+            @FormParam("archiveOnStop") boolean archiveOnStop);
 
     @GET
     @Path("/api/v4.1/metrics/reports")
-    String scrapeMetrics(@RestQuery double minTargetScore);
+    String scrapeMetrics(@QueryParam("minTargetScore") double minTargetScore);
 
     @GET
     @Path("/api/v4.1/metrics/reports/{jvmId}")
