@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cryostat-k8s-multi-mcp.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "cryostat-k8s-multi-mcp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cryostat-k8s-multi-mcp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+      labels:
+        {{- include "cryostat-k8s-multi-mcp.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "cryostat-k8s-multi-mcp.fullname" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mcp-server
+          image: "{{ .Values.image.repository }}:{{ include "cryostat-k8s-multi-mcp.imageTag" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            # HTTP server port
+            - name: QUARKUS_HTTP_PORT
+              value: "8080"
+
+            # Logging configuration
+            - name: QUARKUS_LOG_LEVEL
+              value: {{ .Values.env.logLevel | quote }}
+
+            # Console logging configuration
+            - name: QUARKUS_LOG_CONSOLE_ENABLE
+              value: "true"
+
+            # k8s-multi-mcp specific logging
+            - name: QUARKUS_LOG_CATEGORY__IO_CRYOSTAT_MCP_K8S__LEVEL
+              value: {{ .Values.env.k8sLogLevel | quote }}
+
+            # Kubernetes client configuration
+            - name: QUARKUS_KUBERNETES_CLIENT_TRUST_CERTS
+              value: {{ .Values.env.trustCerts | quote }}
+
+            # Global TLS configuration for programmatic REST clients
+            - name: QUARKUS_TLS_TRUST_ALL
+              value: {{ .Values.env.trustAllTls | quote }}
+
+            # Named TLS configuration for GraphQL clients
+            # Uses a named TLS configuration called "notls" for disabling verification
+            - name: QUARKUS_TLS_NOTLS_TRUST_ALL
+              value: {{ .Values.env.trustAllTls | quote }}
+            - name: QUARKUS_TLS_NOTLS_HOSTNAME_VERIFICATION_ALGORITHM
+              value: {{ if eq (.Values.env.trustAllTls | toString) "true" }}"NONE"{{ else }}"HTTPS"{{ end }}
+
+            # Authorization header for MCP client authentication
+            # This is used by CryostatMCPInstanceManager to authenticate with Cryostat instances
+            - name: K8S_MUX_AUTHORIZATION_HEADER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cryostat-k8s-multi-mcp.secretName" . }}
+                  key: {{ .Values.auth.secretKey }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.path }}
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.path }}
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.startupProbe.path }}
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.startupProbe.successThreshold }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      terminationGracePeriodSeconds: 30
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

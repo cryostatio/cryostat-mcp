@@ -4,12 +4,17 @@
             "command": "jbang",
             "args": [
                 "--quiet",
-                "io.cryostat:cryostat-mcp:1.0.0-SNAPSHOT:runner"
+                "io.cryostat:cryostat-mcp-single:1.0.0-SNAPSHOT:runner"
             ],
             "env": {
+                "CRYOSTAT_URL": "https://cryostat-instance.cryostat-namespace.mycluster/",
                 "CRYOSTAT_AUTH_VALUE": "Bearer $my_token",
-                "QUARKUS_REST_CLIENT_CRYOSTAT_URL": "https://cryostat-instance.cryostat-namespace.mycluster/",
-                "QUARKUS_SMALLRYE_GRAPHQL_CLIENT_CRYOSTAT_URL": "https://cryostat-instance.cryostat-namespace.mycluster/api/v4/graphql"
+                "QUARKUS_SMALLRYE_GRAPHQL_CLIENT_CRYOSTAT_HEADER_AUTHORIZATION": "Bearer $my_token",
+                "QUARKUS_TLS_NOTLS_TRUST_ALL": "true",
+                "QUARKUS_TLS_NOTLS_HOSTNAME_VERIFICATION_ALGORITHM": "NONE",
+                "QUARKUS_REST_CLIENT_CRYOSTAT_VERIFY_HOST": "false",
+                "QUARKUS_REST_CLIENT_CRYOSTAT_TLS_CONFIGURATION_NAME": "notls",
+                "QUARKUS_SMALLRYE_GRAPHQL_CLIENT_CRYOSTAT_TLS_CONFIGURATION_NAME": "notls"
             }
         }
     }
