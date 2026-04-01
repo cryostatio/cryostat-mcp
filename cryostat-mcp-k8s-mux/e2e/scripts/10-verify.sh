@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Script: 11-verify.sh
+# Script: 10-verify.sh
 # Purpose: Verify all components are running correctly on OpenShift
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -7,9 +7,7 @@ metadata:
   namespace: c1
 type: Opaque
 stringData:
-  # Basic auth credentials: user:pass
-  # This is a bcrypt hash of "pass"
-  htpasswd: "user:$2y$05$xUMuOEzt/C83Cxfz99/OXug.IJlt4IcRXeeWp.gl4G6ZhKfc1x/Ja"
+  htpasswd: "user:$2y$05$xUMuOEzt/C83Cxfz99/OXug.IJlt4IcRXeeWp.gl4G6ZhKfc1x/Ja" # notsecret
 ---
 # Cryostat CR for c1 instance
 apiVersion: operator.cryostat.io/v1beta2

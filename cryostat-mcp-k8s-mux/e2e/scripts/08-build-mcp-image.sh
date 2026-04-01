@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Script: 09-build-mcp-image.sh
+# Script: 08-build-mcp-image.sh
 # Purpose: Build and push the cryostat-mcp-k8s-mux container image to CRC internal registry
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

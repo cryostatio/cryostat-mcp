@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Script: 10-install-mcp.sh
+# Script: 09-install-mcp.sh
 # Purpose: Install cryostat-mcp-k8s-mux using Helm on OpenShift
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

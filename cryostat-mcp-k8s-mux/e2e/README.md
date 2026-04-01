@@ -108,11 +108,12 @@ e2e/
     ├── 02-install-cert-manager.sh # Install cert-manager
     ├── 03-install-cryostat-operator.sh # Install Cryostat Operator
     ├── 04-create-namespaces.sh # Create OpenShift projects
-    ├── 05-deploy-cryostat-instances.sh # Deploy Cryostat CRs
-    ├── 08-deploy-sample-apps.sh  # Deploy sample applications
-    ├── 09-build-mcp-image.sh     # Build and push cryostat-mcp-k8s-mux image
-    ├── 10-install-mcp.sh         # Install cryostat-mcp-k8s-mux
-    ├── 11-verify.sh              # Verify all components
+    ├── 05-deploy-cryostat-c1.sh  # Deploy Cryostat c1 instance
+    ├── 06-deploy-cryostat-c2.sh  # Deploy Cryostat c2 instance
+    ├── 07-deploy-sample-apps.sh  # Deploy sample applications
+    ├── 08-build-mcp-image.sh     # Build and push cryostat-mcp-k8s-mux image
+    ├── 09-install-mcp.sh         # Install cryostat-mcp-k8s-mux
+    ├── 10-verify.sh              # Verify all components
     └── cleanup.sh                # Cleanup script (no cluster deletion)
 ```
 
@@ -135,20 +136,23 @@ cd cryostat-mcp-k8s-mux/e2e/scripts
 # 4. Create OpenShift projects
 ./04-create-namespaces.sh
 
-# 5. Deploy Cryostat instances
-./05-deploy-cryostat-instances.sh
+# 5. Deploy Cryostat c1 instance
+./05-deploy-cryostat-c1.sh
 
-# 6. Deploy sample applications
-./08-deploy-sample-apps.sh
+# 6. Deploy Cryostat c2 instance
+./06-deploy-cryostat-c2.sh
 
-# 7. Build and push cryostat-mcp-k8s-mux image
-./09-build-mcp-image.sh
+# 7. Deploy sample applications
+./07-deploy-sample-apps.sh
 
-# 8. Install cryostat-mcp-k8s-mux
-./10-install-mcp.sh
+# 8. Build and push cryostat-mcp-k8s-mux image
+./08-build-mcp-image.sh
 
-# 9. Verify deployment
-./11-verify.sh
+# 9. Install cryostat-mcp-k8s-mux
+./09-install-mcp.sh
+
+# 10. Verify deployment
+./10-verify.sh
 ```
 
 ## Accessing Components
@@ -366,22 +370,23 @@ Edit the Cryostat CR manifests in `manifests/`:
 Then re-deploy:
 
 ```bash
-./scripts/05-deploy-cryostat-instances.sh
+./scripts/05-deploy-cryostat-c1.sh
+./scripts/06-deploy-cryostat-c2.sh
 ```
 
 ### Modifying k8s-multi-mcp Configuration
 
-Edit `helm-values/k8s-multi-mcp-values.yaml`, then:
+Edit `helm-values/cryostat-mcp-k8s-mux-values.yaml`, then:
 
 ```bash
-./scripts/10-install-mcp.sh
+./scripts/09-install-mcp.sh
 ```
 
 ### Adding More Sample Applications
 
 1. Create a new manifest file in `manifests/`
-2. Add deployment logic to `scripts/08-deploy-sample-apps.sh`
-3. Update verification in `scripts/11-verify.sh`
+2. Add deployment logic to `scripts/07-deploy-sample-apps.sh`
+3. Update verification in `scripts/10-verify.sh`
 
 ## Architecture
 

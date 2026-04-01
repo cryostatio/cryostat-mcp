@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Script: 08-deploy-sample-apps.sh
+# Script: 07-deploy-sample-apps.sh
 # Purpose: Deploy sample applications to apps1 and apps2 projects
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

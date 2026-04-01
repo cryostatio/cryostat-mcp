@@ -39,7 +39,7 @@ spec:
             - name: CRYOSTAT_AGENT_AUTHORIZATION_TYPE
               value: "basic"
             - name: CRYOSTAT_AGENT_AUTHORIZATION_VALUE
-              value: "user:pass"
+              value: "user:pass" # notsecret
             - name: POD_IP
               valueFrom:
                 fieldRef:
