@@ -1,3 +1,7 @@
+# Service exposes both MCP (SSE) and REST interfaces:
+# - MCP Server: /mcp (Streamble HTTP)
+# - MCP Server: /mcp/sse (Server-Sent Events)
+# - REST API: /api
 apiVersion: v1
 kind: Service
 metadata:
