@@ -17,6 +17,8 @@ package io.cryostat.mcp.k8s;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 
 import io.cryostat.mcp.CryostatMCP;
@@ -73,29 +75,40 @@ public class NonDirectedTools {
             }
         }
 
-        LOG.infof("Invoking non-directed tool across %d instances", instances.size());
+        LOG.debugf("Invoking non-directed tool across %d instances", instances.size());
 
-        List<T> results = new ArrayList<>();
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<CompletableFuture<T>> futures =
+                    instances.stream()
+                            .map(
+                                    instance ->
+                                            CompletableFuture.supplyAsync(
+                                                    () -> {
+                                                        try {
+                                                            CryostatMCP mcp =
+                                                                    instanceManager.createInstance(
+                                                                            instance.namespace());
+                                                            return invoker.apply(mcp);
+                                                        } catch (Exception e) {
+                                                            LOG.warnf(
+                                                                    e,
+                                                                    "Failed to invoke tool on"
+                                                                            + " instance '%s' in"
+                                                                            + " namespace '%s'",
+                                                                    instance.name(),
+                                                                    instance.namespace());
+                                                            return null;
+                                                        }
+                                                    },
+                                                    executor))
+                            .toList();
 
-        for (CryostatInstance instance : instances) {
+            List<T> results = futures.stream().map(CompletableFuture::join).toList();
             try {
-                CryostatMCP mcp = instanceManager.createInstance(instance.namespace());
-                T result = invoker.apply(mcp);
-                results.add(result);
+                return aggregationStrategy.aggregate(results, instances);
             } catch (Exception e) {
-                LOG.warnf(
-                        e,
-                        "Failed to invoke tool on instance '%s' in namespace '%s'",
-                        instance.name(),
-                        instance.namespace());
-                results.add(null);
+                throw new RuntimeException("Failed to aggregate results", e);
             }
-        }
-
-        try {
-            return aggregationStrategy.aggregate(results, instances);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to aggregate results", e);
         }
     }
 }
