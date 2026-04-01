@@ -29,6 +29,7 @@ import io.cryostat.mcp.CryostatRESTClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.graphql.client.typesafe.api.TypesafeGraphQLClientBuilder;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
+import org.jboss.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +39,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class CryostatMCPInstanceManagerTest {
+
+    @Mock private Logger log;
 
     @Mock private CryostatInstanceDiscovery discovery;
 
@@ -64,6 +67,7 @@ class CryostatMCPInstanceManagerTest {
                         "http://test-cryostat.test-namespace.svc:8181",
                         Set.of("test-namespace", "app-namespace"));
         manager = new CryostatMCPInstanceManager();
+        manager.log = log;
         manager.discovery = discovery;
         manager.mapper = mapper;
         manager.authorizationHeaderConfig = Optional.empty();

@@ -27,6 +27,7 @@ import io.cryostat.mcp.model.graphql.Annotations;
 import io.cryostat.mcp.model.graphql.DiscoveryNode;
 import io.cryostat.mcp.model.graphql.Target;
 
+import org.jboss.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +39,8 @@ class PodNameResolverTest {
 
     private PodNameResolver resolver;
 
+    @Mock private Logger log;
+
     @Mock private CryostatMCPInstanceManager instanceManager;
 
     private CryostatMCP mockMCP;
@@ -48,6 +51,7 @@ class PodNameResolverTest {
         // Note: Without Quarkus, we can't test actual caching behavior
         // These tests verify the resolution logic works correctly
         resolver = new PodNameResolver();
+        resolver.log = log;
         resolver.instanceManager = instanceManager;
     }
 

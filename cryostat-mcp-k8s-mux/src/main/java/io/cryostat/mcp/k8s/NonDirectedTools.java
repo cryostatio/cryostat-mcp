@@ -36,8 +36,7 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class NonDirectedTools {
 
-    private static final Logger LOG = Logger.getLogger(NonDirectedTools.class);
-
+    @Inject Logger log;
     @Inject CryostatMCPInstanceManager instanceManager;
     @Inject CryostatInstanceDiscovery discovery;
     @Inject PrometheusMetricsAggregationStrategy prometheusAggregationStrategy;
@@ -67,15 +66,13 @@ public class NonDirectedTools {
             Function<CryostatMCP, T> invoker, AggregationStrategy<T> aggregationStrategy) {
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
         if (instances.isEmpty()) {
-            LOG.warn("No Cryostat instances available for non-directed tool invocation");
+            log.warn("No Cryostat instances available for non-directed tool invocation");
             try {
                 return aggregationStrategy.aggregate(List.of(), instances);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to aggregate empty results", e);
             }
         }
-
-        LOG.debugf("Invoking non-directed tool across %d instances", instances.size());
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<T>> futures =
@@ -90,7 +87,7 @@ public class NonDirectedTools {
                                                                             instance.namespace());
                                                             return invoker.apply(mcp);
                                                         } catch (Exception e) {
-                                                            LOG.warnf(
+                                                            log.warnf(
                                                                     e,
                                                                     "Failed to invoke tool on"
                                                                             + " instance '%s' in"
