@@ -1,0 +1,201 @@
+2026-04-01 14:31:52,928 INFO  [org.tes.DockerClientFactory] (build-11) Testcontainers version: 1.21.4
+2026-04-01 14:31:53,607 INFO  [org.tes.doc.DockerClientProviderStrategy] (build-11) Found Docker environment with Environment variables, system properties and defaults. Resolved dockerHost=unix:///var/run/user/1000/podman/podman.sock
+2026-04-01 14:31:53,608 INFO  [org.tes.DockerClientFactory] (build-11) Docker host IP address is localhost
+2026-04-01 14:31:53,718 INFO  [org.tes.DockerClientFactory] (build-11) Connected to docker: 
+  Server Version: 5.8.1
+  API Version: 1.44
+  Operating System: fedora
+  Total Memory: 31787 MB
+2026-04-01 14:31:53,726 INFO  [org.tes.ima.PullPolicy] (build-11) Image pull policy will be performed by: DefaultPullPolicy()
+2026-04-01 14:31:53,727 INFO  [org.tes.uti.ImageNameSubstitutor] (build-11) Image name substitution will be performed by: DefaultImageNameSubstitutor (composite of 'ConfigurationFileImageNameSubstitutor' and 'PrefixingImageNameSubstitutor')
+2026-04-01 14:31:53,730 INFO  [org.tes.DockerClientFactory] (build-11) Checking the system...
+2026-04-01 14:31:53,730 INFO  [org.tes.DockerClientFactory] (build-11) ✔︎ Docker server version should be at least 1.6.0
+2026-04-01 14:31:54,655 INFO  [tc.reg.k8s.io/.32.0] (build-11) Creating container for image: registry.k8s.io/kube-apiserver:v1.32.0
+2026-04-01 14:31:54,684 INFO  [tc.tes.12.0] (build-11) Creating container for image: testcontainers/ryuk:0.12.0
+2026-04-01 14:31:54,769 INFO  [tc.tes.12.0] (build-11) Container testcontainers/ryuk:0.12.0 is starting: 6e050757bd9c125da20dc43ac6d56c7e7123e22fc6472267339ef3441cba0ff2
+2026-04-01 14:31:55,194 INFO  [tc.tes.12.0] (build-11) Container testcontainers/ryuk:0.12.0 started in PT0.510253272S
+2026-04-01 14:31:55,426 INFO  [tc.reg.k8s.io/.32.0] (build-11) Container registry.k8s.io/kube-apiserver:v1.32.0 is starting: 61d5be2092c2593f4b2b9baa472eedf92869ff1d428423656bc4fc6d8488591d
+2026-04-01 14:31:55,711 INFO  [tc.reg.k8s.io/.5.12-0] (build-11) Creating container for image: registry.k8s.io/etcd:3.5.12-0
+2026-04-01 14:31:55,827 INFO  [tc.reg.k8s.io/.5.12-0] (build-11) Container registry.k8s.io/etcd:3.5.12-0 is starting: feb8c12256a67e6f1b20318d378142a58cb18d02d07017e0e8329e6a123261da
+2026-04-01 14:31:55,973 INFO  [tc.reg.k8s.io/.5.12-0] (build-11) Container registry.k8s.io/etcd:3.5.12-0 started in PT0.261615616S
+2026-04-01 14:31:55,973 INFO  [com.daj.kin.ApiServerContainer] (build-11) Waiting for API server...
+2026-04-01 14:31:57,355 INFO  [tc.reg.k8s.io/.32.0] (build-11) Container registry.k8s.io/kube-apiserver:v1.32.0 started in PT2.699951776S
+2026-04-01 14:31:57,367 INFO  [io.qua.kub.cli.dep.DevServicesKubernetesProcessor] (build-11) Dev Services for Kubernetes started. Other Quarkus applications in dev mode will find the cluster automatically.
+2026-04-01 14:31:58,028 WARN  [io.qua.config] (main) Unrecognized configuration key "quarkus.mcp.server.enabled" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+2026-04-01 14:31:58,613 INFO  [io.cry.mcp.k8s.CryostatInstanceDiscovery] (main) Starting Cryostat instance discovery
+2026-04-01 14:31:58,630 WARN  [io.fab.kub.cli.dsl.int.VersionUsageUtils] (pool-8-thread-1) The client is using resource type 'cryostats' with unstable version 'v1beta2'
+2026-04-01 14:31:58,692 INFO  [io.qua.mcp.server] (executor-thread-1) MCP HTTP transport endpoints [streamable: http://localhost:-1/mcp, SSE: http://localhost:-1/mcp/sse]
+2026-04-01 14:31:58,691 INFO  [io.quarkus] (main) cryostat-mcp-k8s-mux 1.0.0-SNAPSHOT on JVM (powered by Quarkus 3.27.2) started in 8.088s. Listening on: http://localhost:46053
+2026-04-01 14:31:58,692 INFO  [io.quarkus] (main) Profile test activated. 
+2026-04-01 14:31:58,692 INFO  [io.quarkus] (main) Installed features: [cache, cdi, compose, kubernetes-client, mcp-server-http, rest, rest-client, rest-client-jackson, rest-jackson, smallrye-context-propagation, smallrye-graphql-client, smallrye-health, vertx]
+Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
+2026-04-01 14:31:58,937 ERROR [io.cry.mcp.k8s.CryostatInstanceDiscovery] (pool-8-thread-1) Failed to discover Cryostat instances: io.fabric8.kubernetes.client.KubernetesClientException: Failure executing: GET at: https://localhost:39901/apis/operator.cryostat.io/v1beta2/cryostats. Message: Not Found.
+	at io.fabric8.kubernetes.client.KubernetesClientException.copyAsCause(KubernetesClientException.java:205)
+	at io.fabric8.kubernetes.client.dsl.internal.OperationSupport.waitForResult(OperationSupport.java:507)
+	at io.fabric8.kubernetes.client.dsl.internal.BaseOperation.list(BaseOperation.java:451)
+	at io.fabric8.kubernetes.client.dsl.internal.BaseOperation.list(BaseOperation.java:419)
+	at io.fabric8.kubernetes.client.dsl.internal.BaseOperation.list(BaseOperation.java:98)
+	at io.cryostat.mcp.k8s.CryostatInstanceDiscovery.discoverInstances(CryostatInstanceDiscovery.java:82)
+	at io.cryostat.mcp.k8s.CryostatInstanceDiscovery.lambda$onStart$0(CryostatInstanceDiscovery.java:62)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: io.fabric8.kubernetes.client.KubernetesClientException: Failure executing: GET at: https://localhost:39901/apis/operator.cryostat.io/v1beta2/cryostats. Message: Not Found.
+	at io.fabric8.kubernetes.client.dsl.internal.OperationSupport.requestFailure(OperationSupport.java:642)
+	at io.fabric8.kubernetes.client.dsl.internal.OperationSupport.requestFailure(OperationSupport.java:622)
+	at io.fabric8.kubernetes.client.dsl.internal.OperationSupport.assertResponseCode(OperationSupport.java:582)
+	at io.fabric8.kubernetes.client.dsl.internal.OperationSupport.lambda$handleResponse$0(OperationSupport.java:549)
+	at java.base/java.util.concurrent.CompletableFuture$UniApply.tryFire(CompletableFuture.java:646)
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
+	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179)
+	at io.fabric8.kubernetes.client.http.StandardHttpClient.lambda$completeOrCancel$10(StandardHttpClient.java:141)
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
+	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179)
+	at io.fabric8.kubernetes.client.http.ByteArrayBodyHandler.onBodyDone(ByteArrayBodyHandler.java:51)
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
+	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179)
+	at io.fabric8.kubernetes.client.vertx.VertxHttpRequest.lambda$consumeBytes$1(VertxHttpRequest.java:84)
+	at io.vertx.core.impl.ContextInternal.dispatch(ContextInternal.java:270)
+	at io.vertx.core.impl.ContextInternal.dispatch(ContextInternal.java:252)
+	at io.vertx.core.http.impl.HttpEventHandler.handleEnd(HttpEventHandler.java:76)
+	at io.vertx.core.http.impl.HttpClientResponseImpl.handleEnd(HttpClientResponseImpl.java:250)
+	at io.vertx.core.http.impl.Http1xClientConnection$StreamImpl.lambda$new$0(Http1xClientConnection.java:448)
+	at io.vertx.core.streams.impl.InboundBuffer.handleEvent(InboundBuffer.java:279)
+	at io.vertx.core.streams.impl.InboundBuffer.write(InboundBuffer.java:157)
+	at io.vertx.core.http.impl.Http1xClientConnection$StreamImpl.handleEnd(Http1xClientConnection.java:758)
+	at io.vertx.core.impl.ContextImpl.execute(ContextImpl.java:327)
+	at io.vertx.core.impl.ContextImpl.execute(ContextImpl.java:307)
+	at io.vertx.core.http.impl.Http1xClientConnection.handleResponseEnd(Http1xClientConnection.java:989)
+	at io.vertx.core.http.impl.Http1xClientConnection.handleHttpMessage(Http1xClientConnection.java:861)
+	at io.vertx.core.http.impl.Http1xClientConnection.handleMessage(Http1xClientConnection.java:823)
+	at io.vertx.core.net.impl.ConnectionBase.read(ConnectionBase.java:159)
+	at io.vertx.core.net.impl.VertxHandler.channelRead(VertxHandler.java:153)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:442)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+	at io.netty.channel.CombinedChannelDuplexHandler$DelegatingChannelHandlerContext.fireChannelRead(CombinedChannelDuplexHandler.java:436)
+	at io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead(ByteToMessageDecoder.java:361)
+	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:325)
+	at io.netty.channel.CombinedChannelDuplexHandler.channelRead(CombinedChannelDuplexHandler.java:251)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:442)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+	at io.netty.handler.ssl.SslHandler.unwrap(SslHandler.java:1519)
+	at io.netty.handler.ssl.SslHandler.decodeJdkCompatible(SslHandler.java:1377)
+	at io.netty.handler.ssl.SslHandler.decode(SslHandler.java:1428)
+	at io.netty.handler.codec.ByteToMessageDecoder.decodeRemovalReentryProtection(ByteToMessageDecoder.java:545)
+	at io.netty.handler.codec.ByteToMessageDecoder.callDecode(ByteToMessageDecoder.java:484)
+	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:296)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:444)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1357)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:440)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:868)
+	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:166)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:796)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	... 1 more
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+2026-04-01 14:31:58,968 ERROR [io.cry.mcp.k8s.CryostatInstanceDiscovery] (pool-8-thread-1) Failed to start watch: io.fabric8.kubernetes.client.KubernetesClientException: Received 404 on websocket. Failure executing: GET at: https://localhost:39901/apis/operator.cryostat.io/v1beta2/cryostats?allowWatchBookmarks=true&watch=true. Message: Not Found.
+	at io.fabric8.kubernetes.client.dsl.internal.OperationSupport.requestFailure(OperationSupport.java:642)
+	at io.fabric8.kubernetes.client.dsl.internal.WatchConnectionManager.lambda$start$3(WatchConnectionManager.java:86)
+	at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:934)
+	at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:911)
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
+	at io.fabric8.kubernetes.client.http.StandardHttpClient.lambda$completeOrCancel$10(StandardHttpClient.java:139)
+	at io.fabric8.kubernetes.client.http.StandardHttpClient.lambda$buildWebSocket$18(StandardHttpClient.java:255)
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
+	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179)
+	at io.fabric8.kubernetes.client.utils.AsyncUtils.lambda$retryWithExponentialBackoff$3(AsyncUtils.java:91)
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
+	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179)
+	at io.fabric8.kubernetes.client.vertx.VertxHttpClient.lambda$buildWebSocketDirect$3(VertxHttpClient.java:101)
+	at io.vertx.core.impl.future.FutureImpl$2.onFailure(FutureImpl.java:117)
+	at io.vertx.core.impl.future.FutureImpl$ListenerArray.onFailure(FutureImpl.java:316)
+	at io.vertx.core.impl.future.FutureBase.emitFailure(FutureBase.java:81)
+	at io.vertx.core.impl.future.FutureImpl.tryFail(FutureImpl.java:278)
+	at io.vertx.core.impl.future.PromiseImpl.onFailure(PromiseImpl.java:54)
+	at io.vertx.core.impl.future.PromiseImpl.handle(PromiseImpl.java:43)
+	at io.vertx.core.impl.future.PromiseImpl.handle(PromiseImpl.java:23)
+	at io.vertx.core.http.impl.HttpClientBase.lambda$webSocket$1(HttpClientBase.java:170)
+	at io.vertx.core.impl.future.FutureImpl$4.onFailure(FutureImpl.java:188)
+	at io.vertx.core.impl.future.FutureBase.lambda$emitFailure$1(FutureBase.java:75)
+	at io.vertx.core.impl.ContextImpl.execute(ContextImpl.java:312)
+	at io.vertx.core.impl.ContextImpl.execute(ContextImpl.java:302)
+	at io.vertx.core.impl.future.FutureBase.emitFailure(FutureBase.java:72)
+	at io.vertx.core.impl.future.FutureImpl.tryFail(FutureImpl.java:278)
+	at io.vertx.core.Promise.fail(Promise.java:89)
+	at io.vertx.core.http.impl.Http1xClientConnection.lambda$toWebSocket$7(Http1xClientConnection.java:1065)
+	at io.vertx.core.http.impl.WebSocketHandshakeInboundHandler.handshakeComplete(WebSocketHandshakeInboundHandler.java:103)
+	at io.vertx.core.http.impl.WebSocketHandshakeInboundHandler.channelRead(WebSocketHandshakeInboundHandler.java:84)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:444)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+	at io.netty.channel.CombinedChannelDuplexHandler$DelegatingChannelHandlerContext.fireChannelRead(CombinedChannelDuplexHandler.java:436)
+	at io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead(ByteToMessageDecoder.java:361)
+	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:325)
+	at io.netty.channel.CombinedChannelDuplexHandler.channelRead(CombinedChannelDuplexHandler.java:251)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:442)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+	at io.netty.handler.ssl.SslHandler.unwrap(SslHandler.java:1519)
+	at io.netty.handler.ssl.SslHandler.decodeJdkCompatible(SslHandler.java:1377)
+	at io.netty.handler.ssl.SslHandler.decode(SslHandler.java:1428)
+	at io.netty.handler.codec.ByteToMessageDecoder.decodeRemovalReentryProtection(ByteToMessageDecoder.java:545)
+	at io.netty.handler.codec.ByteToMessageDecoder.callDecode(ByteToMessageDecoder.java:484)
+	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:296)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:444)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1357)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:440)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:868)
+	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:166)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:796)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+	Suppressed: java.lang.Throwable: waiting here
+		at io.fabric8.kubernetes.client.utils.Utils.waitUntilReady(Utils.java:175)
+		at io.fabric8.kubernetes.client.utils.Utils.waitUntilReadyOrFail(Utils.java:186)
+		at io.fabric8.kubernetes.client.dsl.internal.BaseOperation.watch(BaseOperation.java:642)
+		at io.fabric8.kubernetes.client.dsl.internal.BaseOperation.watch(BaseOperation.java:629)
+		at io.cryostat.mcp.k8s.CryostatInstanceDiscovery.startWatch(CryostatInstanceDiscovery.java:100)
+		at io.cryostat.mcp.k8s.CryostatInstanceDiscovery.lambda$onStart$0(CryostatInstanceDiscovery.java:63)
+		at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+		at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+		at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+		at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+		... 1 more
+
+2026-04-01 14:31:58,969 INFO  [io.cry.mcp.k8s.CryostatInstanceDiscovery] (pool-8-thread-1) Cryostat instance discovery initialized
+WARNING: A Java agent has been loaded dynamically (/home/aazores/.m2/repository/net/bytebuddy/byte-buddy-agent/1.17.5/byte-buddy-agent-1.17.5.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+2026-04-01 14:32:04,309 INFO  [io.cry.mcp.k8s.CryostatInstanceDiscovery] (main) Shutting down Cryostat instance discovery
+2026-04-01 14:32:04,331 INFO  [io.quarkus] (main) cryostat-mcp-k8s-mux stopped in 0.041s

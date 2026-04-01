@@ -46,32 +46,30 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class CryostatInstanceDiscovery {
 
-    private static final Logger LOG = Logger.getLogger(CryostatInstanceDiscovery.class);
-
     private final ExecutorService discoveryExecutor = Executors.newSingleThreadExecutor();
     private final Map<String, CryostatInstance> instances = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> namespaceToInstances = new ConcurrentHashMap<>();
     private Watch watch;
 
+    @Inject Logger log;
     @Inject KubernetesClient k8sClient;
 
     void onStart(@Observes StartupEvent event) {
-        LOG.info("Starting Cryostat instance discovery");
+        log.info("Starting Cryostat instance discovery");
         discoveryExecutor.submit(
                 () -> {
                     try {
-                        LOG.info("Started Cryostat instance discovery");
                         discoverInstances();
                         startWatch();
-                        LOG.info("Cryostat instance discovery initialized");
+                        log.info("Cryostat instance discovery initialized");
                     } catch (Exception e) {
-                        LOG.error("Failed to initialize Cryostat instance discovery", e);
+                        log.error("Failed to initialize Cryostat instance discovery", e);
                     }
                 });
     }
 
     void onShutdown(@Observes ShutdownEvent event) {
-        LOG.info("Shutting down Cryostat instance discovery");
+        log.info("Shutting down Cryostat instance discovery");
         if (watch != null) {
             watch.close();
         }
@@ -87,9 +85,9 @@ public class CryostatInstanceDiscovery {
                 handleCryostatAdded(cr);
             }
 
-            LOG.infof("Discovered %d Cryostat instances", instances.size());
+            log.infof("Discovered %d Cryostat instances", instances.size());
         } catch (Exception e) {
-            LOG.error("Failed to discover Cryostat instances", e);
+            log.error("Failed to discover Cryostat instances", e);
         }
     }
 
@@ -109,16 +107,16 @@ public class CryostatInstanceDiscovery {
                                         @Override
                                         public void onClose(WatcherException e) {
                                             if (e != null) {
-                                                LOG.error("Watch closed with error, restarting", e);
+                                                log.error("Watch closed with error, restarting", e);
                                                 startWatch();
                                             } else {
-                                                LOG.info("Watch closed normally");
+                                                log.info("Watch closed normally");
                                             }
                                         }
                                     });
-            LOG.info("Started watching Cryostat CRs");
+            log.info("Started watching Cryostat CRs");
         } catch (Exception e) {
-            LOG.error("Failed to start watch", e);
+            log.error("Failed to start watch", e);
         }
     }
 
@@ -128,22 +126,22 @@ public class CryostatInstanceDiscovery {
 
         switch (action) {
             case ADDED:
-                LOG.infof("Cryostat CR added: %s/%s", namespace, name);
+                log.debugf("Cryostat CR added: %s/%s", namespace, name);
                 handleCryostatAdded(cr);
                 break;
 
             case MODIFIED:
-                LOG.infof("Cryostat CR modified: %s/%s", namespace, name);
+                log.debugf("Cryostat CR modified: %s/%s", namespace, name);
                 handleCryostatModified(cr);
                 break;
 
             case DELETED:
-                LOG.infof("Cryostat CR deleted: %s/%s", namespace, name);
+                log.debugf("Cryostat CR deleted: %s/%s", namespace, name);
                 handleCryostatDeleted(cr);
                 break;
 
             case ERROR:
-                LOG.errorf("Watch error for CR: %s/%s", namespace, name);
+                log.errorf("Watch error for CR: %s/%s", namespace, name);
                 break;
         }
     }
@@ -235,7 +233,7 @@ public class CryostatInstanceDiscovery {
                 }
             }
         } catch (Exception e) {
-            LOG.errorf(e, "Failed to determine service URL for %s/%s", namespace, name);
+            log.errorf(e, "Failed to determine service URL for %s/%s", namespace, name);
         }
 
         return String.format("https://%s.%s.svc:8181", name, namespace);
@@ -294,7 +292,7 @@ public class CryostatInstanceDiscovery {
         Collections.sort(matches);
 
         if (matches.size() > 1) {
-            LOG.warnf(
+            log.warnf(
                     "Multiple Cryostat instances monitor namespace '%s': %s. Selected: %s"
                             + " (deterministic tiebreaker)",
                     namespace,

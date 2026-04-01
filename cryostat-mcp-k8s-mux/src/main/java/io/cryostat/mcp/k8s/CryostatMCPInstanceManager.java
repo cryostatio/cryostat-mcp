@@ -37,10 +37,9 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class CryostatMCPInstanceManager {
 
-    private static final Logger LOG = Logger.getLogger(CryostatMCPInstanceManager.class);
-
     private final ConcurrentHashMap<String, CryostatMCP> instanceCache = new ConcurrentHashMap<>();
 
+    @Inject Logger log;
     @Inject CryostatInstanceDiscovery discovery;
     @Inject ObjectMapper mapper;
 
@@ -85,7 +84,7 @@ public class CryostatMCPInstanceManager {
     }
 
     private CryostatMCP createNewInstance(String namespace, String authorizationHeader) {
-        LOG.infof(
+        log.debugf(
                 "Creating CryostatMCP instance for namespace '%s' on thread %s with %s auth header",
                 namespace,
                 Thread.currentThread().getName(),
@@ -99,12 +98,12 @@ public class CryostatMCPInstanceManager {
                             "No Cryostat instance found for namespace '%s'. Available instances:"
                                     + " %s",
                             namespace, discovery.getAllInstances());
-            LOG.error(message);
+            log.error(message);
             throw new IllegalStateException(message);
         }
 
         CryostatInstance instance = instanceOpt.get();
-        LOG.infof(
+        log.debugf(
                 "Found Cryostat instance '%s' at %s for namespace '%s'",
                 instance.name(), instance.applicationUrl(), namespace);
 
@@ -128,19 +127,12 @@ public class CryostatMCPInstanceManager {
                         ? authorizationHeader
                         : authorizationHeaderConfig.orElse(null);
 
-        LOG.infof(
-                "Creating REST client for %s with auth header: %s (source: %s)",
-                instance.applicationUrl(),
-                authHeader != null ? "present" : "null",
-                authorizationHeader != null ? "explicit" : "config");
-
         if (authHeader != null && !authHeader.isEmpty()) {
             // Use builder.header() to set the Authorization header directly
             // This is the correct way for programmatic REST client configuration in Quarkus
             builder.header("Authorization", authHeader);
-            LOG.infof("Set Authorization header on REST client builder");
         } else {
-            LOG.warnf(
+            log.warnf(
                     "No authorization header available for %s - requests will likely fail with 403",
                     instance.applicationUrl());
         }
@@ -165,7 +157,7 @@ public class CryostatMCPInstanceManager {
                         : authorizationHeaderConfig.orElse(null);
 
         if (authHeader != null && !authHeader.isEmpty()) {
-            LOG.debugf(
+            log.debugf(
                     "Forwarding Authorization header to GraphQL client for %s (source: %s)",
                     graphqlEndpoint, authorizationHeader != null ? "explicit" : "config");
             builder.header("Authorization", authHeader);

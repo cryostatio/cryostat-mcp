@@ -39,8 +39,7 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class PodNameResolver {
 
-    private static final Logger LOG = Logger.getLogger(PodNameResolver.class);
-
+    @Inject Logger log;
     @Inject CryostatMCPInstanceManager instanceManager;
 
     /**
@@ -81,10 +80,6 @@ public class PodNameResolver {
      */
     private String resolvePodNameToJvmIdInternal(
             String namespace, String podName, boolean useAuditLog) {
-        LOG.debugf(
-                "Resolving Pod '%s' in namespace '%s' to jvmId (useAuditLog=%s)",
-                podName, namespace, useAuditLog);
-
         Target target =
                 findTargetByPodName(namespace, podName, useAuditLog)
                         .orElseThrow(
@@ -93,7 +88,6 @@ public class PodNameResolver {
                                                 buildErrorMessage(
                                                         podName, namespace, useAuditLog)));
 
-        LOG.debugf("Resolved Pod '%s' to jvmId '%s'", podName, target.jvmId());
         return target.jvmId();
     }
 
@@ -135,10 +129,6 @@ public class PodNameResolver {
      */
     private Long resolvePodNameToTargetIdInternal(
             String namespace, String podName, boolean useAuditLog) {
-        LOG.debugf(
-                "Resolving Pod '%s' in namespace '%s' to targetId (useAuditLog=%s)",
-                podName, namespace, useAuditLog);
-
         Target target =
                 findTargetByPodName(namespace, podName, useAuditLog)
                         .orElseThrow(
@@ -147,7 +137,6 @@ public class PodNameResolver {
                                                 buildErrorMessage(
                                                         podName, namespace, useAuditLog)));
 
-        LOG.debugf("Resolved Pod '%s' to targetId %d", podName, target.id());
         return target.id();
     }
 
@@ -155,15 +144,11 @@ public class PodNameResolver {
      * Invalidate cached resolution for a specific Pod. Useful when a Pod is known to have changed.
      */
     @CacheInvalidate(cacheName = "pod-name-resolution")
-    public void invalidateCache(@CacheKey String namespace, @CacheKey String podName) {
-        LOG.debugf("Invalidating cache for Pod '%s' in namespace '%s'", podName, namespace);
-    }
+    public void invalidateCache(@CacheKey String namespace, @CacheKey String podName) {}
 
     /** Invalidate all cached resolutions. */
     @CacheInvalidateAll(cacheName = "pod-name-resolution")
-    public void invalidateAllCache() {
-        LOG.debug("Invalidating all Pod name resolution cache entries");
-    }
+    public void invalidateAllCache() {}
 
     /**
      * Find a target by Pod name using the Cryostat GraphQL API.
@@ -191,7 +176,7 @@ public class PodNameResolver {
                             .findFirst();
 
             if (nodes.size() > 1 && target.isPresent()) {
-                LOG.warnf(
+                log.warnf(
                         "Multiple discovery nodes found for Pod '%s' in namespace '%s'"
                                 + " (useAuditLog=%s). Using first match with target: %s",
                         podName, namespace, useAuditLog, target.get().connectUrl());
@@ -199,7 +184,7 @@ public class PodNameResolver {
 
             return target;
         } catch (Exception e) {
-            LOG.errorf(
+            log.errorf(
                     e,
                     "Failed to find target for Pod '%s' in namespace '%s' (useAuditLog=%s)",
                     podName,
