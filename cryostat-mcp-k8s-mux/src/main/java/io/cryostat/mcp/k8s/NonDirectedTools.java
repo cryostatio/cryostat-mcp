@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Function;
 
 import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.model.DiscoveryNode;
 
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
@@ -40,6 +41,53 @@ public class NonDirectedTools {
     @Inject CryostatMCPInstanceManager instanceManager;
     @Inject CryostatInstanceDiscovery discovery;
     @Inject PrometheusMetricsAggregationStrategy prometheusAggregationStrategy;
+    @Inject DiscoveryTreeAggregationStrategy discoveryTreeAggregationStrategy;
+    @Inject TargetListAggregationStrategy targetListAggregationStrategy;
+
+    @Tool(
+            description =
+                    "Get the full discovery tree from all Cryostat instances. This returns a"
+                        + " unified tree with Universe as root, containing Realm nodes from all"
+                        + " instances. Each Realm node is labeled with its source instance"
+                        + " namespace for traceability. The tree structure is: Universe -> Realm ->"
+                        + " Namespace -> Deployment -> ReplicaSet -> Pod -> Target.")
+    public DiscoveryNode getGlobalDiscoveryTree() {
+        return aggregateFromAllInstances(
+                mcp -> mcp.getDiscoveryTree(true), discoveryTreeAggregationStrategy);
+    }
+
+    @Tool(
+            description =
+                    "Get a list of all discovered Target applications from all Cryostat instances."
+                        + " Each Target belongs to a Discovery Node (typically a Pod). Results are"
+                        + " labeled with the source instance namespace for traceability. If no"
+                        + " filter inputs are provided, the full list of all discovered Targets"
+                        + " will be returned. Otherwise, if any filter inputs are provided, then"
+                        + " only Targets which match all of the given inputs will be returned.")
+    public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listGlobalTargets(
+            @ToolArg(
+                            description =
+                                    "List of Discovery Node names to match. Discovery Nodes"
+                                            + " matching any of the given names will be selected.")
+                    List<String> names,
+            @ToolArg(
+                            description =
+                                    "List of Discovery Node label selectors to match. Discovery"
+                                        + " Nodes matching any of the given label selectors will be"
+                                        + " selected. Label selectors use the Kubernetes selector"
+                                        + " syntax: \"my-label=foo\", \"my-label != bar\", \"env in"
+                                        + " (prod, stage)\", \"!present\".")
+                    List<String> labels,
+            @ToolArg(
+                            description =
+                                    "Query historical targets from audit log. This is more"
+                                        + " expensive and should only be used when historical data"
+                                        + " is needed.")
+                    Boolean useAuditLog) {
+        return aggregateFromAllInstances(
+                mcp -> mcp.listTargets(null, null, names, labels, useAuditLog),
+                targetListAggregationStrategy);
+    }
 
     @Tool(
             description =

@@ -18,7 +18,7 @@ package io.cryostat.mcp.model;
 import java.util.List;
 
 public record Target(
-        long id,
+        Long id,
         String connectUrl,
         String alias,
         String jvmId,

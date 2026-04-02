@@ -32,9 +32,7 @@ import org.jboss.logging.Logger;
 
 /**
  * Service for resolving Kubernetes Pod names to Cryostat Target identifiers (JVM ID and Target ID).
- * Uses Quarkus Cache (Caffeine) to cache resolutions for 60 seconds. Cache key is (namespace,
- * podName) only - useAuditLog is not part of the cache key since a Pod's identifiers don't change
- * based on how we query for them.
+ * Uses Quarkus Cache (Caffeine) to cache resolutions.
  */
 @ApplicationScoped
 public class PodNameResolver {
@@ -43,9 +41,7 @@ public class PodNameResolver {
     @Inject CryostatMCPInstanceManager instanceManager;
 
     /**
-     * Resolve a Pod name to its JVM hash ID. Results are cached for 60 seconds using Quarkus Cache
-     * (Caffeine). Cache is shared regardless of useAuditLog value - once resolved, the result is
-     * cached.
+     * Resolve a Pod name to its JVM hash ID.
      *
      * @param namespace The namespace containing the Pod
      * @param podName The name of the Pod
@@ -58,9 +54,7 @@ public class PodNameResolver {
     }
 
     /**
-     * Resolve a Pod name to its JVM hash ID with explicit audit log control. Results are cached for
-     * 60 seconds using Quarkus Cache (Caffeine). Cache is shared regardless of useAuditLog value -
-     * once resolved, the result is cached.
+     * Resolve a Pod name to its JVM hash ID with explicit audit log control.
      *
      * @param namespace The namespace containing the Pod
      * @param podName The name of the Pod
@@ -74,10 +68,6 @@ public class PodNameResolver {
         return resolvePodNameToJvmIdInternal(namespace, podName, useAuditLog);
     }
 
-    /**
-     * Internal method that performs the actual resolution to JVM ID. Not cached directly - caching
-     * happens at the public method level.
-     */
     private String resolvePodNameToJvmIdInternal(
             String namespace, String podName, boolean useAuditLog) {
         Target target =
@@ -92,9 +82,7 @@ public class PodNameResolver {
     }
 
     /**
-     * Resolve a Pod name to its Target ID. Results are cached for 60 seconds using Quarkus Cache
-     * (Caffeine). Cache is shared regardless of useAuditLog value - once resolved, the result is
-     * cached.
+     * Resolve a Pod name to its Target ID.
      *
      * @param namespace The namespace containing the Pod
      * @param podName The name of the Pod
@@ -107,9 +95,7 @@ public class PodNameResolver {
     }
 
     /**
-     * Resolve a Pod name to its Target ID with explicit audit log control. Results are cached for
-     * 60 seconds using Quarkus Cache (Caffeine). Cache is shared regardless of useAuditLog value -
-     * once resolved, the result is cached.
+     * Resolve a Pod name to its Target ID with explicit audit log control.
      *
      * @param namespace The namespace containing the Pod
      * @param podName The name of the Pod
@@ -123,10 +109,6 @@ public class PodNameResolver {
         return resolvePodNameToTargetIdInternal(namespace, podName, useAuditLog);
     }
 
-    /**
-     * Internal method that performs the actual resolution to Target ID. Not cached directly -
-     * caching happens at the public method level.
-     */
     private Long resolvePodNameToTargetIdInternal(
             String namespace, String podName, boolean useAuditLog) {
         Target target =
@@ -163,12 +145,9 @@ public class PodNameResolver {
         try {
             CryostatMCP mcp = instanceManager.createInstance(namespace);
 
-            // Query Cryostat for targets matching the Pod name
-            // useAuditLog=true enables querying historical targets from audit log
             List<DiscoveryNode> nodes =
                     mcp.listTargets(null, null, List.of(podName), null, useAuditLog);
 
-            // Find the first node with a target
             Optional<Target> target =
                     nodes.stream()
                             .filter(node -> node.target() != null)

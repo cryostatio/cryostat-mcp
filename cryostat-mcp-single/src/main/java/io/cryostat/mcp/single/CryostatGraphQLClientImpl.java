@@ -15,6 +15,8 @@
  */
 package io.cryostat.mcp.single;
 
+import java.util.List;
+
 import io.cryostat.mcp.CryostatGraphQLClient;
 
 import io.smallrye.graphql.client.typesafe.api.GraphQLClientApi;
@@ -30,7 +32,7 @@ import org.eclipse.microprofile.graphql.Name;
 public interface CryostatGraphQLClientImpl extends CryostatGraphQLClient {
 
     @Override
-    java.util.List<io.cryostat.mcp.model.graphql.DiscoveryNode> targetNodes(
+    List<io.cryostat.mcp.model.graphql.DiscoveryNode> targetNodes(
             @Name("filter") io.cryostat.mcp.model.DiscoveryNodeFilter filter,
             @Name("useAuditLog") Boolean useAuditLog);
 }
