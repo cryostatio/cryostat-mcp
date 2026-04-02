@@ -4,7 +4,7 @@
             "command": "jbang",
             "args": [
                 "--quiet",
-                "io.cryostat:cryostat-mcp-single:1.0.0-SNAPSHOT:runner"
+                "io.cryostat:cryostat-mcp-single:0.1.0-SNAPSHOT:runner"
             ],
             "env": {
                 "CRYOSTAT_URL": "https://localhost:8443",
