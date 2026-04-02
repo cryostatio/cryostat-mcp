@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quarkus-cryostat-agent
+  namespace: apps1
+  labels:
+    app: quarkus-cryostat-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quarkus-cryostat-agent
+  template:
+    metadata:
+      labels:
+        app: quarkus-cryostat-agent
+        cryostat.io/namespace: c1
+        cryostat.io/name: cryostat-c1
+    spec:
+      containers:
+        - name: quarkus-cryostat-agent
+          image: quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest
+          imagePullPolicy: Always
+          ports:
+            - name: cryostat-agent
+              containerPort: 9977
+              protocol: TCP
+          env:
+            - name: CRYOSTAT_AGENT_APP_NAME
+              value: "quarkus-cryostat-agent"
+            - name: CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY
+              value: "false"
+            - name: CRYOSTAT_AGENT_WEBSERVER_HOST
+              value: "0.0.0.0"
+            - name: CRYOSTAT_AGENT_WEBSERVER_PORT
+              value: "9977"
+            - name: CRYOSTAT_AGENT_CALLBACK
+              value: "http://$(POD_IP):9977/"
+            - name: CRYOSTAT_AGENT_AUTHORIZATION_TYPE
+              value: "basic"
+            - name: CRYOSTAT_AGENT_AUTHORIZATION_VALUE
+              value: "user:pass" # notsecret
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: JAVA_OPTS_APPEND
+              value: ""
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quarkus-cryostat-agent
+  namespace: apps1
+  labels:
+    app: quarkus-cryostat-agent
+spec:
+  type: ClusterIP
+  ports:
+    - name: cryostat-agent
+      port: 9977
+      targetPort: 9977
+      protocol: TCP
+  selector:
+    app: quarkus-cryostat-agent

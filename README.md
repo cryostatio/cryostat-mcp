@@ -5,7 +5,63 @@
   </picture>
 </a>
 
-A Model Context Protocol (MCP) server for [Cryostat](https://cryostat.io).
+# Cryostat MCP
+
+Model Context Protocol (MCP) servers for [Cryostat](https://cryostat.io).
+
+## Project Structure
+
+This is a multi-module Maven project containing two MCP server implementations:
+
+### 1. cryostat-mcp (Single Instance)
+
+A stdio-based MCP server that connects to a single Cryostat instance. Ideal for:
+- Local development with a single Cryostat instance
+- Direct integration with MCP clients like Claude Desktop
+- Simple single-instance deployments
+
+**Documentation**: See [cryostat-mcp-core/README.md](./cryostat-mcp-core/README.md)
+
+### 2. cryostat-mcp-k8s-mux (Kubernetes Multi-Instance)
+
+An HTTP-based MCP server that acts as a multiplexing proxy for multiple Cryostat instances in a Kubernetes cluster. Features:
+- Automatic discovery of Cryostat Custom Resources
+- Namespace-based routing to appropriate Cryostat instances
+- Credential forwarding for secure access
+- Real-time CR change detection via Kubernetes Watch API
+
+**Documentation**: See [cryostat-mcp-k8s-mux/README.md](./cryostat-mcp-k8s-mux/README.md)
+
+## Quick Start
+
+### Building the Entire Project
+
+Build all modules:
+
+```bash
+./mvnw clean install
+```
+
+Build specific module:
+
+```bash
+# Single-instance MCP
+./mvnw clean install -pl cryostat-mcp
+
+# Multi-instance MCP
+./mvnw clean install -pl cryostat-mcp-k8s-mux
+```
+
+### Choosing the Right MCP
+
+| Use Case | Recommended MCP |
+|----------|----------------|
+| Single Cryostat instance | cryostat-mcp |
+| Multiple Cryostat instances in Kubernetes | cryostat-mcp-k8s-mux |
+| Local development | cryostat-mcp-single |
+| Production Kubernetes deployment | cryostat-mcp-k8s-mux |
+| Claude Desktop integration | cryostat-mcp-single |
+| Remote HTTP access | cryostat-mcp-k8s-mux |
 
 ## SEE ALSO
 

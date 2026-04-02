@@ -1,0 +1,64 @@
+---
+# Secret for Basic Authentication
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cryostat-c2-basic-auth
+  namespace: c2
+type: Opaque
+stringData:
+  htpasswd: "user:$2y$05$xUMuOEzt/C83Cxfz99/OXug.IJlt4IcRXeeWp.gl4G6ZhKfc1x/Ja" # notsecret
+---
+# Cryostat CR for c2 instance
+apiVersion: operator.cryostat.io/v1beta2
+kind: Cryostat
+metadata:
+  name: cryostat-c2
+  namespace: c2
+spec:
+  # Target namespaces to monitor
+  targetNamespaces:
+    - apps2
+  
+  # Enable TLS for secure communication
+  enableCertManager: true
+  
+  # Authorization configuration - Basic auth for e2e testing
+  authorizationOptions:
+    basicAuth:
+      secretName: cryostat-c2-basic-auth
+      filename: htpasswd
+  
+  # Storage configuration
+  # storageOptions:
+  #   pvc:
+  #     spec:
+  #       accessModes:
+  #         - ReadWriteOnce
+  #       resources:
+  #         requests:
+  #           storage: 1Gi
+  
+  # Resource limits for e2e testing
+  # resources:
+  #   coreResources:
+  #     requests:
+  #       cpu: 200m
+  #       memory: 384Mi
+  #     limits:
+  #       cpu: 500m
+  #       memory: 768Mi
+  #   dataSourceResources:
+  #     requests:
+  #       cpu: 10m
+  #       memory: 32Mi
+  #     limits:
+  #       cpu: 200m
+  #       memory: 256Mi
+  #   grafanaResources:
+  #     requests:
+  #       cpu: 10m
+  #       memory: 80Mi
+  #     limits:
+  #       cpu: 200m
+  #       memory: 200Mi

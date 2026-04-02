@@ -1,0 +1,18 @@
+apiVersion: v2
+name: cryostat-k8s-multi-mcp
+description: Kubernetes Multi-MCP for Cryostat - multiplexes MCP requests to multiple Cryostat instances
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - cryostat
+  - mcp
+  - kubernetes
+  - observability
+  - monitoring
+home: https://github.com/cryostatio/cryostat-mcp
+sources:
+  - https://github.com/cryostatio/cryostat-mcp
+maintainers:
+  - name: Cryostat Team
+    url: https://cryostat.io

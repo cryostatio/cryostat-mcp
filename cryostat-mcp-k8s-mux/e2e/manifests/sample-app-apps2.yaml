@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wildfly-cryostat-agent
+  namespace: apps2
+  labels:
+    app: wildfly-cryostat-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wildfly-cryostat-agent
+  template:
+    metadata:
+      labels:
+        app: wildfly-cryostat-agent
+        cryostat.io/namespace: c2
+        cryostat.io/name: cryostat-c2
+        cryostat.io/java-options-var: MODULE_OPTS
+    spec:
+      containers:
+        - name: wildfly-cryostat-agent
+          image: quay.io/redhat-java-monitoring/wildfly-28-cryostat-agent:latest
+          imagePullPolicy: Always
+          ports:
+            - name: cryostat-agent
+              containerPort: 9601
+              protocol: TCP
+          env:
+            - name: CRYOSTAT_AGENT_APP_NAME
+              value: "wildfly-cryostat-agent"
+            - name: CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY
+              value: "false"
+            - name: CRYOSTAT_AGENT_WEBSERVER_HOST
+              value: "0.0.0.0"
+            - name: CRYOSTAT_AGENT_WEBSERVER_PORT
+              value: "9601"
+            - name: CRYOSTAT_AGENT_CALLBACK
+              value: "http://$(POD_IP):9601/"
+            - name: CRYOSTAT_AGENT_AUTHORIZATION_TYPE
+              value: "basic"
+            - name: CRYOSTAT_AGENT_AUTHORIZATION_VALUE
+              value: "user:pass" # notsecret
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wildfly-cryostat-agent
+  namespace: apps2
+  labels:
+    app: wildfly-cryostat-agent
+spec:
+  type: ClusterIP
+  ports:
+    - name: cryostat-agent
+      port: 9601
+      targetPort: 9601
+      protocol: TCP
+  selector:
+    app: wildfly-cryostat-agent
