@@ -39,6 +39,7 @@ public class CryostatMCP {
                     The root of the tree is always the Universe node representing everything the Cryostat instance is aware of. The children of
                     the Universe are aways Realm nodes, representing each distinct Discovery Plugin (Kubernetes API, JDP, Docker/Podman,
                     Custom Targets, and each individual registered Cryostat Agent instance).
+                    Cryostat Version: v2.1+
                     """)
     DiscoveryNode getDiscoveryTree(
             @ToolArg(
@@ -62,6 +63,7 @@ public class CryostatMCP {
                     can be done by querying this endpoint with the Pod's name as a filter input. If no filter inputs are provided,
                     the full list of all discovered Targets will be returned. Otherwise, if any filter inputs are provided, then only
                     Targets which match all of the given inputs will be returned.
+                    Cryostat Version: v2.2+
                     """)
     List<io.cryostat.mcp.model.graphql.DiscoveryNode> listTargets(
             @ToolArg(
@@ -110,6 +112,7 @@ public class CryostatMCP {
                     Get information about a Target from historical database audit log. If the Target application may have been lost,
                     this tool may still be able to provide information about what the Target was if the Cryostat instance has audit
                     logging enabled.
+                    Cryostat Version: v4.2+
                     """)
     Target getAuditTarget(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
@@ -122,6 +125,7 @@ public class CryostatMCP {
                     Get a Target's DiscoveryNode lineage from historical database audit log. If the Cryostat instance has audit logging enabled,
                     this tool can return information about the Target and all of its DiscoveryNode lineage ancestors up to (but excluding)
                     the Universe node.
+                    Cryostat Version: v4.2+
                     """)
     DiscoveryNode getAuditTargetLineage(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
@@ -130,13 +134,21 @@ public class CryostatMCP {
 
     @Tool(
             description =
-                    "List the available JDK Flight Recorder Event Templates for a given Target.")
+                    """
+                    List the available JDK Flight Recorder Event Templates for a given Target.
+                    Cryostat Version: v1.0+
+                    """)
     List<EventTemplate> listTargetEventTemplates(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.targetEventTemplates(targetId);
     }
 
-    @Tool(description = "Get a specific .jfc (XML) JDK Flight Recorder Event Template definition.")
+    @Tool(
+            description =
+                    """
+                    Get a specific .jfc (XML) JDK Flight Recorder Event Template definition.
+                    Cryostat Version: v1.0+
+                    """)
     String getTargetEventTemplate(
             @ToolArg(description = "The Target's ID.", required = true) long targetId,
             @ToolArg(description = "The event template's type.", required = true)
@@ -146,13 +158,23 @@ public class CryostatMCP {
         return rest.targetEventTemplate(targetId, templateType, templateName);
     }
 
-    @Tool(description = "Get a list of active JDK Flight Recordings present in the Target JVM.")
+    @Tool(
+            description =
+                    """
+                    Get a list of active JDK Flight Recordings present in the Target JVM.
+                    Cryostat Version: v1.0+
+                    """)
     List<RecordingDescriptor> listTargetActiveRecordings(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.targetActiveRecordings(targetId);
     }
 
-    @Tool(description = "Get a list of archived JDK Flight Recordings sourced from the Target JVM.")
+    @Tool(
+            description =
+                    """
+                    Get a list of archived JDK Flight Recordings sourced from the Target JVM.
+                    Cryostat Version: v4.0+
+                    """)
     List<ArchivedRecordingDirectory> listTargetArchivedRecordings(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         return rest.targetArchivedRecordings(jvmId);
@@ -164,6 +186,7 @@ public class CryostatMCP {
                     Start a new fixed-duration JDK Flight Recording on a Target JVM.
                     When the recording completes, Cryostat will automatically capture the data
                     and perform an automated analysis of its contents.
+                    Cryostat Version: v1.0+
                     """)
     RecordingDescriptor startTargetRecording(
             @ToolArg(description = "The Target's ID.", required = true) long targetId,
@@ -205,6 +228,7 @@ public class CryostatMCP {
                     Scores of (0.0, 25.0) indicate that a low severity issue was detected.
                     Scores of [25.0, 75.0) indicate that a medium severity issue was detected.
                     Scores of [75.0, 100.0] indicate that a high severity issue was detected.
+                    Cryostat Version: v4.1+
                     """)
     String scrapeMetrics(
             @ToolArg(
@@ -233,6 +257,7 @@ public class CryostatMCP {
                     Scores of (0.0, 25.0) indicate that a low severity issue was detected.
                     Scores of [25.0, 75.0) indicate that a medium severity issue was detected.
                     Scores of [75.0, 100.0] indicate that a high severity issue was detected.
+                    Cryostat Version: v4.1+
                     """)
     String scrapeTargetMetrics(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
@@ -248,6 +273,7 @@ public class CryostatMCP {
                     This is a comprehensive report document containing human-readable explanations, summaries,
                     and suggestions. For simple problem detection and incident reporting, use the Prometheus-format
                     metrics scraping tools.
+                    Cryostat Version: v4.1+
                     """)
     Object getTargetReport(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
@@ -267,6 +293,7 @@ public class CryostatMCP {
                     Fields like objectClass and eventThread are returned as formatted string representations of
                     their internal structure, not as separate queryable columns.
                     Queries cannot use "objectClass"."name", "objectClass.name", or "objectClass"['name'] syntax.
+                    Cryostat Version: v4.2+
                     """)
     List<List<String>> executeQuery(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
@@ -280,9 +307,10 @@ public class CryostatMCP {
 
     @Tool(
             description =
-"""
-Provides details about additional custom functions and structures available for SQL queries.
-""")
+                    """
+                    Provides details about additional custom functions and structures available for SQL queries.
+                    Cryostat Version: v4.2+
+                    """)
     List<QueryExample> getQueryAdditionalFunctions() {
         return List.of(
                 new QueryExample(
@@ -314,6 +342,7 @@ Provides details about additional custom functions and structures available for 
             description =
                     """
                     Provides example SQL queries as reference.
+                    Cryostat Version: v4.2+
                     """)
     List<QueryExample> getQueryExamples() {
         return List.of(
