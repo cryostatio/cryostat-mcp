@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        JVM_version: ['17', '21']
+        JVM_version: ['21', '25']
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     - name: Fail if PR and safe-to-test label NOT applied
@@ -64,7 +64,7 @@ jobs:
         ref: ${{ github.event.pull_request.head.ref }}
     - uses: actions/setup-java@v5
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
     - uses: skjolber/maven-cache-github-action@v1
       with:
