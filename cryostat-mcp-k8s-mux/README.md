@@ -183,6 +183,33 @@ helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ \
   --set ingress.hosts[0].paths[0].pathType=Prefix
 ```
 
+#### Development Environment with Self-Signed Certificates
+
+For development/test environments where Cryostat instances use self-signed TLS certificates:
+
+```bash
+helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ \
+  --set auth.authorizationHeader="Bearer your-token-value" \
+  --set env.trustAllTls=true
+```
+
+Or using a values file:
+
+```yaml
+# dev-values.yaml
+auth:
+  authorizationHeader: "Bearer your-token-value"
+env:
+  trustCerts: true      # Trust cluster certificates (default: true)
+  trustAllTls: true     # Trust all TLS certificates including self-signed (default: false)
+```
+
+```bash
+helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ -f dev-values.yaml
+```
+
+**Security Warning**: Only set `env.trustAllTls=true` in development/test environments. Never use this in production as it disables TLS certificate verification.
+
 ### RBAC Requirements
 
 The service requires a ServiceAccount with permissions to:
