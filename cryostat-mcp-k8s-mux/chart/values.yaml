@@ -28,7 +28,7 @@ auth:
 # Image configuration
 image:
   # Container image repository
-  repository: quay.io/cryostat/k8s-multi-mcp
+  repository: quay.io/cryostat/cryostat-mcp-k8s-mux
   
   # Image tag (defaults to chart appVersion if not specified)
   tag: latest
