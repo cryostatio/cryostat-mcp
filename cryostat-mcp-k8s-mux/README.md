@@ -119,20 +119,68 @@ mvn clean package -Dquarkus.container-image.build=true \
 
 ## Deployment
 
-### Quick Start
+### Prerequisites
 
-Deploy to your Kubernetes cluster using the provided manifests:
+- Kubernetes 1.19+ or OpenShift 4.x
+- Helm 3.0+
+- Cryostat Operator installed in the cluster
+
+### Quick Start with Helm
+
+Deploy to your Kubernetes cluster using the Helm chart:
 
 ```bash
-# Create namespace
-kubectl create namespace cryostat-mcp-system
-
-# Apply all manifests
-kubectl apply -k src/main/kubernetes/
+# Install with basic configuration
+helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ \
+  --set auth.authorizationHeader="Bearer your-token-value"
 
 # Verify deployment
 kubectl get pods -n cryostat-mcp-system
-kubectl logs -n cryostat-mcp-system deployment/k8s-multi-mcp
+kubectl logs -n cryostat-mcp-system -l app.kubernetes.io/name=cryostat-k8s-multi-mcp
+```
+
+### Installation Options
+
+#### Using an Existing Secret (Recommended for Production)
+
+```bash
+# Create the secret first
+kubectl create secret generic my-cryostat-secret \
+  --from-literal=authorization-header="Bearer your-token-value" \
+  -n cryostat-mcp-system
+
+# Install the chart
+helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ \
+  --set auth.existingSecret=my-cryostat-secret
+```
+
+#### Custom Namespace
+
+```bash
+helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ \
+  --set namespace=my-namespace \
+  --set auth.authorizationHeader="Bearer your-token-value"
+```
+
+#### OpenShift with Route
+
+```bash
+helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ \
+  --set auth.authorizationHeader="Bearer your-token-value" \
+  --set route.enabled=true \
+  --set route.host=mcp.apps.my-cluster.example.com
+```
+
+#### Kubernetes with Ingress
+
+```bash
+helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ \
+  --set auth.authorizationHeader="Bearer your-token-value" \
+  --set ingress.enabled=true \
+  --set ingress.className=nginx \
+  --set ingress.hosts[0].host=mcp.example.com \
+  --set ingress.hosts[0].paths[0].path=/ \
+  --set ingress.hosts[0].paths[0].pathType=Prefix
 ```
 
 ### RBAC Requirements
@@ -144,32 +192,73 @@ The service requires a ServiceAccount with permissions to:
 
 **Important**: The ServiceAccount is ONLY used for Kubernetes API access. Client credentials are used for all Cryostat access.
 
-See `src/main/kubernetes/rbac.yaml` for the complete RBAC configuration.
+The Helm chart automatically creates the required ClusterRole and ClusterRoleBinding.
 
 ### Configuration Options
 
-Configure via environment variables in the Deployment:
+Configure via Helm values. Key configuration parameters:
 
-| Variable | Default | Description |
+| Parameter | Default | Description |
 |----------|---------|-------------|
-| `QUARKUS_HTTP_PORT` | `8080` | HTTP port for MCP server |
-| `QUARKUS_LOG_LEVEL` | `INFO` | Global log level |
-| `QUARKUS_LOG_CATEGORY__IO_CRYOSTAT_MCP_K8S__LEVEL` | `DEBUG` | k8s-multi-mcp log level |
+| `namespace` | `cryostat-mcp-system` | Namespace for installation |
+| `auth.authorizationHeader` | `""` | Authorization header value |
+| `auth.existingSecret` | `""` | Name of existing secret |
+| `image.repository` | `quay.io/cryostat/k8s-multi-mcp` | Container image |
+| `image.tag` | `latest` | Image tag |
+| `service.port` | `8080` | Service port |
+| `env.logLevel` | `INFO` | Global log level |
+| `env.k8sLogLevel` | `DEBUG` | k8s-multi-mcp log level |
+| `route.enabled` | `false` | Enable OpenShift Route |
+| `ingress.enabled` | `false` | Enable Kubernetes Ingress |
+
+For a complete list of configuration options, see [`chart/README.md`](chart/README.md) or [`chart/values.yaml`](chart/values.yaml).
 
 ### Customizing the Deployment
 
-Edit `src/main/kubernetes/kustomization.yaml` to customize:
+Create a custom values file:
 
-- Namespace
-- Resource limits
-- Replica count
-- Image name/tag
-- Labels and annotations
+```yaml
+# my-values.yaml
+namespace: my-namespace
+auth:
+  existingSecret: my-secret
+image:
+  tag: v1.0.0
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 200m
+  limits:
+    memory: 1Gi
+    cpu: 1000m
+route:
+  enabled: true
+  host: mcp.apps.my-cluster.com
+```
 
-Then apply with:
+Install with custom values:
 
 ```bash
-kubectl apply -k src/main/kubernetes/
+helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ -f my-values.yaml
+```
+
+### Upgrading
+
+```bash
+# Upgrade with new values
+helm upgrade my-mcp ./cryostat-mcp-k8s-mux/chart/ \
+  --set image.tag=v1.1.0
+
+# Upgrade reusing existing values
+helm upgrade my-mcp ./cryostat-mcp-k8s-mux/chart/ \
+  --reuse-values \
+  --set route.enabled=true
+```
+
+### Uninstalling
+
+```bash
+helm uninstall my-mcp
 ```
 
 ## Usage
@@ -365,7 +454,7 @@ mvn verify -Pcoverage
 ### Project Structure
 
 ```
-k8s-multi-mcp/
+cryostat-mcp-k8s-mux/
 ├── src/main/java/io/cryostat/mcp/k8s/
 │   ├── K8sMultiMCP.java                    # Main MCP tools wrapper
 │   ├── CryostatInstanceDiscovery.java      # CR discovery via Watch API
@@ -378,11 +467,19 @@ k8s-multi-mcp/
 │       └── CryostatInstance.java           # Internal instance representation
 ├── src/main/resources/
 │   └── application.properties              # Quarkus configuration
-├── src/main/kubernetes/                    # Kubernetes manifests
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   ├── rbac.yaml
-│   └── kustomization.yaml
+├── chart/                                  # Helm chart
+│   ├── Chart.yaml                          # Chart metadata
+│   ├── values.yaml                         # Default values
+│   ├── README.md                           # Chart documentation
+│   └── templates/                          # Kubernetes resource templates
+│       ├── deployment.yaml
+│       ├── service.yaml
+│       ├── serviceaccount.yaml
+│       ├── clusterrole.yaml
+│       ├── clusterrolebinding.yaml
+│       ├── secret.yaml
+│       ├── route.yaml                      # OpenShift Route (optional)
+│       └── ingress.yaml                    # Kubernetes Ingress (optional)
 ├── src/test/java/                          # Tests
 ├── pom.xml                                 # Maven configuration
 ├── README.md                               # This file
@@ -398,19 +495,49 @@ k8s-multi-mcp/
 
 ## Troubleshooting
 
+### Check Deployment Status
+
+```bash
+# Check Helm release
+helm list -n cryostat-mcp-system
+
+# Check deployment status
+kubectl get deployment -n cryostat-mcp-system
+kubectl get pods -n cryostat-mcp-system
+
+# View logs
+kubectl logs -n cryostat-mcp-system -l app.kubernetes.io/name=cryostat-k8s-multi-mcp -f
+```
+
 ### Service Not Discovering CRs
 
 Check RBAC permissions:
 
 ```bash
 kubectl auth can-i list cryostats.operator.cryostat.io \
-  --as=system:serviceaccount:cryostat-mcp-system:k8s-multi-mcp
+  --as=system:serviceaccount:cryostat-mcp-system:cryostat-k8s-multi-mcp
+```
+
+Verify ClusterRole and ClusterRoleBinding:
+
+```bash
+kubectl get clusterrole cryostat-k8s-multi-mcp
+kubectl get clusterrolebinding cryostat-k8s-multi-mcp
 ```
 
 Check logs:
 
 ```bash
-kubectl logs -n cryostat-mcp-system deployment/k8s-multi-mcp
+kubectl logs -n cryostat-mcp-system -l app.kubernetes.io/name=cryostat-k8s-multi-mcp
+```
+
+### Authentication Issues
+
+Verify the secret exists and contains the correct key:
+
+```bash
+kubectl get secret -n cryostat-mcp-system
+kubectl describe secret <secret-name> -n cryostat-mcp-system
 ```
 
 ### Routing to Wrong Instance
@@ -424,7 +551,7 @@ kubectl get cryostats.operator.cryostat.io -A -o yaml | grep -A 5 targetNamespac
 Check service logs for routing decisions:
 
 ```bash
-kubectl logs -n cryostat-mcp-system deployment/k8s-multi-mcp | grep "Routing"
+kubectl logs -n cryostat-mcp-system -l app.kubernetes.io/name=cryostat-k8s-multi-mcp | grep "Routing"
 ```
 
 ### Connection Refused to Cryostat
@@ -437,15 +564,41 @@ kubectl get svc -n <cryostat-namespace>
 
 Check network policies allow traffic from k8s-multi-mcp namespace.
 
-### High Memory Usage
+### Route/Ingress Not Working
 
-Consider using native image build for lower memory footprint:
+For OpenShift Routes:
 
 ```bash
-mvn clean package -Pnative -Dquarkus.container-image.build=true
+kubectl get route -n cryostat-mcp-system
+kubectl describe route <route-name> -n cryostat-mcp-system
 ```
 
-Update deployment to use native image.
+For Kubernetes Ingress:
+
+```bash
+kubectl get ingress -n cryostat-mcp-system
+kubectl describe ingress <ingress-name> -n cryostat-mcp-system
+```
+
+### High Memory Usage
+
+Consider using native image build for lower memory footprint. Update your Helm values:
+
+```yaml
+image:
+  tag: <native-image-tag>
+resources:
+  requests:
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+```
+
+Then upgrade:
+
+```bash
+helm upgrade my-mcp ./cryostat-mcp-k8s-mux/chart/ -f my-values.yaml
+```
 
 ## Examples
 
