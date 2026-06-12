@@ -71,7 +71,7 @@ Build specific module:
 
 Build requirements:
 - git
-- JDK 17+
+- JDK 21+
 - Maven v3+
 
 ## BUILD

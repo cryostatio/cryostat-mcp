@@ -68,7 +68,7 @@ The service uses a composable architecture that reuses the existing `cryostat-mc
 ### For Building
 
 - **Maven**: 3.8+ 
-- **Java**: 17+
+- **Java**: 21+
 - **Docker/Podman**: For building container images (optional)
 
 ### For Development

@@ -55,13 +55,13 @@ The service communicates over stdio (standard input/output) using the MCP protoc
 ### Required
 
 - **Cryostat Instance**: A running Cryostat server (local or remote)
-- **Java**: JDK 17+ for running the server
+- **Java**: JDK 21+ for running the server
 - **Authentication**: Valid credentials for the Cryostat instance
 
 ### For Building
 
 - **Maven**: 3.8+
-- **Java**: JDK 17+
+- **Java**: JDK 21+
 
 ### For MCP Client Integration
 
