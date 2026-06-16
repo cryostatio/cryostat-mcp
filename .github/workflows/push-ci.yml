@@ -37,7 +37,7 @@ jobs:
         step: restore
 
     - name: Build with Maven
-      run: ./mvnw -B -U clean package -pl cryostat-mcp-k8s-mux -am
+      run: ./mvnw -B -U -DskipTests -Dquarkus.container-image.build=false clean package -pl cryostat-mcp-k8s-mux -am
 
     - uses: skjolber/maven-cache-github-action@c4a30022e05fa8a86dde82cd8c1e49420d4a45dd # v3.1.2
       with:
