@@ -26,6 +26,7 @@ import io.cryostat.mcp.model.RecordingDescriptor;
 import io.cryostat.mcp.model.Target;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.quarkiverse.mcp.server.MetaField;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -43,9 +44,13 @@ public class DirectedTools {
     @Tool(
             description =
                     "Get Cryostat server health and configuration. Namespace parameter is required"
-                            + " to identify the Cryostat instance managing the target.")
+                            + " to identify the Cryostat instance observing the target.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public Health getHealth(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         return mcp.getHealth();
@@ -62,10 +67,13 @@ public class DirectedTools {
                     The root of the tree is always the Universe node representing everything the Cryostat instance is aware of. The children of
                     the Universe are aways Realm nodes, representing each distinct Discovery Plugin (Kubernetes API, JDP, Docker/Podman,
                     Custom Targets, and each individual registered Cryostat Agent instance).
-                     Namespace parameter is required to identify the Cryostat instance managing the target.
                     """)
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public DiscoveryNode getDiscoveryTree(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(
                             description =
@@ -75,7 +83,8 @@ public class DirectedTools {
                                         but as a holistic merged view. This also allows the Cryostat Agent instances' subtrees to appear merged with any Kubernetes
                                         API EndpointSlices-discovered Targets.
                                     """,
-                            required = true)
+                            required = false,
+                            defaultValue = "true")
                     boolean mergeRealms) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         return mcp.getDiscoveryTree(mergeRealms);
@@ -90,10 +99,13 @@ public class DirectedTools {
                         + " name as a filter input. If no filter inputs are provided, the full list"
                         + " of all discovered Targets will be returned. Otherwise, if any filter"
                         + " inputs are provided, then only Targets which match all of the given"
-                        + " inputs will be returned. Namespace parameter is required to identify"
-                        + " the Cryostat instance managing the target.")
+                        + " inputs will be returned.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listTargets(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(
                             description =
@@ -122,8 +134,10 @@ public class DirectedTools {
                             description =
                                     "Query historical targets from audit log. This is more"
                                         + " expensive and should only be used when historical data"
-                                        + " is needed.")
-                    Boolean useAuditLog) {
+                                        + " is needed.",
+                            required = false,
+                            defaultValue = "false")
+                    boolean useAuditLog) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         return mcp.listTargets(ids, targetIds, names, labels, useAuditLog);
     }
@@ -133,10 +147,13 @@ public class DirectedTools {
                     "Get information about a Target from historical database audit log. If the"
                         + " Target application may have been lost, this tool may still be able to"
                         + " provide information about what the Target was if the Cryostat instance"
-                        + " has audit logging enabled. Namespace parameter is required to identify"
-                        + " the Cryostat instance managing the target.")
+                        + " has audit logging enabled.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public Target getAuditTarget(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
@@ -148,10 +165,13 @@ public class DirectedTools {
                     "Get a Target's DiscoveryNode lineage from historical database audit log. If"
                         + " the Cryostat instance has audit logging enabled, this tool can return"
                         + " information about the Target and all of its DiscoveryNode lineage"
-                        + " ancestors up to (but excluding) the Universe node. Namespace parameter"
-                        + " is required to identify the Cryostat instance managing the target.")
+                        + " ancestors up to (but excluding) the Universe node.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public DiscoveryNode getAuditTargetLineage(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
@@ -160,24 +180,26 @@ public class DirectedTools {
 
     @Tool(
             description =
-                    "List the available JDK Flight Recorder Event Templates for a given Target."
-                            + " Namespace parameter is required to identify the Cryostat instance"
-                            + " managing the target.")
+                    "List the available JDK Flight Recorder Event Templates for a given Target.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public List<EventTemplate> listTargetEventTemplates(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         return mcp.listTargetEventTemplates(targetId);
     }
 
-    @Tool(
-            description =
-                    "Get a specific .jfc (XML) JDK Flight Recorder Event Template definition."
-                            + " Namespace parameter is required to identify the Cryostat instance"
-                            + " managing the target.")
+    @Tool(description = "Get a specific .jfc (XML) JDK Flight Recorder Event Template definition.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public String getTargetEventTemplate(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's ID.", required = true) long targetId,
             @ToolArg(description = "The event template's type.", required = true)
@@ -188,26 +210,26 @@ public class DirectedTools {
         return mcp.getTargetEventTemplate(targetId, templateType, templateName);
     }
 
-    @Tool(
-            description =
-                    "Get a list of active JDK Flight Recordings present in the Target JVM."
-                            + " Namespace parameter is required to identify the Cryostat instance"
-                            + " managing the target.")
+    @Tool(description = "Get a list of active JDK Flight Recordings present in the Target JVM.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public List<RecordingDescriptor> listTargetActiveRecordings(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         return mcp.listTargetActiveRecordings(targetId);
     }
 
-    @Tool(
-            description =
-                    "Get a list of archived JDK Flight Recordings sourced from the Target JVM."
-                            + " Namespace parameter is required to identify the Cryostat instance"
-                            + " managing the target.")
+    @Tool(description = "Get a list of archived JDK Flight Recordings sourced from the Target JVM.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public List<ArchivedRecordingDirectory> listTargetArchivedRecordings(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
@@ -218,10 +240,9 @@ public class DirectedTools {
             description =
                     "Start a new fixed-duration JDK Flight Recording on a Target JVM. When the"
                         + " recording completes, Cryostat will automatically capture the data and"
-                        + " perform an automated analysis of its contents. Namespace parameter is"
-                        + " required to identify the Cryostat instance managing the target.")
+                        + " perform an automated analysis of its contents.")
     public RecordingDescriptor startTargetRecording(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's ID.", required = true) long targetId,
             @ToolArg(
@@ -256,10 +277,13 @@ public class DirectedTools {
                         + " that no problem was detected. Scores of (0.0, 25.0) indicate that a low"
                         + " severity issue was detected. Scores of [25.0, 75.0) indicate that a"
                         + " medium severity issue was detected. Scores of [75.0, 100.0] indicate"
-                        + " that a high severity issue was detected. Namespace parameter is"
-                        + " required to identify the Cryostat instance managing the target.")
+                        + " that a high severity issue was detected.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public String scrapeMetrics(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(
                             description =
@@ -288,10 +312,13 @@ public class DirectedTools {
                         + " that no problem was detected. Scores of (0.0, 25.0) indicate that a low"
                         + " severity issue was detected. Scores of [25.0, 75.0) indicate that a"
                         + " medium severity issue was detected. Scores of [75.0, 100.0] indicate"
-                        + " that a high severity issue was detected. Namespace parameter is"
-                        + " required to identify the Cryostat instance managing the target.")
+                        + " that a high severity issue was detected.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public String scrapeTargetMetrics(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
@@ -305,10 +332,13 @@ public class DirectedTools {
                         + " target will be returned, if any is available. This is a comprehensive"
                         + " report document containing human-readable explanations, summaries, and"
                         + " suggestions. For simple problem detection and incident reporting, use"
-                        + " the Prometheus-format metrics scraping tools. Namespace parameter is"
-                        + " required to identify the Cryostat instance managing the target.")
+                        + " the Prometheus-format metrics scraping tools.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public Object getTargetReport(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
@@ -329,10 +359,13 @@ public class DirectedTools {
                         + " eventThread are returned as formatted string representations of their"
                         + " internal structure, not as separate queryable columns. Queries cannot"
                         + " use \"objectClass\".\"name\", \"objectClass.name\", or"
-                        + " \"objectClass\"['name'] syntax. Namespace parameter is required to"
-                        + " identify the Cryostat instance managing the target.")
+                        + " \"objectClass\"['name'] syntax.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public List<List<String>> executeQuery(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
             @ToolArg(
@@ -347,21 +380,25 @@ public class DirectedTools {
     @Tool(
             description =
                     "Provides details about additional custom functions and structures available"
-                            + " for SQL queries. Namespace parameter is required to identify the"
-                            + " Cryostat instance managing the target.")
+                            + " for SQL queries.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public List<CryostatMCP.QueryExample> getQueryAdditionalFunctions(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         return mcp.getQueryAdditionalFunctions();
     }
 
-    @Tool(
-            description =
-                    "Provides example SQL queries as reference. Namespace parameter is required to"
-                            + " identify the Cryostat instance managing the target.")
+    @Tool(description = "Provides example SQL queries as reference.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public List<CryostatMCP.QueryExample> getQueryExamples(
-            @ToolArg(description = "The namespace of the Cryostat instance to query (required).")
+            @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         return mcp.getQueryExamples();

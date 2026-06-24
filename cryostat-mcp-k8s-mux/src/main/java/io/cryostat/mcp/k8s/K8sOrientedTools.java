@@ -33,14 +33,14 @@ public class K8sOrientedTools {
     @Inject CryostatMCPInstanceManager instanceManager;
     @Inject CryostatPodNameMapper podNameMapper;
 
-    @MetaField(
-            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
-            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
-            value = "HIGH")
     @Tool(
             description =
                     "List the available JDK Flight Recorder Event Templates for a given"
                             + " application.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "HIGH")
     public List<EventTemplate> listTargetEventTemplatesByPod(
             @ToolArg(description = "The namespace of application.", required = true)
                     String namespace,

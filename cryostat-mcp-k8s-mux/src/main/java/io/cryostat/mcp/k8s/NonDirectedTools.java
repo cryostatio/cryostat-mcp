@@ -24,6 +24,7 @@ import java.util.function.Function;
 import io.cryostat.mcp.CryostatMCP;
 import io.cryostat.mcp.model.DiscoveryNode;
 
+import io.quarkiverse.mcp.server.MetaField;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -51,6 +52,10 @@ public class NonDirectedTools {
                         + " instances. Each Realm node is labeled with its source instance"
                         + " namespace for traceability. The tree structure is: Universe -> Realm ->"
                         + " Namespace -> Deployment -> ReplicaSet -> Pod -> Target.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "BOTH")
     public DiscoveryNode getGlobalDiscoveryTree() {
         return aggregateFromAllInstances(
                 mcp -> mcp.getDiscoveryTree(true), discoveryTreeAggregationStrategy);
@@ -64,6 +69,10 @@ public class NonDirectedTools {
                         + " filter inputs are provided, the full list of all discovered Targets"
                         + " will be returned. Otherwise, if any filter inputs are provided, then"
                         + " only Targets which match all of the given inputs will be returned.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "BOTH")
     public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listGlobalTargets(
             @ToolArg(
                             description =
@@ -94,6 +103,10 @@ public class NonDirectedTools {
                     "Scrape Prometheus metrics from all discovered Cryostat instances and aggregate"
                             + " them. Returns metrics in Prometheus text format, sorted and"
                             + " deduplicated.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "BOTH")
     public String scrapeGlobalMetrics(
             @ToolArg(description = "Minimum target score for filtering metrics")
                     Double minTargetScore) {

@@ -17,6 +17,7 @@ package io.cryostat.mcp.k8s;
 
 import java.util.List;
 
+import io.quarkiverse.mcp.server.MetaField;
 import io.quarkiverse.mcp.server.Tool;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -32,9 +33,13 @@ public class SystemTools {
 
     @Tool(
             description =
-                    "List all discovered Cryostat instances (services) in the Kubernetes cluster."
+                    "List all discovered Cryostat instances in the Kubernetes cluster."
                             + " Returns information about each instance including name, namespace,"
                             + " application URL, and target namespaces being monitored.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public List<CryostatInstance> listCryostatInstances() {
         return discovery.getAllInstances().stream().toList();
     }

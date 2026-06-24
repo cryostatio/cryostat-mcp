@@ -49,7 +49,7 @@ public class ToolLevelFilter implements ToolFilter {
         try {
             String rawToolLevel = o.toString();
             ToolLevel toolLevel = ToolLevel.valueOf(rawToolLevel);
-            return toolLevel == configLevel;
+            return toolLevel.ordinal() >= configLevel.ordinal();
         } catch (IllegalArgumentException e) {
             logger.warn(e);
             return true;
@@ -57,8 +57,8 @@ public class ToolLevelFilter implements ToolFilter {
     }
 
     public static enum ToolLevel {
-        HIGH,
         LOW,
+        HIGH,
         BOTH,
         ;
     }
