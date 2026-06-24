@@ -69,9 +69,10 @@ class PodNameResolverTest {
                         "my-app",
                         expectedJvmId,
                         Map.of(),
-                        new Annotations(Map.of(), Map.of()));
+                        new Annotations(Map.of(), Map.of()),
+                        false);
 
-        DiscoveryNode node = new DiscoveryNode(1L, podName, "Pod", Map.of(), target);
+        DiscoveryNode node = new DiscoveryNode(1L, podName, "Pod", Map.of(), target, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
         when(mockMCP.listTargets(isNull(), isNull(), eq(List.of(podName)), isNull(), eq(false)))
@@ -100,9 +101,10 @@ class PodNameResolverTest {
                         "terminated-app",
                         expectedJvmId,
                         Map.of(),
-                        new Annotations(Map.of(), Map.of()));
+                        new Annotations(Map.of(), Map.of()),
+                        false);
 
-        DiscoveryNode node = new DiscoveryNode(2L, podName, "Pod", Map.of(), target);
+        DiscoveryNode node = new DiscoveryNode(2L, podName, "Pod", Map.of(), target, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
         when(mockMCP.listTargets(isNull(), isNull(), eq(List.of(podName)), isNull(), eq(true)))
@@ -130,9 +132,10 @@ class PodNameResolverTest {
                         "my-app",
                         "abc123",
                         Map.of(),
-                        new Annotations(Map.of(), Map.of()));
+                        new Annotations(Map.of(), Map.of()),
+                        false);
 
-        DiscoveryNode node = new DiscoveryNode(1L, podName, "Pod", Map.of(), target);
+        DiscoveryNode node = new DiscoveryNode(1L, podName, "Pod", Map.of(), target, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
         when(mockMCP.listTargets(isNull(), isNull(), eq(List.of(podName)), isNull(), eq(false)))
@@ -218,7 +221,8 @@ class PodNameResolverTest {
                         "my-app",
                         expectedJvmId,
                         Map.of(),
-                        new Annotations(Map.of(), Map.of()));
+                        new Annotations(Map.of(), Map.of()),
+                        false);
 
         Target target2 =
                 new Target(
@@ -227,10 +231,11 @@ class PodNameResolverTest {
                         "my-app-2",
                         "different-jvm-id",
                         Map.of(),
-                        new Annotations(Map.of(), Map.of()));
+                        new Annotations(Map.of(), Map.of()),
+                        false);
 
-        DiscoveryNode node1 = new DiscoveryNode(1L, podName, "Pod", Map.of(), target1);
-        DiscoveryNode node2 = new DiscoveryNode(2L, podName, "Pod", Map.of(), target2);
+        DiscoveryNode node1 = new DiscoveryNode(1L, podName, "Pod", Map.of(), target1, null);
+        DiscoveryNode node2 = new DiscoveryNode(2L, podName, "Pod", Map.of(), target2, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
         when(mockMCP.listTargets(isNull(), isNull(), eq(List.of(podName)), isNull(), eq(false)))
@@ -257,9 +262,10 @@ class PodNameResolverTest {
                         "terminated-app",
                         "historical-jvm-id",
                         Map.of(),
-                        new Annotations(Map.of(), Map.of()));
+                        new Annotations(Map.of(), Map.of()),
+                        false);
 
-        DiscoveryNode node = new DiscoveryNode(3L, podName, "Pod", Map.of(), target);
+        DiscoveryNode node = new DiscoveryNode(3L, podName, "Pod", Map.of(), target, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
         when(mockMCP.listTargets(isNull(), isNull(), eq(List.of(podName)), isNull(), eq(true)))

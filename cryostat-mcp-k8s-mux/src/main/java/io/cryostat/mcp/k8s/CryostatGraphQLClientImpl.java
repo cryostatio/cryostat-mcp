@@ -33,4 +33,8 @@ public interface CryostatGraphQLClientImpl extends CryostatGraphQLClient {
     List<io.cryostat.mcp.model.graphql.DiscoveryNode> targetNodes(
             @Name("filter") io.cryostat.mcp.model.DiscoveryNodeFilter filter,
             @Name("useAuditLog") Boolean useAuditLog);
+
+    @Override
+    List<io.cryostat.mcp.model.graphql.DiscoveryNode> environmentNodes(
+            @Name("filter") io.cryostat.mcp.model.DiscoveryNodeFilter filter);
 }

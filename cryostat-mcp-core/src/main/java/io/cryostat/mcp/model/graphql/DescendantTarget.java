@@ -15,13 +15,4 @@
  */
 package io.cryostat.mcp.model.graphql;
 
-import java.util.List;
-import java.util.Map;
-
-public record DiscoveryNode(
-        Long id,
-        String name,
-        String nodeType,
-        Map<String, String> labels,
-        Target target,
-        List<DescendantTarget> descendantTargets) {}
+public record DescendantTarget(Target target) {}

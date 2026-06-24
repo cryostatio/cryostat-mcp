@@ -27,4 +27,6 @@ import io.cryostat.mcp.model.graphql.DiscoveryNode;
 public interface CryostatGraphQLClient {
 
     List<DiscoveryNode> targetNodes(DiscoveryNodeFilter filter, Boolean useAuditLog);
+
+    List<DiscoveryNode> environmentNodes(DiscoveryNodeFilter filter);
 }

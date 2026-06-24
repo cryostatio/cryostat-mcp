@@ -109,7 +109,12 @@ public class TargetListAggregationStrategy implements AggregationStrategy<List<D
         updatedLabels.put(INSTANCE_LABEL_KEY, instanceNamespace);
 
         return new DiscoveryNode(
-                node.id(), node.name(), node.nodeType(), updatedLabels, node.target());
+                node.id(),
+                node.name(),
+                node.nodeType(),
+                updatedLabels,
+                node.target(),
+                node.descendantTargets());
     }
 
     /**
@@ -131,7 +136,12 @@ public class TargetListAggregationStrategy implements AggregationStrategy<List<D
         }
 
         return new DiscoveryNode(
-                null, node.name(), node.nodeType(), node.labels(), nullifiedTarget);
+                null,
+                node.name(),
+                node.nodeType(),
+                node.labels(),
+                nullifiedTarget,
+                node.descendantTargets());
     }
 
     /**
@@ -151,7 +161,8 @@ public class TargetListAggregationStrategy implements AggregationStrategy<List<D
                 target.alias(),
                 target.jvmId(),
                 target.labels(),
-                target.annotations());
+                target.annotations(),
+                target.agent());
     }
 
     /**

@@ -18,9 +18,52 @@ package io.cryostat.mcp.model;
 import java.util.List;
 
 public record DiscoveryNodeFilter(
-        List<Long> ids, List<Long> targetIds, List<String> names, List<String> labels) {
-    public static DiscoveryNodeFilter from(
-            List<Long> ids, List<Long> targetIds, List<String> names, List<String> labels) {
-        return new DiscoveryNodeFilter(ids, targetIds, names, labels);
+        List<Long> ids,
+        List<Long> targetIds,
+        List<String> names,
+        List<String> labels,
+        List<String> nodeTypes) {
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private List<Long> ids;
+        private List<Long> targetIds;
+        private List<String> names;
+        private List<String> labels;
+        private List<String> nodeTypes;
+
+        private Builder() {}
+
+        public Builder ids(List<Long> ids) {
+            this.ids = ids;
+            return this;
+        }
+
+        public Builder targetIds(List<Long> targetIds) {
+            this.targetIds = targetIds;
+            return this;
+        }
+
+        public Builder names(List<String> names) {
+            this.names = names;
+            return this;
+        }
+
+        public Builder labels(List<String> labels) {
+            this.labels = labels;
+            return this;
+        }
+
+        public Builder nodeTypes(List<String> nodeTypes) {
+            this.nodeTypes = nodeTypes;
+            return this;
+        }
+
+        public DiscoveryNodeFilter build() {
+            return new DiscoveryNodeFilter(ids, targetIds, names, labels, nodeTypes);
+        }
     }
 }

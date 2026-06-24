@@ -23,4 +23,5 @@ public record Target(
         String alias,
         String jvmId,
         Map<String, String> labels,
-        Annotations annotations) {}
+        Annotations annotations,
+        Boolean agent) {}

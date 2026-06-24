@@ -59,9 +59,24 @@ public class CryostatMCP {
             Boolean useAuditLog) {
         DiscoveryNodeFilter filter = null;
         if (isPresent(ids) || isPresent(targetIds) || isPresent(names) || isPresent(labels)) {
-            filter = DiscoveryNodeFilter.from(ids, targetIds, names, labels);
+            filter =
+                    DiscoveryNodeFilter.builder()
+                            .ids(ids)
+                            .targetIds(targetIds)
+                            .names(names)
+                            .labels(labels)
+                            .build();
         }
         return graphql.targetNodes(filter, useAuditLog);
+    }
+
+    public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listEnvironmentNodes(
+            List<String> nodeTypes, List<String> names) {
+        DiscoveryNodeFilter filter = null;
+        if (isPresent(nodeTypes) || isPresent(names)) {
+            filter = DiscoveryNodeFilter.builder().names(names).nodeTypes(nodeTypes).build();
+        }
+        return graphql.environmentNodes(filter);
     }
 
     static boolean isPresent(Collection<?> filter) {

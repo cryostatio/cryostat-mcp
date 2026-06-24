@@ -130,7 +130,13 @@ public class CryostatMCP {
                     Boolean useAuditLog) {
         DiscoveryNodeFilter filter = null;
         if (isPresent(ids) || isPresent(targetIds) || isPresent(names) || isPresent(labels)) {
-            filter = DiscoveryNodeFilter.from(ids, targetIds, names, labels);
+            filter =
+                    DiscoveryNodeFilter.builder()
+                            .ids(ids)
+                            .targetIds(targetIds)
+                            .names(names)
+                            .labels(labels)
+                            .build();
         }
         return graphql.targetNodes(filter, useAuditLog);
     }
