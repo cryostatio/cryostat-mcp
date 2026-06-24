@@ -129,6 +129,14 @@ env:
   # Set to true only in development/test environments with self-signed certificates
   trustAllTls: false
 
+  # MCP tool level configuration
+  # Controls which tools are exposed by the MCP server
+  # Options: BOTH (default), LOW, HIGH
+  # - BOTH: Expose all tools regardless of level
+  # - LOW: Only expose low-level tools
+  # - HIGH: Only expose high-level tools
+  toolLevel: BOTH
+
 # OpenShift Route configuration (optional)
 # Routes provide external access on OpenShift clusters
 route:

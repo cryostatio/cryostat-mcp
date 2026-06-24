@@ -67,6 +67,9 @@ spec:
                 secretKeyRef:
                   name: {{ include "cryostat-k8s-multi-mcp.secretName" . }}
                   key: {{ .Values.auth.secretKey }}
+
+            - name: CRYOSTAT_MCP_TOOL_LEVEL
+              value: {{ .Values.env.toolLevel | quote }}
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
