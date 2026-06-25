@@ -39,7 +39,7 @@ public class ToolLevelFilter implements ToolFilter {
 
     @Override
     public boolean test(ToolManager.ToolInfo tool, FilterContext context) {
-        if (configLevel == ToolLevel.BOTH) {
+        if (configLevel == ToolLevel.ALL) {
             return true;
         }
         Object o = tool.metadata().get(TOOL_LEVEL_KEY);
@@ -49,7 +49,12 @@ public class ToolLevelFilter implements ToolFilter {
         try {
             String rawToolLevel = o.toString();
             ToolLevel toolLevel = ToolLevel.valueOf(rawToolLevel);
-            return toolLevel.ordinal() >= configLevel.ordinal();
+
+            if (toolLevel == ToolLevel.ALL) {
+                return true;
+            }
+
+            return toolLevel == configLevel;
         } catch (IllegalArgumentException e) {
             logger.warn(e);
             return true;
@@ -59,7 +64,7 @@ public class ToolLevelFilter implements ToolFilter {
     public static enum ToolLevel {
         LOW,
         HIGH,
-        BOTH,
+        ALL,
         ;
     }
 }

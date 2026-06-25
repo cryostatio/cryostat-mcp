@@ -55,7 +55,7 @@ public class NonDirectedTools {
     @MetaField(
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
-            value = "BOTH")
+            value = "ALL")
     public DiscoveryNode getGlobalDiscoveryTree() {
         return aggregateFromAllInstances(
                 mcp -> mcp.getDiscoveryTree(true), discoveryTreeAggregationStrategy);
@@ -72,7 +72,7 @@ public class NonDirectedTools {
     @MetaField(
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
-            value = "BOTH")
+            value = "ALL")
     public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listGlobalTargets(
             @ToolArg(
                             description =
@@ -106,7 +106,7 @@ public class NonDirectedTools {
     @MetaField(
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
-            value = "BOTH")
+            value = "ALL")
     public String scrapeGlobalMetrics(
             @ToolArg(description = "Minimum target score for filtering metrics")
                     Double minTargetScore) {

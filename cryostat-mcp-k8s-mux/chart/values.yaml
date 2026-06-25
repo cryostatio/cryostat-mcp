@@ -131,11 +131,11 @@ env:
 
   # MCP tool level configuration
   # Controls which tools are exposed by the MCP server
-  # Options: BOTH (default), LOW, HIGH
-  # - BOTH: Expose all tools regardless of level
+  # Options: ALL (default), LOW, HIGH
+  # - ALL: Expose all tools regardless of level
   # - LOW: Only expose low-level tools
   # - HIGH: Only expose high-level tools
-  toolLevel: BOTH
+  toolLevel: ALL
 
 # OpenShift Route configuration (optional)
 # Routes provide external access on OpenShift clusters
