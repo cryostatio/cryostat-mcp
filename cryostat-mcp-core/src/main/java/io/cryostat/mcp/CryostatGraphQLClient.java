@@ -17,7 +17,7 @@ package io.cryostat.mcp;
 
 import java.util.List;
 
-import io.cryostat.mcp.model.ActiveRecordingFilter;
+import io.cryostat.mcp.model.ActiveRecordingsFilter;
 import io.cryostat.mcp.model.DiscoveryNodeFilter;
 import io.cryostat.mcp.model.graphql.DiscoveryNode;
 import io.cryostat.mcp.model.graphql.TargetNodeForStop;
@@ -32,6 +32,6 @@ public interface CryostatGraphQLClient {
 
     List<DiscoveryNode> environmentNodes(DiscoveryNodeFilter filter);
 
-    List<TargetNodeForStop> stopActiveRecording(
-            DiscoveryNodeFilter filter, ActiveRecordingFilter recordingsFilter);
+    List<TargetNodeForStop> targetNodes(
+            DiscoveryNodeFilter filter, ActiveRecordingsFilter recordingsFilter);
 }

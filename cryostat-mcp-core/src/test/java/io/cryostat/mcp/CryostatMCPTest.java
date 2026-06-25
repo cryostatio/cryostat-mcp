@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import io.cryostat.mcp.model.ActiveRecordingFilter;
+import io.cryostat.mcp.model.ActiveRecordingsFilter;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
@@ -115,13 +115,13 @@ class CryostatMCPTest {
                 Arrays.asList(
                         mock(io.cryostat.mcp.model.graphql.DiscoveryNode.class),
                         mock(io.cryostat.mcp.model.graphql.DiscoveryNode.class));
-        when(graphqlClient.targetNodes(null, null)).thenReturn(mockNodes);
+        when(graphqlClient.targetNodes(null, (Boolean) null)).thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
                 cryostatMCP.listTargets(null, null, null, null, null, null);
 
         assertEquals(mockNodes, result);
-        verify(graphqlClient).targetNodes(null, null);
+        verify(graphqlClient).targetNodes(null, (Boolean) null);
     }
 
     @Test
@@ -134,14 +134,14 @@ class CryostatMCPTest {
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> mockNodes =
                 Collections.singletonList(mock(io.cryostat.mcp.model.graphql.DiscoveryNode.class));
 
-        when(graphqlClient.targetNodes(any(DiscoveryNodeFilter.class), eq(null)))
+        when(graphqlClient.targetNodes(any(DiscoveryNodeFilter.class), eq((Boolean) null)))
                 .thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
                 cryostatMCP.listTargets(ids, targetIds, names, labels, null, null);
 
         assertEquals(mockNodes, result);
-        verify(graphqlClient).targetNodes(any(DiscoveryNodeFilter.class), eq(null));
+        verify(graphqlClient).targetNodes(any(DiscoveryNodeFilter.class), eq((Boolean) null));
     }
 
     @Test
@@ -679,15 +679,15 @@ class CryostatMCPTest {
 
         DiscoveryNodeFilter expectedNodeFilter =
                 DiscoveryNodeFilter.builder().targetIds(List.of(targetId)).build();
-        ActiveRecordingFilter expectedRecordingFilter = new ActiveRecordingFilter(recordingName);
+        ActiveRecordingsFilter expectedRecordingFilter = new ActiveRecordingsFilter(recordingName);
 
-        when(graphqlClient.stopActiveRecording(expectedNodeFilter, expectedRecordingFilter))
+        when(graphqlClient.targetNodes(expectedNodeFilter, expectedRecordingFilter))
                 .thenReturn(List.of(targetNode));
 
         StoppedRecording result = cryostatMCP.stopTargetRecording(targetId, recordingName);
 
         assertSame(stoppedRecording, result);
-        verify(graphqlClient).stopActiveRecording(expectedNodeFilter, expectedRecordingFilter);
+        verify(graphqlClient).targetNodes(expectedNodeFilter, expectedRecordingFilter);
         verifyNoInteractions(restClient);
     }
 
@@ -698,16 +698,16 @@ class CryostatMCPTest {
 
         DiscoveryNodeFilter expectedNodeFilter =
                 DiscoveryNodeFilter.builder().targetIds(List.of(targetId)).build();
-        ActiveRecordingFilter expectedRecordingFilter = new ActiveRecordingFilter(recordingName);
+        ActiveRecordingsFilter expectedRecordingFilter = new ActiveRecordingsFilter(recordingName);
 
-        when(graphqlClient.stopActiveRecording(expectedNodeFilter, expectedRecordingFilter))
+        when(graphqlClient.targetNodes(expectedNodeFilter, expectedRecordingFilter))
                 .thenReturn(List.of());
 
         assertThrows(
                 NoSuchElementException.class,
                 () -> cryostatMCP.stopTargetRecording(targetId, recordingName));
 
-        verify(graphqlClient).stopActiveRecording(expectedNodeFilter, expectedRecordingFilter);
+        verify(graphqlClient).targetNodes(expectedNodeFilter, expectedRecordingFilter);
         verifyNoInteractions(restClient);
     }
 

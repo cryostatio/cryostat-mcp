@@ -18,11 +18,12 @@ package io.cryostat.mcp.k8s;
 import java.util.List;
 
 import io.cryostat.mcp.CryostatGraphQLClient;
-import io.cryostat.mcp.model.ActiveRecordingFilter;
+import io.cryostat.mcp.model.ActiveRecordingsFilter;
 import io.cryostat.mcp.model.graphql.TargetNodeForStop;
 
 import io.smallrye.graphql.client.typesafe.api.NestedParameter;
 import org.eclipse.microprofile.graphql.Name;
+import org.eclipse.microprofile.graphql.Query;
 
 /**
  * GraphQL client implementation for k8s-mux module. This interface extends the core
@@ -42,8 +43,9 @@ public interface CryostatGraphQLClientImpl extends CryostatGraphQLClient {
             @Name("filter") io.cryostat.mcp.model.DiscoveryNodeFilter filter);
 
     @Override
-    List<TargetNodeForStop> stopActiveRecording(
+    @Query("targetNodes")
+    List<TargetNodeForStop> targetNodes(
             @Name("filter") io.cryostat.mcp.model.DiscoveryNodeFilter filter,
             @NestedParameter("target.activeRecordings") @Name("filter")
-                    ActiveRecordingFilter recordingsFilter);
+                    ActiveRecordingsFilter recordingsFilter);
 }

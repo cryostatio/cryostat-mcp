@@ -15,4 +15,4 @@
  */
 package io.cryostat.mcp.model;
 
-public record ActiveRecordingFilter(String name) {}
+public record ActiveRecordingsFilter(String name) {}

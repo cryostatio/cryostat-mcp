@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-import io.cryostat.mcp.model.ActiveRecordingFilter;
+import io.cryostat.mcp.model.ActiveRecordingsFilter;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
@@ -190,8 +190,8 @@ public class CryostatMCP {
     public StoppedRecording stopTargetRecording(long targetId, String recordingName) {
         DiscoveryNodeFilter nodeFilter =
                 DiscoveryNodeFilter.builder().targetIds(List.of(targetId)).build();
-        ActiveRecordingFilter recordingFilter = new ActiveRecordingFilter(recordingName);
-        return graphql.stopActiveRecording(nodeFilter, recordingFilter).stream()
+        ActiveRecordingsFilter recordingFilter = new ActiveRecordingsFilter(recordingName);
+        return graphql.targetNodes(nodeFilter, recordingFilter).stream()
                 .map(TargetNodeForStop::target)
                 .filter(t -> t != null)
                 .map(t -> t.activeRecordings())
