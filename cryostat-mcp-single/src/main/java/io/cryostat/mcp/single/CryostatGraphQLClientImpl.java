@@ -18,8 +18,11 @@ package io.cryostat.mcp.single;
 import java.util.List;
 
 import io.cryostat.mcp.CryostatGraphQLClient;
+import io.cryostat.mcp.model.ActiveRecordingFilter;
+import io.cryostat.mcp.model.graphql.TargetNodeForStop;
 
 import io.smallrye.graphql.client.typesafe.api.GraphQLClientApi;
+import io.smallrye.graphql.client.typesafe.api.NestedParameter;
 import org.eclipse.microprofile.graphql.Name;
 
 /**
@@ -35,4 +38,10 @@ public interface CryostatGraphQLClientImpl extends CryostatGraphQLClient {
     List<io.cryostat.mcp.model.graphql.DiscoveryNode> targetNodes(
             @Name("filter") io.cryostat.mcp.model.DiscoveryNodeFilter filter,
             @Name("useAuditLog") Boolean useAuditLog);
+
+    @Override
+    List<TargetNodeForStop> stopActiveRecording(
+            @Name("filter") io.cryostat.mcp.model.DiscoveryNodeFilter filter,
+            @NestedParameter("target.activeRecordings") @Name("filter")
+                    ActiveRecordingFilter recordingsFilter);
 }

@@ -23,6 +23,7 @@ import io.cryostat.mcp.CryostatMCP;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.EventTemplate;
 import io.cryostat.mcp.model.RecordingDescriptor;
+import io.cryostat.mcp.model.graphql.StoppedRecording;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.fabric8.kubernetes.api.model.Duration;
@@ -121,6 +122,23 @@ public class K8sOrientedTools {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         PodNameResolver.TargetInfo targetInfo = podNameResolver.resolveTarget(namespace, podName);
         return mcp.archiveTargetRecording(targetInfo.targetId(), targetInfo.jvmId());
+    }
+
+    @Tool(description = "Stop an active JDK Flight Recording on the given application.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "HIGH")
+    public StoppedRecording stopRecording(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The podName of the application.", required = true)
+                    String podName,
+            @ToolArg(description = "The name of the recording to stop.", required = true)
+                    String recordingName) {
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        long targetId = podNameResolver.resolvePodNameToTargetId(namespace, podName);
+        return mcp.stopTargetRecording(targetId, recordingName);
     }
 
     @Tool(
