@@ -31,7 +31,7 @@ image:
   repository: quay.io/cryostat/cryostat-mcp-k8s-mux
   
   # Image tag (defaults to chart appVersion if not specified)
-  tag: latest@sha256:23608313789ee1eb0d9378984065cbdd14702c78322d5d20cd7cc600547ab3e6
+  tag: latest
   
   # Image pull policy
   pullPolicy: Always
