@@ -124,20 +124,23 @@ public class CryostatMCP {
     public ArchivedRecordingDescriptor archiveTargetRecording(long targetId, String jvmId) {
         RecordingDescriptor snapshot = rest.createSnapshot(targetId);
         rest.patchRecording(targetId, snapshot.remoteId(), "save");
-        rest.deleteRecording(targetId, snapshot.remoteId());
         String snapshotName = snapshot.name();
         sleep(ARCHIVE_INITIAL_DELAY_MS);
-        for (int attempt = 0; attempt < ARCHIVE_POLL_ATTEMPTS; attempt++) {
-            if (attempt > 0) {
-                sleep(ARCHIVE_RETRY_DELAY_MS);
+        try {
+            for (int attempt = 0; attempt < ARCHIVE_POLL_ATTEMPTS; attempt++) {
+                if (attempt > 0) {
+                    sleep(ARCHIVE_RETRY_DELAY_MS);
+                }
+                Optional<ArchivedRecordingDescriptor> result =
+                        findArchivedSnapshot(jvmId, snapshotName);
+                if (result.isPresent()) {
+                    return result.get();
+                }
             }
-            Optional<ArchivedRecordingDescriptor> result =
-                    findArchivedSnapshot(jvmId, snapshotName);
-            if (result.isPresent()) {
-                return result.get();
-            }
+            throw new NoSuchElementException("Archived recording not found: " + snapshotName);
+        } finally {
+            rest.deleteRecording(targetId, snapshot.remoteId());
         }
-        throw new NoSuchElementException("Archived recording not found: " + snapshotName);
     }
 
     private Optional<ArchivedRecordingDescriptor> findArchivedSnapshot(
