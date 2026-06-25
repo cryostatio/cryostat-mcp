@@ -19,7 +19,6 @@ import java.text.ParseException;
 import java.util.List;
 import java.util.UUID;
 
-import io.cryostat.CryostatPodNameMapper;
 import io.cryostat.mcp.CryostatMCP;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.EventTemplate;
@@ -37,7 +36,7 @@ import jakarta.inject.Inject;
 public class K8sOrientedTools {
 
     @Inject CryostatMCPInstanceManager instanceManager;
-    @Inject CryostatPodNameMapper podNameMapper;
+    @Inject PodNameResolver podNameResolver;
 
     @Tool(
             description =
@@ -53,7 +52,7 @@ public class K8sOrientedTools {
             @ToolArg(description = "The podName of the application", required = true)
                     String podName) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        long targetId = podNameMapper.getTargetId(namespace, podName);
+        long targetId = podNameResolver.resolvePodNameToTargetId(namespace, podName);
         return mcp.listTargetEventTemplates(targetId);
     }
 
@@ -68,7 +67,7 @@ public class K8sOrientedTools {
             @ToolArg(description = "The podName of the application", required = true)
                     String podName) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        long targetId = podNameMapper.getTargetId(namespace, podName);
+        long targetId = podNameResolver.resolvePodNameToTargetId(namespace, podName);
         return mcp.listTargetActiveRecordings(targetId);
     }
 
@@ -98,7 +97,7 @@ public class K8sOrientedTools {
                     String duration)
             throws ParseException, JsonProcessingException {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        long targetId = podNameMapper.getTargetId(namespace, podName);
+        long targetId = podNameResolver.resolvePodNameToTargetId(namespace, podName);
         String recordingName = UUID.randomUUID().toString();
         long durationSeconds = Duration.parse(duration).getDuration().getSeconds();
         return mcp.startTargetRecording(
@@ -120,9 +119,8 @@ public class K8sOrientedTools {
             @ToolArg(description = "The podName of the application.", required = true)
                     String podName) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        long targetId = podNameMapper.getTargetId(namespace, podName);
-        String jvmId = podNameMapper.getJvmId(namespace, podName);
-        return mcp.archiveTargetRecording(targetId, jvmId);
+        PodNameResolver.TargetInfo targetInfo = podNameResolver.resolveTarget(namespace, podName);
+        return mcp.archiveTargetRecording(targetInfo.targetId(), targetInfo.jvmId());
     }
 
     @Tool(
@@ -138,7 +136,7 @@ public class K8sOrientedTools {
             @ToolArg(description = "The podName of the application.", required = true)
                     String podName) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        String jvmId = podNameMapper.getJvmId(namespace, podName);
+        String jvmId = podNameResolver.resolvePodNameToJvmId(namespace, podName);
         return mcp.listTargetArchivedRecordings(jvmId).stream()
                 .flatMap(dir -> dir.recordings().stream())
                 .toList();

@@ -16,7 +16,6 @@
 package io.cryostat.mcp.k8s;
 
 import java.util.List;
-import java.util.Optional;
 
 import io.cryostat.mcp.CryostatMCP;
 import io.cryostat.mcp.model.graphql.DiscoveryNode;
@@ -32,7 +31,12 @@ import org.jboss.logging.Logger;
 
 /**
  * Service for resolving Kubernetes Pod names to Cryostat Target identifiers (JVM ID and Target ID).
- * Uses Quarkus Cache (Caffeine) to cache resolutions.
+ * Uses Quarkus Cache (Caffeine) to cache resolutions. A single cache entry holds both identifiers
+ * so that callers needing both values pay only one GraphQL call per cold cache miss.
+ *
+ * <p>The lookup first queries the live dataset; if no result is found it retries against Cryostat's
+ * Hibernate Envers audit log. A failed lookup is never cached — the Pod may appear (or reappear) in
+ * the dataset later.
  */
 @ApplicationScoped
 public class PodNameResolver {
@@ -48,37 +52,8 @@ public class PodNameResolver {
      * @return The JVM hash ID
      * @throws IllegalArgumentException if no target found for the Pod
      */
-    @CacheResult(cacheName = "pod-name-resolution")
-    public String resolvePodNameToJvmId(@CacheKey String namespace, @CacheKey String podName) {
-        return resolvePodNameToJvmIdInternal(namespace, podName, false);
-    }
-
-    /**
-     * Resolve a Pod name to its JVM hash ID with explicit audit log control.
-     *
-     * @param namespace The namespace containing the Pod
-     * @param podName The name of the Pod
-     * @param useAuditLog Whether to query historical targets from audit log
-     * @return The JVM hash ID
-     * @throws IllegalArgumentException if no target found for the Pod
-     */
-    @CacheResult(cacheName = "pod-name-resolution")
-    public String resolvePodNameToJvmId(
-            @CacheKey String namespace, @CacheKey String podName, boolean useAuditLog) {
-        return resolvePodNameToJvmIdInternal(namespace, podName, useAuditLog);
-    }
-
-    private String resolvePodNameToJvmIdInternal(
-            String namespace, String podName, boolean useAuditLog) {
-        Target target =
-                findTargetByPodName(namespace, podName, useAuditLog)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                buildErrorMessage(
-                                                        podName, namespace, useAuditLog)));
-
-        return target.jvmId();
+    public String resolvePodNameToJvmId(String namespace, String podName) {
+        return resolveTarget(namespace, podName).jvmId();
     }
 
     /**
@@ -89,37 +64,80 @@ public class PodNameResolver {
      * @return The Target ID
      * @throws IllegalArgumentException if no target found for the Pod
      */
-    @CacheResult(cacheName = "pod-name-resolution")
-    public Long resolvePodNameToTargetId(@CacheKey String namespace, @CacheKey String podName) {
-        return resolvePodNameToTargetIdInternal(namespace, podName, false);
+    public Long resolvePodNameToTargetId(String namespace, String podName) {
+        return resolveTarget(namespace, podName).targetId();
     }
 
     /**
-     * Resolve a Pod name to its Target ID with explicit audit log control.
+     * Resolve a Pod name to a {@link TargetInfo} holding both the Target ID and JVM hash ID. This
+     * is the single cache entry point; callers that need both identifiers pay only one GraphQL call
+     * per cold cache miss.
+     *
+     * <p>The live dataset is tried first. If no result is found the audit log is queried as a
+     * fallback. A successful result is cached regardless of which path found it. A failure is not
+     * cached.
      *
      * @param namespace The namespace containing the Pod
      * @param podName The name of the Pod
-     * @param useAuditLog Whether to query historical targets from audit log
-     * @return The Target ID
-     * @throws IllegalArgumentException if no target found for the Pod
+     * @return A {@link TargetInfo} containing the Target ID and JVM hash ID
+     * @throws IllegalArgumentException if no target found for the Pod in either dataset
      */
     @CacheResult(cacheName = "pod-name-resolution")
-    public Long resolvePodNameToTargetId(
-            @CacheKey String namespace, @CacheKey String podName, boolean useAuditLog) {
-        return resolvePodNameToTargetIdInternal(namespace, podName, useAuditLog);
-    }
+    public TargetInfo resolveTarget(@CacheKey String namespace, @CacheKey String podName) {
+        List<DiscoveryNode> nodes = queryTargetNodes(namespace, podName, false);
 
-    private Long resolvePodNameToTargetIdInternal(
-            String namespace, String podName, boolean useAuditLog) {
+        if (nodes == null || nodes.isEmpty()) {
+            log.debugf(
+                    "Pod '%s' not found in live dataset for namespace '%s', retrying with audit"
+                            + " log",
+                    podName, namespace);
+            nodes = queryTargetNodes(namespace, podName, true);
+        }
+
+        if (nodes == null || nodes.isEmpty()) {
+            throw new IllegalArgumentException(buildErrorMessage(podName, namespace));
+        }
+
+        if (nodes.size() > 1) {
+            log.debugf(
+                    "Multiple discovery nodes found for Pod '%s' in namespace '%s'. Using Agent"
+                            + " instance if present, otherwise first match.",
+                    podName, namespace);
+        }
+
         Target target =
-                findTargetByPodName(namespace, podName, useAuditLog)
+                nodes.stream()
+                        .map(DiscoveryNode::target)
+                        .filter(t -> t != null)
+                        .sorted(
+                                (t1, t2) ->
+                                        Boolean.compare(
+                                                Boolean.TRUE.equals(t2.agent()),
+                                                Boolean.TRUE.equals(t1.agent())))
+                        .findFirst()
                         .orElseThrow(
                                 () ->
                                         new IllegalArgumentException(
-                                                buildErrorMessage(
-                                                        podName, namespace, useAuditLog)));
+                                                buildErrorMessage(podName, namespace)));
 
-        return target.id();
+        Long targetId = target.id();
+        String jvmId = target.jvmId();
+
+        if (targetId == null) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Target ID is null for pod '%s' in namespace '%s'",
+                            podName, namespace));
+        }
+
+        if (jvmId == null || jvmId.isEmpty()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "JVM ID is null or empty for pod '%s' in namespace '%s'",
+                            podName, namespace));
+        }
+
+        return new TargetInfo(targetId, jvmId);
     }
 
     /**
@@ -132,72 +150,26 @@ public class PodNameResolver {
     @CacheInvalidateAll(cacheName = "pod-name-resolution")
     public void invalidateAllCache() {}
 
-    /**
-     * Find a target by Pod name using the Cryostat GraphQL API.
-     *
-     * @param namespace The namespace containing the Pod
-     * @param podName The name of the Pod
-     * @param useAuditLog Whether to query historical targets from audit log
-     * @return Optional containing the Target if found
-     */
-    private Optional<Target> findTargetByPodName(
+    private List<DiscoveryNode> queryTargetNodes(
             String namespace, String podName, boolean useAuditLog) {
-        try {
-            CryostatMCP mcp = instanceManager.createInstance(namespace);
-
-            List<DiscoveryNode> nodes =
-                    mcp.listTargets(null, null, List.of(podName), null, useAuditLog);
-
-            Optional<Target> target =
-                    nodes.stream()
-                            .filter(node -> node.target() != null)
-                            .map(DiscoveryNode::target)
-                            .findFirst();
-
-            if (nodes.size() > 1 && target.isPresent()) {
-                log.warnf(
-                        "Multiple discovery nodes found for Pod '%s' in namespace '%s'"
-                                + " (useAuditLog=%s). Using first match with target: %s",
-                        podName, namespace, useAuditLog, target.get().connectUrl());
-            }
-
-            return target;
-        } catch (Exception e) {
-            log.errorf(
-                    e,
-                    "Failed to find target for Pod '%s' in namespace '%s' (useAuditLog=%s)",
-                    podName,
-                    namespace,
-                    useAuditLog);
-            return Optional.empty();
-        }
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        return mcp.listTargets(null, null, List.of(podName), null, useAuditLog);
     }
 
-    /**
-     * Build a helpful error message when a Pod cannot be resolved.
-     *
-     * @param podName The Pod name that couldn't be resolved
-     * @param namespace The namespace that was searched
-     * @param useAuditLog Whether audit log was queried
-     * @return A detailed error message with troubleshooting suggestions
-     */
-    private String buildErrorMessage(String podName, String namespace, boolean useAuditLog) {
-        StringBuilder msg = new StringBuilder();
-        msg.append("No target found for Pod '")
-                .append(podName)
-                .append("' in namespace '")
-                .append(namespace)
-                .append("'. ");
-        msg.append("Possible reasons:\n");
-        msg.append("1. Pod does not exist in the namespace\n");
-        msg.append("2. Pod is not a JVM application\n");
-        msg.append("3. Cryostat has not discovered the Pod yet\n");
-        msg.append("4. Pod name is misspelled");
-
-        if (!useAuditLog) {
-            msg.append("\n5. Pod may have been terminated (try with useAuditLog=true)");
-        }
-
-        return msg.toString();
+    private String buildErrorMessage(String podName, String namespace) {
+        return "No target found for Pod '"
+                + podName
+                + "' in namespace '"
+                + namespace
+                + "'. "
+                + "Possible reasons:\n"
+                + "1. Pod does not exist in the namespace\n"
+                + "2. Pod is not a JVM application\n"
+                + "3. Cryostat has not discovered the Pod yet\n"
+                + "4. Pod name is misspelled\n"
+                + "5. Pod may have been terminated before Cryostat observed it";
     }
+
+    /** Holds the Target ID and JVM hash ID for a resolved Pod. */
+    public record TargetInfo(long targetId, String jvmId) {}
 }
