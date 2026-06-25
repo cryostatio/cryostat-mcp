@@ -241,6 +241,10 @@ public class DirectedTools {
                     "Start a new fixed-duration JDK Flight Recording on a Target JVM. When the"
                         + " recording completes, Cryostat will automatically capture the data and"
                         + " perform an automated analysis of its contents.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
     public RecordingDescriptor startTargetRecording(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
