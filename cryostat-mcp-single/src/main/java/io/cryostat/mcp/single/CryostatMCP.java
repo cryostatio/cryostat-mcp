@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import io.cryostat.mcp.JfrAnalyticsQueries;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
 import io.cryostat.mcp.model.DiscoveryNodeFilter;
@@ -317,6 +318,73 @@ public class CryostatMCP {
                     String filename,
             @ToolArg(description = "The SQL query to execute.", required = true) String query) {
         return rest.executeQuery(jvmId, filename, query);
+    }
+
+    @Tool(
+            description =
+                    """
+                    List the JFR event types present in an archived Flight Recording. This is a
+                    dedicated version of the recording analytics "tables" query for callers that
+                    need to discover which event types are available before selecting fields or
+                    event rows.
+                    """)
+    public List<List<String>> listArchivedRecordingEventTypes(
+            @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
+            @ToolArg(
+                            description = "The name of the archived recording file to inspect.",
+                            required = true)
+                    String filename) {
+        return rest.executeQuery(jvmId, filename, JfrAnalyticsQueries.LIST_EVENT_TYPES_QUERY);
+    }
+
+    @Tool(
+            description =
+                    """
+                    List the field names available on a JFR event type in an archived Flight
+                    Recording. Use listArchivedRecordingEventTypes first if the event type name is
+                    not known.
+                    """)
+    public List<List<String>> listArchivedRecordingEventFields(
+            @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
+            @ToolArg(
+                            description = "The name of the archived recording file to inspect.",
+                            required = true)
+                    String filename,
+            @ToolArg(
+                            description =
+                                    "The JFR event type name, for example"
+                                            + " jdk.ObjectAllocationSample.",
+                            required = true)
+                    String eventType) {
+        return rest.executeQuery(
+                jvmId, filename, JfrAnalyticsQueries.listEventFieldsQuery(eventType));
+    }
+
+    @Tool(
+            description =
+                    """
+                    List event rows for a JFR event type in an archived Flight Recording. This is a
+                    dedicated version of a simple SELECT query and returns up to limit rows from the
+                    selected event type.
+                    """)
+    public List<List<String>> listArchivedRecordingEvents(
+            @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
+            @ToolArg(
+                            description = "The name of the archived recording file to inspect.",
+                            required = true)
+                    String filename,
+            @ToolArg(
+                            description =
+                                    "The JFR event type name, for example"
+                                            + " jdk.ObjectAllocationSample.",
+                            required = true)
+                    String eventType,
+            @ToolArg(
+                            description = "The maximum number of event rows to return.",
+                            defaultValue = "100")
+                    int limit) {
+        return rest.executeQuery(
+                jvmId, filename, JfrAnalyticsQueries.listEventsQuery(eventType, limit));
     }
 
     @Tool(

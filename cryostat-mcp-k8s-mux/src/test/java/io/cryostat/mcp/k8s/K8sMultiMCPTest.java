@@ -318,6 +318,28 @@ class K8sMultiMCPTest {
     }
 
     @Test
+    void testDirectedArchivedRecordingEventToolsRouteToCorrectInstance() {
+        String namespace = "namespace-1";
+        String jvmId = "test-jvm-id";
+        String filename = "recording.jfr";
+        String eventType = "jdk.ThreadStart";
+        List<List<String>> mockResults =
+                List.of(List.of("startTime", "thread"), List.of("1", "main"));
+
+        when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
+        when(mockMCP.listArchivedRecordingEvents(jvmId, filename, eventType, 10))
+                .thenReturn(mockResults);
+
+        List<List<String>> result =
+                directedTools.listArchivedRecordingEvents(
+                        namespace, jvmId, filename, eventType, 10);
+
+        assertEquals(mockResults, result);
+        verify(instanceManager).createInstance(namespace);
+        verify(mockMCP).listArchivedRecordingEvents(jvmId, filename, eventType, 10);
+    }
+
+    @Test
     void testNonDirectedToolWithAuthorizationHeader() {
         String authHeader = "Bearer test-token";
         when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
