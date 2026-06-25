@@ -16,9 +16,13 @@
 package io.cryostat.mcp;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 
+import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
 import io.cryostat.mcp.model.DiscoveryNodeFilter;
@@ -31,6 +35,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class CryostatMCP {
+
+    static final int ARCHIVE_POLL_ATTEMPTS = 6;
+    static final long ARCHIVE_INITIAL_DELAY_MS = 3_000L;
+    static final long ARCHIVE_RETRY_DELAY_MS = 5_000L;
 
     private final CryostatRESTClient rest;
     private final CryostatGraphQLClient graphql;
@@ -105,6 +113,49 @@ public class CryostatMCP {
 
     public List<ArchivedRecordingDirectory> listTargetArchivedRecordings(String jvmId) {
         return rest.targetArchivedRecordings(jvmId);
+    }
+
+    public ArchivedRecordingDescriptor archiveTargetRecording(long targetId, String jvmId) {
+        RecordingDescriptor snapshot = rest.createSnapshot(targetId);
+        rest.patchRecording(targetId, snapshot.remoteId(), "save");
+        rest.deleteRecording(targetId, snapshot.remoteId());
+        String snapshotName = snapshot.name();
+        sleep(ARCHIVE_INITIAL_DELAY_MS);
+        for (int attempt = 0; attempt < ARCHIVE_POLL_ATTEMPTS; attempt++) {
+            if (attempt > 0) {
+                sleep(ARCHIVE_RETRY_DELAY_MS);
+            }
+            Optional<ArchivedRecordingDescriptor> result =
+                    findArchivedSnapshot(jvmId, snapshotName);
+            if (result.isPresent()) {
+                return result.get();
+            }
+        }
+        throw new NoSuchElementException("Archived recording not found: " + snapshotName);
+    }
+
+    private Optional<ArchivedRecordingDescriptor> findArchivedSnapshot(
+            String jvmId, String snapshotName) {
+        return rest.targetArchivedRecordings(jvmId).stream()
+                .flatMap(dir -> dir.recordings().stream())
+                .filter(
+                        r -> {
+                            for (String part : r.name().split("_")) {
+                                if (part.equals(snapshotName)) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        })
+                .max(Comparator.comparingLong(ArchivedRecordingDescriptor::archivedTime));
+    }
+
+    void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     public RecordingDescriptor startTargetRecording(

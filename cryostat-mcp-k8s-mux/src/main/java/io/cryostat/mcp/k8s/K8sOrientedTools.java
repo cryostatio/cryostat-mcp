@@ -15,12 +15,18 @@
  */
 package io.cryostat.mcp.k8s;
 
+import java.text.ParseException;
 import java.util.List;
+import java.util.UUID;
 
 import io.cryostat.CryostatPodNameMapper;
 import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.EventTemplate;
+import io.cryostat.mcp.model.RecordingDescriptor;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import io.fabric8.kubernetes.api.model.Duration;
 import io.quarkiverse.mcp.server.MetaField;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
@@ -41,13 +47,100 @@ public class K8sOrientedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "HIGH")
-    public List<EventTemplate> listTargetEventTemplatesByPod(
+    public List<EventTemplate> listEventTemplates(
             @ToolArg(description = "The namespace of application.", required = true)
                     String namespace,
             @ToolArg(description = "The podName of the application", required = true)
                     String podName) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        var targetId = podNameMapper.getTargetId(namespace, podName);
+        long targetId = podNameMapper.getTargetId(namespace, podName);
         return mcp.listTargetEventTemplates(targetId);
+    }
+
+    @Tool(description = "Get a list of active JDK Flight Recordings present in the Target JVM.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "HIGH")
+    public List<RecordingDescriptor> getActiveRecordingsList(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The podName of the application", required = true)
+                    String podName) {
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        long targetId = podNameMapper.getTargetId(namespace, podName);
+        return mcp.listTargetActiveRecordings(targetId);
+    }
+
+    @Tool(description = "Start a Flight Recording on the given application.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "HIGH")
+    public RecordingDescriptor startFlightRecording(
+            @ToolArg(description = "The namespace of application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The podName of the application", required = true)
+                    String podName,
+            @ToolArg(
+                            description = "The Event Template to use for recording",
+                            required = true,
+                            defaultValue = "Continuous")
+                    String eventTemplate,
+            @ToolArg(
+                            description =
+                                    "The recording's duration. '0s' means continuous and ongoing,"
+                                        + " otherwise a Kubernetes duration specifier can be"
+                                        + " provided. Fixed-length recordings will be automatically"
+                                        + " archived upon completion.",
+                            required = true,
+                            defaultValue = "0s")
+                    String duration)
+            throws ParseException, JsonProcessingException {
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        long targetId = podNameMapper.getTargetId(namespace, podName);
+        String recordingName = UUID.randomUUID().toString();
+        long durationSeconds = Duration.parse(duration).getDuration().getSeconds();
+        return mcp.startTargetRecording(
+                targetId, recordingName, eventTemplate, "TARGET", durationSeconds);
+    }
+
+    @Tool(
+            description =
+                    "Create a snapshot of the current active recording data in the Target JVM,"
+                        + " archive it to persistent storage, and delete the intermediate active"
+                        + " snapshot. Returns the descriptor of the resulting archived recording.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "HIGH")
+    public ArchivedRecordingDescriptor archiveRecording(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The podName of the application.", required = true)
+                    String podName) {
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        long targetId = podNameMapper.getTargetId(namespace, podName);
+        String jvmId = podNameMapper.getJvmId(namespace, podName);
+        return mcp.archiveTargetRecording(targetId, jvmId);
+    }
+
+    @Tool(
+            description =
+                    "Get a list of archived Flight Recordings retrieved from the given target JVM.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "HIGH")
+    public List<ArchivedRecordingDescriptor> getArchivedRecordingsList(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The podName of the application.", required = true)
+                    String podName) {
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        String jvmId = podNameMapper.getJvmId(namespace, podName);
+        return mcp.listTargetArchivedRecordings(jvmId).stream()
+                .flatMap(dir -> dir.recordings().stream())
+                .toList();
     }
 }

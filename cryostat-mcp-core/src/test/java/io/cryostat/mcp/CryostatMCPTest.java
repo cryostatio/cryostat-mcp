@@ -23,7 +23,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
+import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
 import io.cryostat.mcp.model.DiscoveryNodeFilter;
@@ -243,6 +245,110 @@ class CryostatMCPTest {
 
         assertEquals(mockArchives, result);
         verify(restClient).targetArchivedRecordings(jvmId);
+    }
+
+    @Test
+    void testArchiveTargetRecording() {
+        long targetId = 123L;
+        String jvmId = "test-jvm-id";
+        String snapshotName = "snapshot";
+        long remoteId = 42L;
+
+        CryostatMCP spyMCP = spy(cryostatMCP);
+        doNothing().when(spyMCP).sleep(anyLong());
+
+        RecordingDescriptor snapshot =
+                new RecordingDescriptor(
+                        1L,
+                        remoteId,
+                        "STOPPED",
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        true,
+                        0L,
+                        0L,
+                        snapshotName,
+                        null,
+                        null,
+                        null);
+        // Archived name includes encoded target alias prefix and timestamp suffix
+        ArchivedRecordingDescriptor olderArchive =
+                new ArchivedRecordingDescriptor(
+                        jvmId,
+                        "-deployments-quarkus-run-jar_snapshot_20260624T100000Z.jfr",
+                        null,
+                        null,
+                        null,
+                        0L,
+                        1000L);
+        ArchivedRecordingDescriptor newerArchive =
+                new ArchivedRecordingDescriptor(
+                        jvmId,
+                        "-deployments-quarkus-run-jar_snapshot_20260625T162915Z.jfr",
+                        null,
+                        null,
+                        null,
+                        0L,
+                        2000L);
+        ArchivedRecordingDirectory dir =
+                new ArchivedRecordingDirectory(null, jvmId, List.of(olderArchive, newerArchive));
+
+        when(restClient.createSnapshot(targetId)).thenReturn(snapshot);
+        when(restClient.patchRecording(targetId, remoteId, "save")).thenReturn("request-id");
+        when(restClient.targetArchivedRecordings(jvmId)).thenReturn(List.of(dir));
+
+        ArchivedRecordingDescriptor result = spyMCP.archiveTargetRecording(targetId, jvmId);
+
+        assertSame(newerArchive, result);
+        verify(restClient).createSnapshot(targetId);
+        verify(restClient).patchRecording(targetId, remoteId, "save");
+        verify(restClient).deleteRecording(targetId, remoteId);
+        verify(spyMCP).sleep(CryostatMCP.ARCHIVE_INITIAL_DELAY_MS);
+        verify(restClient).targetArchivedRecordings(jvmId);
+    }
+
+    @Test
+    void testArchiveTargetRecordingNotFound() {
+        long targetId = 123L;
+        String jvmId = "test-jvm-id";
+        String snapshotName = "snapshot";
+        long remoteId = 42L;
+
+        CryostatMCP spyMCP = spy(cryostatMCP);
+        doNothing().when(spyMCP).sleep(anyLong());
+
+        RecordingDescriptor snapshot =
+                new RecordingDescriptor(
+                        1L,
+                        remoteId,
+                        "STOPPED",
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        true,
+                        0L,
+                        0L,
+                        snapshotName,
+                        null,
+                        null,
+                        null);
+        ArchivedRecordingDirectory dir = new ArchivedRecordingDirectory(null, jvmId, List.of());
+
+        when(restClient.createSnapshot(targetId)).thenReturn(snapshot);
+        when(restClient.patchRecording(targetId, remoteId, "save")).thenReturn("request-id");
+        when(restClient.targetArchivedRecordings(jvmId)).thenReturn(List.of(dir));
+
+        assertThrows(
+                NoSuchElementException.class, () -> spyMCP.archiveTargetRecording(targetId, jvmId));
+
+        verify(spyMCP).sleep(CryostatMCP.ARCHIVE_INITIAL_DELAY_MS);
+        verify(spyMCP, times(CryostatMCP.ARCHIVE_POLL_ATTEMPTS - 1))
+                .sleep(CryostatMCP.ARCHIVE_RETRY_DELAY_MS);
+        verify(restClient, times(CryostatMCP.ARCHIVE_POLL_ATTEMPTS))
+                .targetArchivedRecordings(jvmId);
     }
 
     @Test
