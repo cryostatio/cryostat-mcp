@@ -22,7 +22,8 @@ public record DiscoveryNodeFilter(
         List<Long> targetIds,
         List<String> names,
         List<String> labels,
-        List<String> nodeTypes) {
+        List<String> nodeTypes,
+        List<String> annotations) {
 
     public static Builder builder() {
         return new Builder();
@@ -34,6 +35,7 @@ public record DiscoveryNodeFilter(
         private List<String> names;
         private List<String> labels;
         private List<String> nodeTypes;
+        private List<String> annotations;
 
         private Builder() {}
 
@@ -62,8 +64,13 @@ public record DiscoveryNodeFilter(
             return this;
         }
 
+        public Builder annotations(List<String> annotations) {
+            this.annotations = annotations;
+            return this;
+        }
+
         public DiscoveryNodeFilter build() {
-            return new DiscoveryNodeFilter(ids, targetIds, names, labels, nodeTypes);
+            return new DiscoveryNodeFilter(ids, targetIds, names, labels, nodeTypes, annotations);
         }
     }
 }
