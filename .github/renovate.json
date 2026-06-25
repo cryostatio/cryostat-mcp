@@ -22,6 +22,9 @@
   "major": {
     "dependencyDashboardApproval": true
   },
+  "minor": {
+    "dependencyDashboardApproval": true
+  },
   "packageRules": [
     {
       "description": "Require approval for Quarkus major and minor version updates",
@@ -58,6 +61,13 @@
         "/^io\\.quarkus:/",
         "/^io\\.quarkus\\.platform:/"
       ]
+    },
+    {
+      "description": "Allow floating tags and disable digest pinning in Helm chart",
+      "matchFileNames": [
+        "cryostat-mcp-k8s-mux/chart/values.yaml"
+      ],
+      "pinDigests": false
     }
   ]
 }
