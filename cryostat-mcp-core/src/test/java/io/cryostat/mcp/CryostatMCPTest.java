@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+import io.cryostat.mcp.model.ActiveRecordingFilter;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
@@ -33,6 +34,11 @@ import io.cryostat.mcp.model.EventTemplate;
 import io.cryostat.mcp.model.Health;
 import io.cryostat.mcp.model.RecordingDescriptor;
 import io.cryostat.mcp.model.Target;
+import io.cryostat.mcp.model.graphql.ActiveRecordingNode;
+import io.cryostat.mcp.model.graphql.ActiveRecordingsWithStop;
+import io.cryostat.mcp.model.graphql.StoppedRecording;
+import io.cryostat.mcp.model.graphql.TargetNodeForStop;
+import io.cryostat.mcp.model.graphql.TargetWithStop;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -643,6 +649,66 @@ class CryostatMCPTest {
                 "List the available JFR event types (tables) in a recording",
                 firstExample.description());
         assertEquals("tables", firstExample.query());
+    }
+
+    @Test
+    void testStopTargetRecording() {
+        long targetId = 123L;
+        String recordingName = "my-recording";
+
+        StoppedRecording stoppedRecording =
+                new StoppedRecording(
+                        1L,
+                        42L,
+                        "STOPPED",
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        true,
+                        0L,
+                        0L,
+                        recordingName,
+                        null,
+                        null);
+        ActiveRecordingNode recordingNode = new ActiveRecordingNode(stoppedRecording);
+        ActiveRecordingsWithStop activeRecordings =
+                new ActiveRecordingsWithStop(List.of(recordingNode));
+        TargetWithStop targetWithStop = new TargetWithStop(activeRecordings);
+        TargetNodeForStop targetNode = new TargetNodeForStop(targetWithStop);
+
+        DiscoveryNodeFilter expectedNodeFilter =
+                DiscoveryNodeFilter.builder().targetIds(List.of(targetId)).build();
+        ActiveRecordingFilter expectedRecordingFilter = new ActiveRecordingFilter(recordingName);
+
+        when(graphqlClient.stopActiveRecording(expectedNodeFilter, expectedRecordingFilter))
+                .thenReturn(List.of(targetNode));
+
+        StoppedRecording result = cryostatMCP.stopTargetRecording(targetId, recordingName);
+
+        assertSame(stoppedRecording, result);
+        verify(graphqlClient).stopActiveRecording(expectedNodeFilter, expectedRecordingFilter);
+        verifyNoInteractions(restClient);
+    }
+
+    @Test
+    void testStopTargetRecordingNotFound() {
+        long targetId = 123L;
+        String recordingName = "missing-recording";
+
+        DiscoveryNodeFilter expectedNodeFilter =
+                DiscoveryNodeFilter.builder().targetIds(List.of(targetId)).build();
+        ActiveRecordingFilter expectedRecordingFilter = new ActiveRecordingFilter(recordingName);
+
+        when(graphqlClient.stopActiveRecording(expectedNodeFilter, expectedRecordingFilter))
+                .thenReturn(List.of());
+
+        assertThrows(
+                NoSuchElementException.class,
+                () -> cryostatMCP.stopTargetRecording(targetId, recordingName));
+
+        verify(graphqlClient).stopActiveRecording(expectedNodeFilter, expectedRecordingFilter);
+        verifyNoInteractions(restClient);
     }
 
     @Test

@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import io.cryostat.mcp.model.ActiveRecordingFilter;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
@@ -30,6 +31,8 @@ import io.cryostat.mcp.model.EventTemplate;
 import io.cryostat.mcp.model.Health;
 import io.cryostat.mcp.model.RecordingDescriptor;
 import io.cryostat.mcp.model.Target;
+import io.cryostat.mcp.model.graphql.StoppedRecording;
+import io.cryostat.mcp.model.graphql.TargetNodeForStop;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -182,6 +185,25 @@ public class CryostatMCP {
                 true,
                 mapper.writeValueAsString(Map.of("labels", Map.of("autoanalyze", "true"))),
                 true);
+    }
+
+    public StoppedRecording stopTargetRecording(long targetId, String recordingName) {
+        DiscoveryNodeFilter nodeFilter =
+                DiscoveryNodeFilter.builder().targetIds(List.of(targetId)).build();
+        ActiveRecordingFilter recordingFilter = new ActiveRecordingFilter(recordingName);
+        return graphql.stopActiveRecording(nodeFilter, recordingFilter).stream()
+                .map(TargetNodeForStop::target)
+                .filter(t -> t != null)
+                .map(t -> t.activeRecordings())
+                .filter(ar -> ar != null && ar.data() != null)
+                .flatMap(ar -> ar.data().stream())
+                .map(node -> node.doStop())
+                .filter(r -> r != null)
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new NoSuchElementException(
+                                        "Active recording not found: " + recordingName));
     }
 
     public String scrapeMetrics(double minTargetScore) {

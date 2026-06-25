@@ -17,8 +17,10 @@ package io.cryostat.mcp;
 
 import java.util.List;
 
+import io.cryostat.mcp.model.ActiveRecordingFilter;
 import io.cryostat.mcp.model.DiscoveryNodeFilter;
 import io.cryostat.mcp.model.graphql.DiscoveryNode;
+import io.cryostat.mcp.model.graphql.TargetNodeForStop;
 
 /**
  * Plain interface for GraphQL client operations. Runnable modules should extend this interface and
@@ -29,4 +31,7 @@ public interface CryostatGraphQLClient {
     List<DiscoveryNode> targetNodes(DiscoveryNodeFilter filter, Boolean useAuditLog);
 
     List<DiscoveryNode> environmentNodes(DiscoveryNodeFilter filter);
+
+    List<TargetNodeForStop> stopActiveRecording(
+            DiscoveryNodeFilter filter, ActiveRecordingFilter recordingsFilter);
 }
