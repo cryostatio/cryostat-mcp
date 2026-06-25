@@ -64,15 +64,21 @@ public class CryostatMCP {
             List<Long> targetIds,
             List<String> names,
             List<String> labels,
+            List<String> annotations,
             Boolean useAuditLog) {
         DiscoveryNodeFilter filter = null;
-        if (isPresent(ids) || isPresent(targetIds) || isPresent(names) || isPresent(labels)) {
+        if (isPresent(ids)
+                || isPresent(targetIds)
+                || isPresent(names)
+                || isPresent(labels)
+                || isPresent(annotations)) {
             filter =
                     DiscoveryNodeFilter.builder()
                             .ids(ids)
                             .targetIds(targetIds)
                             .names(names)
                             .labels(labels)
+                            .annotations(annotations)
                             .build();
         }
         return graphql.targetNodes(filter, useAuditLog);
