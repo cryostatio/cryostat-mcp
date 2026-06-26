@@ -335,6 +335,7 @@ The server exposes the following MCP tools:
     "jvmId": "abc123def456",
     "filename": "my-recording.jfr",
     "eventType": "jdk.ObjectAllocationSample",
+    "columns": ["startTime", "objectClass", "weight"],
     "limit": 25
   }
 }

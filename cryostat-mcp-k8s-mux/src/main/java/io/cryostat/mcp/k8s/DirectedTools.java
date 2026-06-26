@@ -434,7 +434,8 @@ public class DirectedTools {
             description =
                     "List event rows for a JFR event type in an archived Flight Recording. This is"
                         + " a dedicated version of a simple SELECT query and returns up to limit"
-                        + " rows from the selected event type.")
+                        + " rows from the selected event type. If columns is omitted or empty, all"
+                        + " fields are returned.")
     @MetaField(
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
@@ -454,11 +455,16 @@ public class DirectedTools {
                             required = true)
                     String eventType,
             @ToolArg(
+                            description =
+                                    "Field names to return for each event row. Omit or pass an"
+                                            + " empty array to return all fields.")
+                    List<String> columns,
+            @ToolArg(
                             description = "The maximum number of event rows to return.",
                             defaultValue = "100")
                     int limit) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        return mcp.listArchivedRecordingEvents(jvmId, filename, eventType, limit);
+        return mcp.listArchivedRecordingEvents(jvmId, filename, eventType, columns, limit);
     }
 
     @Tool(

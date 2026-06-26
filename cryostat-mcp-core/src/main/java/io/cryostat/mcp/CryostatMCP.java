@@ -141,7 +141,7 @@ public class CryostatMCP {
     }
 
     public List<List<String>> listArchivedRecordingEventTypes(String jvmId, String filename) {
-        return rest.executeQuery(jvmId, filename, JfrAnalyticsQueries.LIST_EVENT_TYPES_QUERY);
+        return rest.executeQuery(jvmId, filename, JfrAnalyticsQueries.listEventTypesQuery());
     }
 
     public List<List<String>> listArchivedRecordingEventFields(
@@ -151,9 +151,14 @@ public class CryostatMCP {
     }
 
     public List<List<String>> listArchivedRecordingEvents(
-            String jvmId, String filename, String eventType, int limit) {
+            String jvmId, String filename, String eventType, List<String> columns, int limit) {
         return rest.executeQuery(
-                jvmId, filename, JfrAnalyticsQueries.listEventsQuery(eventType, limit));
+                jvmId, filename, JfrAnalyticsQueries.listEventsQuery(eventType, columns, limit));
+    }
+
+    public List<List<String>> listArchivedRecordingEvents(
+            String jvmId, String filename, String eventType, int limit) {
+        return listArchivedRecordingEvents(jvmId, filename, eventType, null, limit);
     }
 
     public List<QueryExample> getQueryAdditionalFunctions() {

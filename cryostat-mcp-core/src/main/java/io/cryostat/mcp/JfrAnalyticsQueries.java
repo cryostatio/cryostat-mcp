@@ -15,20 +15,32 @@
  */
 package io.cryostat.mcp;
 
+import java.util.List;
+
 public final class JfrAnalyticsQueries {
 
-    public static final String LIST_EVENT_TYPES_QUERY = "tables";
+    private static final String LIST_EVENT_TYPES_QUERY = "tables";
 
     private JfrAnalyticsQueries() {}
+
+    public static String listEventTypesQuery() {
+        return LIST_EVENT_TYPES_QUERY;
+    }
 
     public static String listEventFieldsQuery(String eventType) {
         return "columns " + requireEventType(eventType);
     }
 
-    public static String listEventsQuery(String eventType, int limit) {
+    public static String listEventsQuery(String eventType, List<String> columns, int limit) {
         return String.format(
-                "SELECT * FROM jfr.%s LIMIT %d",
-                quoteSqlIdentifier(requireEventType(eventType)), requirePositiveLimit(limit));
+                "SELECT %s FROM jfr.%s LIMIT %d",
+                selectColumns(columns),
+                quoteSqlIdentifier(requireEventType(eventType)),
+                requirePositiveLimit(limit));
+    }
+
+    public static String listEventsQuery(String eventType, int limit) {
+        return listEventsQuery(eventType, null, limit);
     }
 
     private static String requireEventType(String eventType) {
@@ -43,6 +55,25 @@ public final class JfrAnalyticsQueries {
             throw new IllegalArgumentException("limit must be greater than 0");
         }
         return limit;
+    }
+
+    private static String selectColumns(List<String> columns) {
+        if (columns == null || columns.isEmpty()) {
+            return "*";
+        }
+        return String.join(
+                ", ",
+                columns.stream()
+                        .map(JfrAnalyticsQueries::requireColumn)
+                        .map(JfrAnalyticsQueries::quoteSqlIdentifier)
+                        .toList());
+    }
+
+    private static String requireColumn(String column) {
+        if (column == null || column.isBlank()) {
+            throw new IllegalArgumentException("columns must not contain blank values");
+        }
+        return column.strip();
     }
 
     private static String quoteSqlIdentifier(String identifier) {

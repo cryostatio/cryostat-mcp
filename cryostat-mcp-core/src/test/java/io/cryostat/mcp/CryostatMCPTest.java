@@ -422,7 +422,7 @@ class CryostatMCPTest {
                 .thenReturn(mockResults);
 
         List<List<String>> result =
-                cryostatMCP.listArchivedRecordingEvents(jvmId, filename, eventType, 25);
+                cryostatMCP.listArchivedRecordingEvents(jvmId, filename, eventType, null, 25);
 
         assertEquals(mockResults, result);
         verify(restClient)
@@ -433,21 +433,69 @@ class CryostatMCPTest {
     }
 
     @Test
-    void testListArchivedRecordingEventsEscapesEventTypeIdentifier() {
+    void testListArchivedRecordingEventsSelectsColumns() {
         String jvmId = "test-jvm-id";
         String filename = "recording.jfr";
-        String eventType = "jdk.Event\"Type";
-        List<List<String>> mockResults = Collections.singletonList(Arrays.asList("startTime"));
+        String eventType = "jdk.ObjectAllocationSample";
+        List<String> columns = List.of("startTime", "objectClass", "weight");
+        List<List<String>> mockResults =
+                Arrays.asList(Arrays.asList("startTime", "objectClass", "weight"));
         when(restClient.executeQuery(
-                        jvmId, filename, "SELECT * FROM jfr.\"jdk.Event\"\"Type\" LIMIT 1"))
+                        jvmId,
+                        filename,
+                        "SELECT \"startTime\", \"objectClass\", \"weight\" FROM"
+                                + " jfr.\"jdk.ObjectAllocationSample\" LIMIT 1"))
                 .thenReturn(mockResults);
 
         List<List<String>> result =
-                cryostatMCP.listArchivedRecordingEvents(jvmId, filename, eventType, 1);
+                cryostatMCP.listArchivedRecordingEvents(jvmId, filename, eventType, columns, 1);
 
         assertEquals(mockResults, result);
         verify(restClient)
-                .executeQuery(jvmId, filename, "SELECT * FROM jfr.\"jdk.Event\"\"Type\" LIMIT 1");
+                .executeQuery(
+                        jvmId,
+                        filename,
+                        "SELECT \"startTime\", \"objectClass\", \"weight\" FROM"
+                                + " jfr.\"jdk.ObjectAllocationSample\" LIMIT 1");
+    }
+
+    @Test
+    void testListArchivedRecordingEventsEscapesIdentifiers() {
+        String jvmId = "test-jvm-id";
+        String filename = "recording.jfr";
+        String eventType = "jdk.Event\"Type";
+        List<String> columns = List.of("object\"Class");
+        List<List<String>> mockResults = Collections.singletonList(Arrays.asList("startTime"));
+        when(restClient.executeQuery(
+                        jvmId,
+                        filename,
+                        "SELECT \"object\"\"Class\" FROM jfr.\"jdk.Event\"\"Type\" LIMIT 1"))
+                .thenReturn(mockResults);
+
+        List<List<String>> result =
+                cryostatMCP.listArchivedRecordingEvents(jvmId, filename, eventType, columns, 1);
+
+        assertEquals(mockResults, result);
+        verify(restClient)
+                .executeQuery(
+                        jvmId,
+                        filename,
+                        "SELECT \"object\"\"Class\" FROM jfr.\"jdk.Event\"\"Type\" LIMIT 1");
+    }
+
+    @Test
+    void testListArchivedRecordingEventsRejectsBlankColumn() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        cryostatMCP.listArchivedRecordingEvents(
+                                "test-jvm-id",
+                                "recording.jfr",
+                                "jdk.ThreadStart",
+                                List.of("startTime", " "),
+                                1));
+
+        verifyNoInteractions(restClient);
     }
 
     @Test
@@ -456,7 +504,7 @@ class CryostatMCPTest {
                 IllegalArgumentException.class,
                 () ->
                         cryostatMCP.listArchivedRecordingEvents(
-                                "test-jvm-id", "recording.jfr", "jdk.ThreadStart", 0));
+                                "test-jvm-id", "recording.jfr", "jdk.ThreadStart", List.of(), 0));
 
         verifyNoInteractions(restClient);
     }

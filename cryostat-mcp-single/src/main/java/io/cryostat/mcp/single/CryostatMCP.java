@@ -334,7 +334,7 @@ public class CryostatMCP {
                             description = "The name of the archived recording file to inspect.",
                             required = true)
                     String filename) {
-        return rest.executeQuery(jvmId, filename, JfrAnalyticsQueries.LIST_EVENT_TYPES_QUERY);
+        return rest.executeQuery(jvmId, filename, JfrAnalyticsQueries.listEventTypesQuery());
     }
 
     @Tool(
@@ -365,7 +365,7 @@ public class CryostatMCP {
                     """
                     List event rows for a JFR event type in an archived Flight Recording. This is a
                     dedicated version of a simple SELECT query and returns up to limit rows from the
-                    selected event type.
+                    selected event type. If columns is omitted or empty, all fields are returned.
                     """)
     public List<List<String>> listArchivedRecordingEvents(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
@@ -380,11 +380,16 @@ public class CryostatMCP {
                             required = true)
                     String eventType,
             @ToolArg(
+                            description =
+                                    "Field names to return for each event row. Omit or pass an"
+                                            + " empty array to return all fields.")
+                    List<String> columns,
+            @ToolArg(
                             description = "The maximum number of event rows to return.",
                             defaultValue = "100")
                     int limit) {
         return rest.executeQuery(
-                jvmId, filename, JfrAnalyticsQueries.listEventsQuery(eventType, limit));
+                jvmId, filename, JfrAnalyticsQueries.listEventsQuery(eventType, columns, limit));
     }
 
     @Tool(
