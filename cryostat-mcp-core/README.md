@@ -255,6 +255,9 @@ The server exposes the following MCP tools:
 
 ### SQL Querying
 
+- **listArchivedRecordingEventTypes**: List JFR event types present in an archived recording
+- **listArchivedRecordingEventFields**: List field names for a JFR event type in an archived recording
+- **listArchivedRecordingEvents**: List event rows for a JFR event type in an archived recording
 - **executeQuery**: Execute Apache Calcite SQL query against archived JFR data
 - **getQueryExamples**: Get example SQL queries for reference
 - **getQueryAdditionalFunctions**: Get details about custom SQL functions
@@ -298,7 +301,47 @@ The server exposes the following MCP tools:
 }
 ```
 
-### Example 4: Get Analysis Metrics
+### Example 4: List Event Types in an Archived Recording
+
+```json
+{
+  "name": "listArchivedRecordingEventTypes",
+  "arguments": {
+    "jvmId": "abc123def456",
+    "filename": "my-recording.jfr"
+  }
+}
+```
+
+### Example 5: List Event Fields in an Archived Recording
+
+```json
+{
+  "name": "listArchivedRecordingEventFields",
+  "arguments": {
+    "jvmId": "abc123def456",
+    "filename": "my-recording.jfr",
+    "eventType": "jdk.ObjectAllocationSample"
+  }
+}
+```
+
+### Example 6: List Events in an Archived Recording
+
+```json
+{
+  "name": "listArchivedRecordingEvents",
+  "arguments": {
+    "jvmId": "abc123def456",
+    "filename": "my-recording.jfr",
+    "eventType": "jdk.ObjectAllocationSample",
+    "columns": ["startTime", "objectClass", "weight"],
+    "limit": 25
+  }
+}
+```
+
+### Example 7: Get Analysis Metrics
 
 ```json
 {
@@ -311,7 +354,7 @@ The server exposes the following MCP tools:
 
 This returns metrics for all targets with at least one medium or high severity issue.
 
-### Example 5: Filter Targets by Label
+### Example 8: Filter Targets by Label
 
 ```json
 {

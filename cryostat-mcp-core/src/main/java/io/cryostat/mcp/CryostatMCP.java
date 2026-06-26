@@ -140,6 +140,27 @@ public class CryostatMCP {
         return rest.executeQuery(jvmId, filename, query);
     }
 
+    public List<List<String>> listArchivedRecordingEventTypes(String jvmId, String filename) {
+        return rest.executeQuery(jvmId, filename, JfrAnalyticsQueries.listEventTypesQuery());
+    }
+
+    public List<List<String>> listArchivedRecordingEventFields(
+            String jvmId, String filename, String eventType) {
+        return rest.executeQuery(
+                jvmId, filename, JfrAnalyticsQueries.listEventFieldsQuery(eventType));
+    }
+
+    public List<List<String>> listArchivedRecordingEvents(
+            String jvmId, String filename, String eventType, List<String> columns, int limit) {
+        return rest.executeQuery(
+                jvmId, filename, JfrAnalyticsQueries.listEventsQuery(eventType, columns, limit));
+    }
+
+    public List<List<String>> listArchivedRecordingEvents(
+            String jvmId, String filename, String eventType, int limit) {
+        return listArchivedRecordingEvents(jvmId, filename, eventType, null, limit);
+    }
+
     public List<QueryExample> getQueryAdditionalFunctions() {
         return List.of(
                 new QueryExample(

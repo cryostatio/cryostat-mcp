@@ -378,6 +378,138 @@ class CryostatMCPTest {
     }
 
     @Test
+    void testListArchivedRecordingEventTypes() {
+        String jvmId = "test-jvm-id";
+        String filename = "recording.jfr";
+        List<List<String>> mockResults =
+                Arrays.asList(Arrays.asList("name"), Arrays.asList("jdk.ObjectAllocationSample"));
+        when(restClient.executeQuery(jvmId, filename, "tables")).thenReturn(mockResults);
+
+        List<List<String>> result = cryostatMCP.listArchivedRecordingEventTypes(jvmId, filename);
+
+        assertEquals(mockResults, result);
+        verify(restClient).executeQuery(jvmId, filename, "tables");
+    }
+
+    @Test
+    void testListArchivedRecordingEventFields() {
+        String jvmId = "test-jvm-id";
+        String filename = "recording.jfr";
+        String eventType = "jdk.ObjectAllocationSample";
+        List<List<String>> mockResults =
+                Arrays.asList(Arrays.asList("name"), Arrays.asList("startTime"));
+        when(restClient.executeQuery(jvmId, filename, "columns jdk.ObjectAllocationSample"))
+                .thenReturn(mockResults);
+
+        List<List<String>> result =
+                cryostatMCP.listArchivedRecordingEventFields(jvmId, filename, eventType);
+
+        assertEquals(mockResults, result);
+        verify(restClient).executeQuery(jvmId, filename, "columns jdk.ObjectAllocationSample");
+    }
+
+    @Test
+    void testListArchivedRecordingEvents() {
+        String jvmId = "test-jvm-id";
+        String filename = "recording.jfr";
+        String eventType = "jdk.ObjectAllocationSample";
+        List<List<String>> mockResults =
+                Arrays.asList(Arrays.asList("startTime", "weight"), Arrays.asList("1", "512"));
+        when(restClient.executeQuery(
+                        jvmId,
+                        filename,
+                        "SELECT * FROM jfr.\"jdk.ObjectAllocationSample\" LIMIT 25"))
+                .thenReturn(mockResults);
+
+        List<List<String>> result =
+                cryostatMCP.listArchivedRecordingEvents(jvmId, filename, eventType, null, 25);
+
+        assertEquals(mockResults, result);
+        verify(restClient)
+                .executeQuery(
+                        jvmId,
+                        filename,
+                        "SELECT * FROM jfr.\"jdk.ObjectAllocationSample\" LIMIT 25");
+    }
+
+    @Test
+    void testListArchivedRecordingEventsSelectsColumns() {
+        String jvmId = "test-jvm-id";
+        String filename = "recording.jfr";
+        String eventType = "jdk.ObjectAllocationSample";
+        List<String> columns = List.of("startTime", "objectClass", "weight");
+        List<List<String>> mockResults =
+                Arrays.asList(Arrays.asList("startTime", "objectClass", "weight"));
+        when(restClient.executeQuery(
+                        jvmId,
+                        filename,
+                        "SELECT \"startTime\", \"objectClass\", \"weight\" FROM"
+                                + " jfr.\"jdk.ObjectAllocationSample\" LIMIT 1"))
+                .thenReturn(mockResults);
+
+        List<List<String>> result =
+                cryostatMCP.listArchivedRecordingEvents(jvmId, filename, eventType, columns, 1);
+
+        assertEquals(mockResults, result);
+        verify(restClient)
+                .executeQuery(
+                        jvmId,
+                        filename,
+                        "SELECT \"startTime\", \"objectClass\", \"weight\" FROM"
+                                + " jfr.\"jdk.ObjectAllocationSample\" LIMIT 1");
+    }
+
+    @Test
+    void testListArchivedRecordingEventsEscapesIdentifiers() {
+        String jvmId = "test-jvm-id";
+        String filename = "recording.jfr";
+        String eventType = "jdk.Event\"Type";
+        List<String> columns = List.of("object\"Class");
+        List<List<String>> mockResults = Collections.singletonList(Arrays.asList("startTime"));
+        when(restClient.executeQuery(
+                        jvmId,
+                        filename,
+                        "SELECT \"object\"\"Class\" FROM jfr.\"jdk.Event\"\"Type\" LIMIT 1"))
+                .thenReturn(mockResults);
+
+        List<List<String>> result =
+                cryostatMCP.listArchivedRecordingEvents(jvmId, filename, eventType, columns, 1);
+
+        assertEquals(mockResults, result);
+        verify(restClient)
+                .executeQuery(
+                        jvmId,
+                        filename,
+                        "SELECT \"object\"\"Class\" FROM jfr.\"jdk.Event\"\"Type\" LIMIT 1");
+    }
+
+    @Test
+    void testListArchivedRecordingEventsRejectsBlankColumn() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        cryostatMCP.listArchivedRecordingEvents(
+                                "test-jvm-id",
+                                "recording.jfr",
+                                "jdk.ThreadStart",
+                                List.of("startTime", " "),
+                                1));
+
+        verifyNoInteractions(restClient);
+    }
+
+    @Test
+    void testListArchivedRecordingEventsRejectsNonPositiveLimit() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        cryostatMCP.listArchivedRecordingEvents(
+                                "test-jvm-id", "recording.jfr", "jdk.ThreadStart", List.of(), 0));
+
+        verifyNoInteractions(restClient);
+    }
+
+    @Test
     void testGetQueryAdditionalFunctions() {
         List<CryostatMCP.QueryExample> result = cryostatMCP.getQueryAdditionalFunctions();
 

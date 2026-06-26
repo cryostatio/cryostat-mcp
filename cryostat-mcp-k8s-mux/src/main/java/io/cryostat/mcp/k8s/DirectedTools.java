@@ -383,6 +383,92 @@ public class DirectedTools {
 
     @Tool(
             description =
+                    "List the JFR event types present in an archived Flight Recording. This is a"
+                        + " dedicated version of the recording analytics \"tables\" query for"
+                        + " callers that need to discover which event types are available before"
+                        + " selecting fields or event rows.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
+    public List<List<String>> listArchivedRecordingEventTypes(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
+            @ToolArg(
+                            description = "The name of the archived recording file to inspect.",
+                            required = true)
+                    String filename) {
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        return mcp.listArchivedRecordingEventTypes(jvmId, filename);
+    }
+
+    @Tool(
+            description =
+                    "List the field names available on a JFR event type in an archived Flight"
+                        + " Recording. Use listArchivedRecordingEventTypes first if the event type"
+                        + " name is not known.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
+    public List<List<String>> listArchivedRecordingEventFields(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
+            @ToolArg(
+                            description = "The name of the archived recording file to inspect.",
+                            required = true)
+                    String filename,
+            @ToolArg(
+                            description =
+                                    "The JFR event type name, for example"
+                                            + " jdk.ObjectAllocationSample.",
+                            required = true)
+                    String eventType) {
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        return mcp.listArchivedRecordingEventFields(jvmId, filename, eventType);
+    }
+
+    @Tool(
+            description =
+                    "List event rows for a JFR event type in an archived Flight Recording. This is"
+                        + " a dedicated version of a simple SELECT query and returns up to limit"
+                        + " rows from the selected event type. If columns is omitted or empty, all"
+                        + " fields are returned.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "LOW")
+    public List<List<String>> listArchivedRecordingEvents(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
+            @ToolArg(
+                            description = "The name of the archived recording file to inspect.",
+                            required = true)
+                    String filename,
+            @ToolArg(
+                            description =
+                                    "The JFR event type name, for example"
+                                            + " jdk.ObjectAllocationSample.",
+                            required = true)
+                    String eventType,
+            @ToolArg(
+                            description =
+                                    "Field names to return for each event row. Omit or pass an"
+                                            + " empty array to return all fields.")
+                    List<String> columns,
+            @ToolArg(
+                            description = "The maximum number of event rows to return.",
+                            defaultValue = "100")
+                    int limit) {
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        return mcp.listArchivedRecordingEvents(jvmId, filename, eventType, columns, limit);
+    }
+
+    @Tool(
+            description =
                     "Provides details about additional custom functions and structures available"
                             + " for SQL queries.")
     @MetaField(
