@@ -16,9 +16,14 @@
 package io.cryostat.mcp;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 
+import io.cryostat.mcp.model.ActiveRecordingsFilter;
+import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
 import io.cryostat.mcp.model.DiscoveryNodeFilter;
@@ -26,11 +31,17 @@ import io.cryostat.mcp.model.EventTemplate;
 import io.cryostat.mcp.model.Health;
 import io.cryostat.mcp.model.RecordingDescriptor;
 import io.cryostat.mcp.model.Target;
+import io.cryostat.mcp.model.graphql.StoppedRecording;
+import io.cryostat.mcp.model.graphql.TargetNodeForStop;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class CryostatMCP {
+
+    static final int ARCHIVE_POLL_ATTEMPTS = 6;
+    static final long ARCHIVE_INITIAL_DELAY_MS = 3_000L;
+    static final long ARCHIVE_RETRY_DELAY_MS = 5_000L;
 
     private final CryostatRESTClient rest;
     private final CryostatGraphQLClient graphql;
@@ -56,15 +67,21 @@ public class CryostatMCP {
             List<Long> targetIds,
             List<String> names,
             List<String> labels,
+            List<String> annotations,
             Boolean useAuditLog) {
         DiscoveryNodeFilter filter = null;
-        if (isPresent(ids) || isPresent(targetIds) || isPresent(names) || isPresent(labels)) {
+        if (isPresent(ids)
+                || isPresent(targetIds)
+                || isPresent(names)
+                || isPresent(labels)
+                || isPresent(annotations)) {
             filter =
                     DiscoveryNodeFilter.builder()
                             .ids(ids)
                             .targetIds(targetIds)
                             .names(names)
                             .labels(labels)
+                            .annotations(annotations)
                             .build();
         }
         return graphql.targetNodes(filter, useAuditLog);
@@ -107,6 +124,52 @@ public class CryostatMCP {
         return rest.targetArchivedRecordings(jvmId);
     }
 
+    public ArchivedRecordingDescriptor archiveTargetRecording(long targetId, String jvmId) {
+        RecordingDescriptor snapshot = rest.createSnapshot(targetId);
+        rest.patchRecording(targetId, snapshot.remoteId(), "save");
+        String snapshotName = snapshot.name();
+        sleep(ARCHIVE_INITIAL_DELAY_MS);
+        try {
+            for (int attempt = 0; attempt < ARCHIVE_POLL_ATTEMPTS; attempt++) {
+                if (attempt > 0) {
+                    sleep(ARCHIVE_RETRY_DELAY_MS);
+                }
+                Optional<ArchivedRecordingDescriptor> result =
+                        findArchivedSnapshot(jvmId, snapshotName);
+                if (result.isPresent()) {
+                    return result.get();
+                }
+            }
+            throw new NoSuchElementException("Archived recording not found: " + snapshotName);
+        } finally {
+            rest.deleteRecording(targetId, snapshot.remoteId());
+        }
+    }
+
+    private Optional<ArchivedRecordingDescriptor> findArchivedSnapshot(
+            String jvmId, String snapshotName) {
+        return rest.targetArchivedRecordings(jvmId).stream()
+                .flatMap(dir -> dir.recordings().stream())
+                .filter(
+                        r -> {
+                            for (String part : r.name().split("_")) {
+                                if (part.equals(snapshotName)) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        })
+                .max(Comparator.comparingLong(ArchivedRecordingDescriptor::archivedTime));
+    }
+
+    void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     public RecordingDescriptor startTargetRecording(
             long targetId,
             String recordingName,
@@ -122,6 +185,25 @@ public class CryostatMCP {
                 true,
                 mapper.writeValueAsString(Map.of("labels", Map.of("autoanalyze", "true"))),
                 true);
+    }
+
+    public StoppedRecording stopTargetRecording(long targetId, String recordingName) {
+        DiscoveryNodeFilter nodeFilter =
+                DiscoveryNodeFilter.builder().targetIds(List.of(targetId)).build();
+        ActiveRecordingsFilter recordingFilter = new ActiveRecordingsFilter(recordingName);
+        return graphql.targetNodes(nodeFilter, recordingFilter).stream()
+                .map(TargetNodeForStop::target)
+                .filter(t -> t != null)
+                .map(t -> t.activeRecordings())
+                .filter(ar -> ar != null && ar.data() != null)
+                .flatMap(ar -> ar.data().stream())
+                .map(node -> node.doStop())
+                .filter(r -> r != null)
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new NoSuchElementException(
+                                        "Active recording not found: " + recordingName));
     }
 
     public String scrapeMetrics(double minTargetScore) {

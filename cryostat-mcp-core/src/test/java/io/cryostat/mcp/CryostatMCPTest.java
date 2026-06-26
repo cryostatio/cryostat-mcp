@@ -23,7 +23,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
+import io.cryostat.mcp.model.ActiveRecordingsFilter;
+import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
 import io.cryostat.mcp.model.DiscoveryNodeFilter;
@@ -31,6 +34,11 @@ import io.cryostat.mcp.model.EventTemplate;
 import io.cryostat.mcp.model.Health;
 import io.cryostat.mcp.model.RecordingDescriptor;
 import io.cryostat.mcp.model.Target;
+import io.cryostat.mcp.model.graphql.ActiveRecordingNode;
+import io.cryostat.mcp.model.graphql.ActiveRecordingsWithStop;
+import io.cryostat.mcp.model.graphql.StoppedRecording;
+import io.cryostat.mcp.model.graphql.TargetNodeForStop;
+import io.cryostat.mcp.model.graphql.TargetWithStop;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -107,13 +115,13 @@ class CryostatMCPTest {
                 Arrays.asList(
                         mock(io.cryostat.mcp.model.graphql.DiscoveryNode.class),
                         mock(io.cryostat.mcp.model.graphql.DiscoveryNode.class));
-        when(graphqlClient.targetNodes(null, null)).thenReturn(mockNodes);
+        when(graphqlClient.targetNodes(null, (Boolean) null)).thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
-                cryostatMCP.listTargets(null, null, null, null, null);
+                cryostatMCP.listTargets(null, null, null, null, null, null);
 
         assertEquals(mockNodes, result);
-        verify(graphqlClient).targetNodes(null, null);
+        verify(graphqlClient).targetNodes(null, (Boolean) null);
     }
 
     @Test
@@ -126,14 +134,14 @@ class CryostatMCPTest {
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> mockNodes =
                 Collections.singletonList(mock(io.cryostat.mcp.model.graphql.DiscoveryNode.class));
 
-        when(graphqlClient.targetNodes(any(DiscoveryNodeFilter.class), eq(null)))
+        when(graphqlClient.targetNodes(any(DiscoveryNodeFilter.class), eq((Boolean) null)))
                 .thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
-                cryostatMCP.listTargets(ids, targetIds, names, labels, null);
+                cryostatMCP.listTargets(ids, targetIds, names, labels, null, null);
 
         assertEquals(mockNodes, result);
-        verify(graphqlClient).targetNodes(any(DiscoveryNodeFilter.class), eq(null));
+        verify(graphqlClient).targetNodes(any(DiscoveryNodeFilter.class), eq((Boolean) null));
     }
 
     @Test
@@ -144,7 +152,7 @@ class CryostatMCPTest {
         when(graphqlClient.targetNodes(null, true)).thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
-                cryostatMCP.listTargets(null, null, null, null, true);
+                cryostatMCP.listTargets(null, null, null, null, null, true);
 
         assertEquals(mockNodes, result);
         verify(graphqlClient).targetNodes(null, true);
@@ -243,6 +251,110 @@ class CryostatMCPTest {
 
         assertEquals(mockArchives, result);
         verify(restClient).targetArchivedRecordings(jvmId);
+    }
+
+    @Test
+    void testArchiveTargetRecording() {
+        long targetId = 123L;
+        String jvmId = "test-jvm-id";
+        String snapshotName = "snapshot";
+        long remoteId = 42L;
+
+        CryostatMCP spyMCP = spy(cryostatMCP);
+        doNothing().when(spyMCP).sleep(anyLong());
+
+        RecordingDescriptor snapshot =
+                new RecordingDescriptor(
+                        1L,
+                        remoteId,
+                        "STOPPED",
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        true,
+                        0L,
+                        0L,
+                        snapshotName,
+                        null,
+                        null,
+                        null);
+        // Archived name includes encoded target alias prefix and timestamp suffix
+        ArchivedRecordingDescriptor olderArchive =
+                new ArchivedRecordingDescriptor(
+                        jvmId,
+                        "-deployments-quarkus-run-jar_snapshot_20260624T100000Z.jfr",
+                        null,
+                        null,
+                        null,
+                        0L,
+                        1000L);
+        ArchivedRecordingDescriptor newerArchive =
+                new ArchivedRecordingDescriptor(
+                        jvmId,
+                        "-deployments-quarkus-run-jar_snapshot_20260625T162915Z.jfr",
+                        null,
+                        null,
+                        null,
+                        0L,
+                        2000L);
+        ArchivedRecordingDirectory dir =
+                new ArchivedRecordingDirectory(null, jvmId, List.of(olderArchive, newerArchive));
+
+        when(restClient.createSnapshot(targetId)).thenReturn(snapshot);
+        when(restClient.patchRecording(targetId, remoteId, "save")).thenReturn("request-id");
+        when(restClient.targetArchivedRecordings(jvmId)).thenReturn(List.of(dir));
+
+        ArchivedRecordingDescriptor result = spyMCP.archiveTargetRecording(targetId, jvmId);
+
+        assertSame(newerArchive, result);
+        verify(restClient).createSnapshot(targetId);
+        verify(restClient).patchRecording(targetId, remoteId, "save");
+        verify(restClient).deleteRecording(targetId, remoteId);
+        verify(spyMCP).sleep(CryostatMCP.ARCHIVE_INITIAL_DELAY_MS);
+        verify(restClient).targetArchivedRecordings(jvmId);
+    }
+
+    @Test
+    void testArchiveTargetRecordingNotFound() {
+        long targetId = 123L;
+        String jvmId = "test-jvm-id";
+        String snapshotName = "snapshot";
+        long remoteId = 42L;
+
+        CryostatMCP spyMCP = spy(cryostatMCP);
+        doNothing().when(spyMCP).sleep(anyLong());
+
+        RecordingDescriptor snapshot =
+                new RecordingDescriptor(
+                        1L,
+                        remoteId,
+                        "STOPPED",
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        true,
+                        0L,
+                        0L,
+                        snapshotName,
+                        null,
+                        null,
+                        null);
+        ArchivedRecordingDirectory dir = new ArchivedRecordingDirectory(null, jvmId, List.of());
+
+        when(restClient.createSnapshot(targetId)).thenReturn(snapshot);
+        when(restClient.patchRecording(targetId, remoteId, "save")).thenReturn("request-id");
+        when(restClient.targetArchivedRecordings(jvmId)).thenReturn(List.of(dir));
+
+        assertThrows(
+                NoSuchElementException.class, () -> spyMCP.archiveTargetRecording(targetId, jvmId));
+
+        verify(spyMCP).sleep(CryostatMCP.ARCHIVE_INITIAL_DELAY_MS);
+        verify(spyMCP, times(CryostatMCP.ARCHIVE_POLL_ATTEMPTS - 1))
+                .sleep(CryostatMCP.ARCHIVE_RETRY_DELAY_MS);
+        verify(restClient, times(CryostatMCP.ARCHIVE_POLL_ATTEMPTS))
+                .targetArchivedRecordings(jvmId);
     }
 
     @Test
@@ -537,6 +649,66 @@ class CryostatMCPTest {
                 "List the available JFR event types (tables) in a recording",
                 firstExample.description());
         assertEquals("tables", firstExample.query());
+    }
+
+    @Test
+    void testStopTargetRecording() {
+        long targetId = 123L;
+        String recordingName = "my-recording";
+
+        StoppedRecording stoppedRecording =
+                new StoppedRecording(
+                        1L,
+                        42L,
+                        "STOPPED",
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        true,
+                        0L,
+                        0L,
+                        recordingName,
+                        null,
+                        null);
+        ActiveRecordingNode recordingNode = new ActiveRecordingNode(stoppedRecording);
+        ActiveRecordingsWithStop activeRecordings =
+                new ActiveRecordingsWithStop(List.of(recordingNode));
+        TargetWithStop targetWithStop = new TargetWithStop(activeRecordings);
+        TargetNodeForStop targetNode = new TargetNodeForStop(targetWithStop);
+
+        DiscoveryNodeFilter expectedNodeFilter =
+                DiscoveryNodeFilter.builder().targetIds(List.of(targetId)).build();
+        ActiveRecordingsFilter expectedRecordingFilter = new ActiveRecordingsFilter(recordingName);
+
+        when(graphqlClient.targetNodes(expectedNodeFilter, expectedRecordingFilter))
+                .thenReturn(List.of(targetNode));
+
+        StoppedRecording result = cryostatMCP.stopTargetRecording(targetId, recordingName);
+
+        assertSame(stoppedRecording, result);
+        verify(graphqlClient).targetNodes(expectedNodeFilter, expectedRecordingFilter);
+        verifyNoInteractions(restClient);
+    }
+
+    @Test
+    void testStopTargetRecordingNotFound() {
+        long targetId = 123L;
+        String recordingName = "missing-recording";
+
+        DiscoveryNodeFilter expectedNodeFilter =
+                DiscoveryNodeFilter.builder().targetIds(List.of(targetId)).build();
+        ActiveRecordingsFilter expectedRecordingFilter = new ActiveRecordingsFilter(recordingName);
+
+        when(graphqlClient.targetNodes(expectedNodeFilter, expectedRecordingFilter))
+                .thenReturn(List.of());
+
+        assertThrows(
+                NoSuchElementException.class,
+                () -> cryostatMCP.stopTargetRecording(targetId, recordingName));
+
+        verify(graphqlClient).targetNodes(expectedNodeFilter, expectedRecordingFilter);
+        verifyNoInteractions(restClient);
     }
 
     @Test

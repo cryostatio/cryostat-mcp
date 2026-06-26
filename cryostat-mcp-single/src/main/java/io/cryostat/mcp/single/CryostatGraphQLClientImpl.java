@@ -18,9 +18,13 @@ package io.cryostat.mcp.single;
 import java.util.List;
 
 import io.cryostat.mcp.CryostatGraphQLClient;
+import io.cryostat.mcp.model.ActiveRecordingsFilter;
+import io.cryostat.mcp.model.graphql.TargetNodeForStop;
 
 import io.smallrye.graphql.client.typesafe.api.GraphQLClientApi;
+import io.smallrye.graphql.client.typesafe.api.NestedParameter;
 import org.eclipse.microprofile.graphql.Name;
+import org.eclipse.microprofile.graphql.Query;
 
 /**
  * Quarkus-annotated GraphQL client that extends the core interface. This allows the core module to
@@ -35,4 +39,11 @@ public interface CryostatGraphQLClientImpl extends CryostatGraphQLClient {
     List<io.cryostat.mcp.model.graphql.DiscoveryNode> targetNodes(
             @Name("filter") io.cryostat.mcp.model.DiscoveryNodeFilter filter,
             @Name("useAuditLog") Boolean useAuditLog);
+
+    @Override
+    @Query("targetNodes")
+    List<TargetNodeForStop> targetNodes(
+            @Name("filter") io.cryostat.mcp.model.DiscoveryNodeFilter filter,
+            @NestedParameter("target.activeRecordings") @Name("filter")
+                    ActiveRecordingsFilter recordingsFilter);
 }

@@ -122,6 +122,14 @@ public class CryostatMCP {
                             required = false)
                     List<String> labels,
             @ToolArg(
+                            description =
+                                    """
+                                    List of annotation selectors to match against the merged platform and Cryostat annotations of the Target.
+                                    Uses the same label selector syntax as the labels parameter.
+                                    """,
+                            required = false)
+                    List<String> annotations,
+            @ToolArg(
                             name = "useAuditLog",
                             description =
                                     """
@@ -130,13 +138,18 @@ public class CryostatMCP {
                             required = false)
                     Boolean useAuditLog) {
         DiscoveryNodeFilter filter = null;
-        if (isPresent(ids) || isPresent(targetIds) || isPresent(names) || isPresent(labels)) {
+        if (isPresent(ids)
+                || isPresent(targetIds)
+                || isPresent(names)
+                || isPresent(labels)
+                || isPresent(annotations)) {
             filter =
                     DiscoveryNodeFilter.builder()
                             .ids(ids)
                             .targetIds(targetIds)
                             .names(names)
                             .labels(labels)
+                            .annotations(annotations)
                             .build();
         }
         return graphql.targetNodes(filter, useAuditLog);
