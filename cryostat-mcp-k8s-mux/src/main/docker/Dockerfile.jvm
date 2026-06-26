@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:1.24-2.1782293370@sha256:b8be612ac873a91d2a9e05937453358e719b155dc0304c070ffe0e94cd6aa5e2
+FROM registry.access.redhat.com/ubi9/openjdk-25-runtime:1.24-2.1782104517@sha256:6bc9e1572445bf9c2e01e0202090329d90b9dcadc9d8cc84442557743c1b9fda
 
 ENV LANGUAGE='en_US:en'
 
