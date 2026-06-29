@@ -66,6 +66,7 @@ public class CryostatMCP {
             List<Long> ids,
             List<Long> targetIds,
             List<String> names,
+            List<String> aliases,
             List<String> labels,
             List<String> annotations,
             Boolean useAuditLog) {
@@ -73,6 +74,7 @@ public class CryostatMCP {
         if (isPresent(ids)
                 || isPresent(targetIds)
                 || isPresent(names)
+                || isPresent(aliases)
                 || isPresent(labels)
                 || isPresent(annotations)) {
             filter =
@@ -80,6 +82,7 @@ public class CryostatMCP {
                             .ids(ids)
                             .targetIds(targetIds)
                             .names(names)
+                            .aliases(aliases)
                             .labels(labels)
                             .annotations(annotations)
                             .build();

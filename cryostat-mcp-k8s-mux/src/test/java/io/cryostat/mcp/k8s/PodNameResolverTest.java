@@ -68,8 +68,9 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(false)))
                 .thenReturn(List.of(node));
 
@@ -83,8 +84,9 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(true));
     }
 
@@ -100,16 +102,18 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(false)))
                 .thenReturn(List.of());
         when(mockMCP.listTargets(
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(true)))
                 .thenReturn(List.of(node));
 
@@ -122,16 +126,18 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(false));
         verify(mockMCP)
                 .listTargets(
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(true));
     }
 
@@ -147,8 +153,9 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         anyBoolean()))
                 .thenReturn(List.of());
 
@@ -172,8 +179,9 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         anyBoolean()))
                 .thenReturn(null);
 
@@ -195,8 +203,9 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(false)))
                 .thenReturn(List.of(node));
 
@@ -220,8 +229,9 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(false)))
                 .thenReturn(List.of(node));
 
@@ -251,8 +261,9 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(false)))
                 .thenReturn(List.of(jmxNode, agentNode));
 
@@ -276,8 +287,9 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(false)))
                 .thenReturn(List.of(n1, n2));
 
@@ -300,8 +312,9 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(false)))
                 .thenReturn(List.of(node));
 
@@ -320,8 +333,9 @@ class PodNameResolverTest {
                         isNull(),
                         isNull(),
                         isNull(),
+                        eq(List.of(podName)),
                         isNull(),
-                        eq(List.of("HOST==" + podName)),
+                        isNull(),
                         eq(false)))
                 .thenReturn(List.of(node));
 

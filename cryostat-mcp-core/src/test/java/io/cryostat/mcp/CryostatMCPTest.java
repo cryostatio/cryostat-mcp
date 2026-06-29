@@ -118,7 +118,7 @@ class CryostatMCPTest {
         when(graphqlClient.targetNodes(null, (Boolean) null)).thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
-                cryostatMCP.listTargets(null, null, null, null, null, null);
+                cryostatMCP.listTargets(null, null, null, null, null, null, null);
 
         assertEquals(mockNodes, result);
         verify(graphqlClient).targetNodes(null, (Boolean) null);
@@ -138,7 +138,7 @@ class CryostatMCPTest {
                 .thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
-                cryostatMCP.listTargets(ids, targetIds, names, labels, null, null);
+                cryostatMCP.listTargets(ids, targetIds, names, null, labels, null, null);
 
         assertEquals(mockNodes, result);
         verify(graphqlClient).targetNodes(any(DiscoveryNodeFilter.class), eq((Boolean) null));
@@ -152,7 +152,7 @@ class CryostatMCPTest {
         when(graphqlClient.targetNodes(null, true)).thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
-                cryostatMCP.listTargets(null, null, null, null, null, true);
+                cryostatMCP.listTargets(null, null, null, null, null, null, true);
 
         assertEquals(mockNodes, result);
         verify(graphqlClient).targetNodes(null, true);
