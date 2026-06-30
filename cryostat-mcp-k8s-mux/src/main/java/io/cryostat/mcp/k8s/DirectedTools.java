@@ -139,7 +139,7 @@ public class DirectedTools {
                             defaultValue = "false")
                     boolean useAuditLog) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        return mcp.listTargets(ids, targetIds, names, labels, null, useAuditLog);
+        return mcp.listTargets(ids, targetIds, names, null, labels, null, useAuditLog);
     }
 
     @Tool(

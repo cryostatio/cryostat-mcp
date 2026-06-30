@@ -94,7 +94,7 @@ public class NonDirectedTools {
                                         + " is needed.")
                     Boolean useAuditLog) {
         return aggregateFromAllInstances(
-                mcp -> mcp.listTargets(null, null, names, labels, null, useAuditLog),
+                mcp -> mcp.listTargets(null, null, names, null, labels, null, useAuditLog),
                 targetListAggregationStrategy);
     }
 
