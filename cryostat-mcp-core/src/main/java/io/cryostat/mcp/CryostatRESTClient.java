@@ -24,8 +24,11 @@ import io.cryostat.mcp.model.Health;
 import io.cryostat.mcp.model.RecordingDescriptor;
 import io.cryostat.mcp.model.Target;
 
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -66,6 +69,20 @@ public interface CryostatRESTClient {
     @GET
     @Path("/api/beta/fs/recordings/{jvmId}")
     List<ArchivedRecordingDirectory> targetArchivedRecordings(String jvmId);
+
+    @POST
+    @Path("/api/v4/targets/{targetId}/snapshot")
+    RecordingDescriptor createSnapshot(long targetId);
+
+    @PATCH
+    @Path("/api/v4/targets/{targetId}/recordings/{remoteId}")
+    @Consumes(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.TEXT_PLAIN)
+    String patchRecording(long targetId, long remoteId, String body);
+
+    @DELETE
+    @Path("/api/v4/targets/{targetId}/recordings/{remoteId}")
+    void deleteRecording(long targetId, long remoteId);
 
     @POST
     @Path("/api/v4/targets/{targetId}/recordings")

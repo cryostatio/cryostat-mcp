@@ -139,7 +139,7 @@ public class DirectedTools {
                             defaultValue = "false")
                     boolean useAuditLog) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        return mcp.listTargets(ids, targetIds, names, labels, useAuditLog);
+        return mcp.listTargets(ids, targetIds, names, labels, null, useAuditLog);
     }
 
     @Tool(
@@ -185,7 +185,7 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
-    public List<EventTemplate> listTargetEventTemplates(
+    public List<EventTemplate> getTargetEventTemplates(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
