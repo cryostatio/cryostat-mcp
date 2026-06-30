@@ -50,7 +50,7 @@
             <dependency>
                 <groupId>io.quarkiverse.mcp</groupId>
                 <artifactId>quarkus-mcp-server-core</artifactId>
-                <version>1.10.6</version>
+                <version>1.13.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
