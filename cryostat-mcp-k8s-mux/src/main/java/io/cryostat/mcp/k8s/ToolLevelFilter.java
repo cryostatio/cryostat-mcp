@@ -15,6 +15,8 @@
  */
 package io.cryostat.mcp.k8s;
 
+import io.cryostat.mcp.CryostatToolMetadata;
+
 import io.quarkiverse.mcp.server.FilterContext;
 import io.quarkiverse.mcp.server.MetaKey;
 import io.quarkiverse.mcp.server.ToolFilter;
@@ -27,7 +29,7 @@ import org.jboss.logging.Logger;
 @Singleton
 public class ToolLevelFilter implements ToolFilter {
 
-    public static final String TOOL_LEVEL_META_PREFIX = "cryostat.io/";
+    public static final String TOOL_LEVEL_META_PREFIX = CryostatToolMetadata.META_PREFIX;
     public static final String TOOL_LEVEL_META_NAME = "tool-level";
     public static final MetaKey TOOL_LEVEL_KEY =
             new MetaKey(TOOL_LEVEL_META_PREFIX, TOOL_LEVEL_META_NAME);

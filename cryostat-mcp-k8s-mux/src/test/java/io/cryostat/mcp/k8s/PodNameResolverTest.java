@@ -64,28 +64,14 @@ class PodNameResolverTest {
         DiscoveryNode node = new DiscoveryNode(1L, podName, "Pod", Map.of(), target, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(false)))
-                .thenReturn(List.of(node));
+        when(mockMCP.listTargetsForPodName(podName, false)).thenReturn(List.of(node));
 
         PodNameResolver.TargetInfo result = resolver.resolveTarget(namespace, podName);
 
         assertEquals(1L, result.targetId());
         assertEquals("abc123def456", result.jvmId());
         // audit log must not be consulted when the live dataset returns a result
-        verify(mockMCP, never())
-                .listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(true));
+        verify(mockMCP, never()).listTargetsForPodName(podName, true);
     }
 
     @Test
@@ -96,43 +82,15 @@ class PodNameResolverTest {
         DiscoveryNode node = new DiscoveryNode(2L, podName, "Pod", Map.of(), target, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(false)))
-                .thenReturn(List.of());
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(true)))
-                .thenReturn(List.of(node));
+        when(mockMCP.listTargetsForPodName(podName, false)).thenReturn(List.of());
+        when(mockMCP.listTargetsForPodName(podName, true)).thenReturn(List.of(node));
 
         PodNameResolver.TargetInfo result = resolver.resolveTarget(namespace, podName);
 
         assertEquals(2L, result.targetId());
         assertEquals("xyz789abc012", result.jvmId());
-        verify(mockMCP)
-                .listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(false));
-        verify(mockMCP)
-                .listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(true));
+        verify(mockMCP).listTargetsForPodName(podName, false);
+        verify(mockMCP).listTargetsForPodName(podName, true);
     }
 
     // --- resolveTarget: not found ---
@@ -143,14 +101,7 @@ class PodNameResolverTest {
         String podName = "non-existent-pod";
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        anyBoolean()))
-                .thenReturn(List.of());
+        when(mockMCP.listTargetsForPodName(eq(podName), anyBoolean())).thenReturn(List.of());
 
         IllegalArgumentException ex =
                 assertThrows(
@@ -168,14 +119,7 @@ class PodNameResolverTest {
         String podName = "non-existent-pod";
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        anyBoolean()))
-                .thenReturn(null);
+        when(mockMCP.listTargetsForPodName(eq(podName), anyBoolean())).thenReturn(null);
 
         assertThrows(
                 IllegalArgumentException.class, () -> resolver.resolveTarget(namespace, podName));
@@ -191,14 +135,7 @@ class PodNameResolverTest {
         DiscoveryNode node = new DiscoveryNode(1L, podName, "Pod", Map.of(), target, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(false)))
-                .thenReturn(List.of(node));
+        when(mockMCP.listTargetsForPodName(podName, false)).thenReturn(List.of(node));
 
         IllegalArgumentException ex =
                 assertThrows(
@@ -216,14 +153,7 @@ class PodNameResolverTest {
         DiscoveryNode node = new DiscoveryNode(1L, podName, "Pod", Map.of(), target, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(false)))
-                .thenReturn(List.of(node));
+        when(mockMCP.listTargetsForPodName(podName, false)).thenReturn(List.of(node));
 
         IllegalArgumentException ex =
                 assertThrows(
@@ -247,14 +177,7 @@ class PodNameResolverTest {
                 new DiscoveryNode(2L, podName, "Pod", Map.of(), agentTarget, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(false)))
-                .thenReturn(List.of(jmxNode, agentNode));
+        when(mockMCP.listTargetsForPodName(podName, false)).thenReturn(List.of(jmxNode, agentNode));
 
         PodNameResolver.TargetInfo result = resolver.resolveTarget(namespace, podName);
 
@@ -272,14 +195,7 @@ class PodNameResolverTest {
         DiscoveryNode n2 = new DiscoveryNode(2L, podName, "Pod", Map.of(), t2, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(false)))
-                .thenReturn(List.of(n1, n2));
+        when(mockMCP.listTargetsForPodName(podName, false)).thenReturn(List.of(n1, n2));
 
         resolver.resolveTarget(namespace, podName);
 
@@ -296,14 +212,7 @@ class PodNameResolverTest {
         DiscoveryNode node = new DiscoveryNode(1L, podName, "Pod", Map.of(), target, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(false)))
-                .thenReturn(List.of(node));
+        when(mockMCP.listTargetsForPodName(podName, false)).thenReturn(List.of(node));
 
         assertEquals("abc123def456", resolver.resolvePodNameToJvmId(namespace, podName));
     }
@@ -316,14 +225,7 @@ class PodNameResolverTest {
         DiscoveryNode node = new DiscoveryNode(1L, podName, "Pod", Map.of(), target, null);
 
         when(instanceManager.createInstance(namespace)).thenReturn(mockMCP);
-        when(mockMCP.listTargets(
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(List.of("HOST==" + podName)),
-                        eq(false)))
-                .thenReturn(List.of(node));
+        when(mockMCP.listTargetsForPodName(podName, false)).thenReturn(List.of(node));
 
         assertEquals(42L, resolver.resolvePodNameToTargetId(namespace, podName));
     }

@@ -153,7 +153,7 @@ public class PodNameResolver {
     private List<DiscoveryNode> queryTargetNodes(
             String namespace, String podName, boolean useAuditLog) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        return mcp.listTargets(null, null, null, null, List.of("HOST==" + podName), useAuditLog);
+        return mcp.listTargetsForPodName(podName, useAuditLog);
     }
 
     private String buildErrorMessage(String podName, String namespace) {

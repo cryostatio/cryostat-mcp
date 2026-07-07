@@ -136,6 +136,36 @@ class CryostatMCPInstanceManagerTest {
     }
 
     @Test
+    void testCreateInstanceForKnownCryostatInstance() {
+        try (MockedStatic<RestClientBuilder> mockedRestBuilder =
+                        mockStatic(RestClientBuilder.class);
+                MockedStatic<TypesafeGraphQLClientBuilder> mockedGraphQLBuilder =
+                        mockStatic(TypesafeGraphQLClientBuilder.class)) {
+            mockedRestBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
+            when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
+            when(restClientBuilder.followRedirects(anyBoolean())).thenReturn(restClientBuilder);
+            when(restClientBuilder.build(CryostatRESTClient.class)).thenReturn(restClient);
+
+            mockedGraphQLBuilder
+                    .when(TypesafeGraphQLClientBuilder::newBuilder)
+                    .thenReturn(graphqlClientBuilder);
+            when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
+            when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
+            when(graphqlClientBuilder.build(CryostatGraphQLClientImpl.class))
+                    .thenReturn(graphqlClient);
+
+            CryostatMCP mcp = manager.createInstance(testInstance);
+
+            assertNotNull(mcp);
+            verifyNoInteractions(discovery);
+            verify(restClientBuilder)
+                    .baseUri(URI.create("http://test-cryostat.test-namespace.svc:8181"));
+            verify(graphqlClientBuilder)
+                    .endpoint("http://test-cryostat.test-namespace.svc:8181/api/v4/graphql");
+        }
+    }
+
+    @Test
     void testCreateInstanceNoInstanceFound() {
         when(discovery.findByNamespace("unknown-namespace")).thenReturn(Optional.empty());
         when(discovery.getAllInstances()).thenReturn(List.of(testInstance));

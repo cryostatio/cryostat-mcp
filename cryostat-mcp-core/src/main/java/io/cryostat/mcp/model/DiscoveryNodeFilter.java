@@ -21,6 +21,7 @@ public record DiscoveryNodeFilter(
         List<Long> ids,
         List<Long> targetIds,
         List<String> names,
+        List<String> aliases,
         List<String> labels,
         List<String> nodeTypes,
         List<String> annotations) {
@@ -33,6 +34,7 @@ public record DiscoveryNodeFilter(
         private List<Long> ids;
         private List<Long> targetIds;
         private List<String> names;
+        private List<String> aliases;
         private List<String> labels;
         private List<String> nodeTypes;
         private List<String> annotations;
@@ -54,6 +56,11 @@ public record DiscoveryNodeFilter(
             return this;
         }
 
+        public Builder aliases(List<String> aliases) {
+            this.aliases = aliases;
+            return this;
+        }
+
         public Builder labels(List<String> labels) {
             this.labels = labels;
             return this;
@@ -70,7 +77,8 @@ public record DiscoveryNodeFilter(
         }
 
         public DiscoveryNodeFilter build() {
-            return new DiscoveryNodeFilter(ids, targetIds, names, labels, nodeTypes, annotations);
+            return new DiscoveryNodeFilter(
+                    ids, targetIds, names, aliases, labels, nodeTypes, annotations);
         }
     }
 }

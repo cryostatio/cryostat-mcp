@@ -36,6 +36,7 @@ import io.cryostat.mcp.model.graphql.TargetNodeForStop;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.ws.rs.WebApplicationException;
 
 public class CryostatMCP {
 
@@ -46,6 +47,7 @@ public class CryostatMCP {
     private final CryostatRESTClient rest;
     private final CryostatGraphQLClient graphql;
     private final ObjectMapper mapper;
+    private volatile Optional<CryostatVersion> serverVersion;
 
     public CryostatMCP(
             CryostatRESTClient rest, CryostatGraphQLClient graphql, ObjectMapper mapper) {
@@ -66,6 +68,7 @@ public class CryostatMCP {
             List<Long> ids,
             List<Long> targetIds,
             List<String> names,
+            List<String> aliases,
             List<String> labels,
             List<String> annotations,
             Boolean useAuditLog) {
@@ -73,6 +76,7 @@ public class CryostatMCP {
         if (isPresent(ids)
                 || isPresent(targetIds)
                 || isPresent(names)
+                || isPresent(aliases)
                 || isPresent(labels)
                 || isPresent(annotations)) {
             filter =
@@ -80,11 +84,20 @@ public class CryostatMCP {
                             .ids(ids)
                             .targetIds(targetIds)
                             .names(names)
+                            .aliases(aliases)
                             .labels(labels)
                             .annotations(annotations)
                             .build();
         }
         return graphql.targetNodes(filter, useAuditLog);
+    }
+
+    public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listTargetsForPodName(
+            String podName, Boolean useAuditLog) {
+        if (supports(CryostatFeature.TARGET_ALIAS_FILTER)) {
+            return listTargets(null, null, null, List.of(podName), null, null, useAuditLog);
+        }
+        return listTargets(null, null, null, null, null, List.of("HOST==" + podName), useAuditLog);
     }
 
     public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listEnvironmentNodes(
@@ -94,6 +107,34 @@ public class CryostatMCP {
             filter = DiscoveryNodeFilter.builder().names(names).nodeTypes(nodeTypes).build();
         }
         return graphql.environmentNodes(filter);
+    }
+
+    public boolean supports(CryostatFeature feature) {
+        return getServerVersion()
+                .map(version -> version.isAtLeast(feature.minimumVersion()))
+                .orElse(false);
+    }
+
+    public Optional<CryostatVersion> getServerVersion() {
+        Optional<CryostatVersion> current = serverVersion;
+        if (current != null) {
+            return current;
+        }
+        synchronized (this) {
+            if (serverVersion == null) {
+                try {
+                    serverVersion =
+                            Optional.ofNullable(rest.health())
+                                    .flatMap(
+                                            health ->
+                                                    CryostatVersion.parse(
+                                                            health.cryostatVersion()));
+                } catch (RuntimeException e) {
+                    serverVersion = Optional.empty();
+                }
+            }
+            return serverVersion;
+        }
     }
 
     static boolean isPresent(Collection<?> filter) {
@@ -207,15 +248,26 @@ public class CryostatMCP {
     }
 
     public String scrapeMetrics(double minTargetScore) {
-        return rest.scrapeMetrics(minTargetScore);
+        return emptyIfNull(rest.scrapeMetrics(minTargetScore));
     }
 
     public String scrapeTargetMetrics(String jvmId) {
-        return rest.scrapeTargetMetrics(jvmId);
+        try {
+            return emptyIfNull(rest.scrapeTargetMetrics(jvmId));
+        } catch (WebApplicationException e) {
+            if (e.getResponse() != null && e.getResponse().getStatus() == 404) {
+                return "";
+            }
+            throw e;
+        }
     }
 
     public Object getTargetReport(long targetId) {
         return rest.getTargetReport(targetId);
+    }
+
+    private String emptyIfNull(String value) {
+        return value == null ? "" : value;
     }
 
     public List<List<String>> executeQuery(String jvmId, String filename, String query) {
