@@ -19,6 +19,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -44,6 +49,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -64,7 +71,13 @@ class CryostatMCPTest {
 
     @BeforeEach
     void setUp() {
-        cryostatMCP = new CryostatMCP(restClient, graphqlClient, objectMapper);
+        cryostatMCP =
+                new CryostatMCP(
+                        URI.create("http://localhost:8181"),
+                        null,
+                        restClient,
+                        graphqlClient,
+                        objectMapper);
     }
 
     @Test
@@ -805,6 +818,94 @@ class CryostatMCPTest {
     }
 
     @Test
+    void testDownloadArchivedRecordingResolvesRelativeUrlAgainstBaseUri() throws Exception {
+        String jvmId = "test-jvm-id";
+        String filename = "recording.jfr";
+        ArchivedRecordingDescriptor descriptor =
+                new ArchivedRecordingDescriptor(
+                        jvmId, filename, "/api/v4/download/test", null, null, 0L, 0L);
+        ArchivedRecordingDirectory dir =
+                new ArchivedRecordingDirectory(null, jvmId, List.of(descriptor));
+        when(restClient.targetArchivedRecordings(jvmId)).thenReturn(List.of(dir));
+
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext(
+                "/api/v4/download/test",
+                exchange -> writeResponse(exchange, "recording-data", "application/octet-stream"));
+        server.start();
+        try {
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            null,
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            try (ByteArrayInputStream expected =
+                            new ByteArrayInputStream(
+                                    "recording-data".getBytes(StandardCharsets.UTF_8));
+                    var actual = mcp.downloadArchivedRecording(jvmId, filename)) {
+                assertArrayEquals(expected.readAllBytes(), actual.readAllBytes());
+            }
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void testGetArchivedReportResolvesRelativeUrlAgainstBaseUri() throws Exception {
+        String jvmId = "test-jvm-id";
+        String filename = "recording.jfr";
+        ArchivedRecordingDescriptor descriptor =
+                new ArchivedRecordingDescriptor(
+                        jvmId, filename, null, "/api/v4/reports/test", null, 0L, 0L);
+        ArchivedRecordingDirectory dir =
+                new ArchivedRecordingDirectory(null, jvmId, List.of(descriptor));
+        when(restClient.targetArchivedRecordings(jvmId)).thenReturn(List.of(dir));
+
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext(
+                "/api/v4/reports/test",
+                exchange -> writeResponse(exchange, "report-body", "text/plain"));
+        server.createContext(
+                "/api/notifications",
+                exchange -> {
+                    exchange.sendResponseHeaders(101, -1);
+                    exchange.close();
+                });
+        server.start();
+        try {
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            null,
+                            restClient,
+                            graphqlClient,
+                            objectMapper) {
+                        @Override
+                        public String getArchivedReport(String jvmId, String filename)
+                                throws IOException {
+                            String reportUrl =
+                                    listTargetArchivedRecordings(jvmId).stream()
+                                            .flatMap(dir -> dir.recordings().stream())
+                                            .filter(r -> r.name().equals(filename))
+                                            .findFirst()
+                                            .orElseThrow(
+                                                    () ->
+                                                            new NoSuchElementException(
+                                                                    "Archived recording not found: "
+                                                                            + filename))
+                                            .reportUrl();
+                            return sendStringGet(resolveUri(reportUrl)).body();
+                        }
+                    };
+            assertEquals("report-body", mcp.getArchivedReport(jvmId, filename));
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void testQueryExampleRecord() {
         String description = "Test description";
         String query = "SELECT * FROM test";
@@ -817,5 +918,15 @@ class CryostatMCPTest {
 
     private static Health health(String version) {
         return new Health(version, false, false, false, false, false, false, null);
+    }
+
+    private static void writeResponse(HttpExchange exchange, String body, String contentType)
+            throws java.io.IOException {
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().add("Content-Type", contentType);
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (var out = exchange.getResponseBody()) {
+            out.write(bytes);
+        }
     }
 }

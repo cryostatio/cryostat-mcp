@@ -150,7 +150,16 @@ public class CryostatMCPInstanceManager {
         CryostatGraphQLClientImpl graphqlClient =
                 createGraphQLClient(instance, authorizationHeader);
 
-        return new CryostatMCP(restClient, graphqlClient, mapper);
+        String resolvedAuthHeader =
+                authorizationHeader != null
+                        ? authorizationHeader
+                        : authorizationHeaderConfig.orElse(null);
+        return new CryostatMCP(
+                URI.create(instance.applicationUrl()),
+                resolvedAuthHeader,
+                restClient,
+                graphqlClient,
+                mapper);
     }
 
     private String targetNamespaceCacheKey(String namespace) {
