@@ -19,6 +19,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import io.cryostat.mcp.CryostatServerVersions;
+import io.cryostat.mcp.CryostatToolMetadata;
 import io.cryostat.mcp.JfrAnalyticsQueries;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
@@ -30,6 +32,7 @@ import io.cryostat.mcp.model.Target;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkiverse.mcp.server.MetaField;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.inject.Inject;
@@ -52,6 +55,10 @@ public class CryostatMCP {
     }
 
     @Tool(description = "Get Cryostat server health and configuration")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.ANY)
     public Health getHealth() {
         return rest.health();
     }
@@ -68,6 +75,10 @@ public class CryostatMCP {
                     the Universe are aways Realm nodes, representing each distinct Discovery Plugin (Kubernetes API, JDP, Docker/Podman,
                     Custom Targets, and each individual registered Cryostat Agent instance).
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public DiscoveryNode getDiscoveryTree(
             @ToolArg(
                             description =
@@ -91,6 +102,10 @@ public class CryostatMCP {
                     the full list of all discovered Targets will be returned. Otherwise, if any filter inputs are provided, then only
                     Targets which match all of the given inputs will be returned.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listTargets(
             @ToolArg(
                             description =
@@ -166,6 +181,10 @@ public class CryostatMCP {
                     this tool may still be able to provide information about what the Target was if the Cryostat instance has audit
                     logging enabled.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public Target getAuditTarget(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         return rest.auditTarget(jvmId);
@@ -178,6 +197,10 @@ public class CryostatMCP {
                     this tool can return information about the Target and all of its DiscoveryNode lineage ancestors up to (but excluding)
                     the Universe node.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public DiscoveryNode getAuditTargetLineage(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         return rest.auditTargetLineage(jvmId);
@@ -186,12 +209,20 @@ public class CryostatMCP {
     @Tool(
             description =
                     "List the available JDK Flight Recorder Event Templates for a given Target.")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<EventTemplate> listTargetEventTemplates(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.targetEventTemplates(targetId);
     }
 
     @Tool(description = "Get a specific .jfc (XML) JDK Flight Recorder Event Template definition.")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public String getTargetEventTemplate(
             @ToolArg(description = "The Target's ID.", required = true) long targetId,
             @ToolArg(description = "The event template's type.", required = true)
@@ -202,12 +233,20 @@ public class CryostatMCP {
     }
 
     @Tool(description = "Get a list of active JDK Flight Recordings present in the Target JVM.")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<RecordingDescriptor> listTargetActiveRecordings(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.targetActiveRecordings(targetId);
     }
 
     @Tool(description = "Get a list of archived JDK Flight Recordings sourced from the Target JVM.")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<ArchivedRecordingDirectory> listTargetArchivedRecordings(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         return rest.targetArchivedRecordings(jvmId);
@@ -220,6 +259,10 @@ public class CryostatMCP {
                     When the recording completes, Cryostat will automatically capture the data
                     and perform an automated analysis of its contents.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public RecordingDescriptor startTargetRecording(
             @ToolArg(description = "The Target's ID.", required = true) long targetId,
             @ToolArg(
@@ -261,6 +304,10 @@ public class CryostatMCP {
                     Scores of [25.0, 75.0) indicate that a medium severity issue was detected.
                     Scores of [75.0, 100.0] indicate that a high severity issue was detected.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_1)
     public String scrapeMetrics(
             @ToolArg(
                             description =
@@ -289,6 +336,10 @@ public class CryostatMCP {
                     Scores of [25.0, 75.0) indicate that a medium severity issue was detected.
                     Scores of [75.0, 100.0] indicate that a high severity issue was detected.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_1)
     public String scrapeTargetMetrics(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId) {
         return rest.scrapeTargetMetrics(jvmId);
@@ -304,6 +355,10 @@ public class CryostatMCP {
                     and suggestions. For simple problem detection and incident reporting, use the Prometheus-format
                     metrics scraping tools.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_1)
     public Object getTargetReport(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.getTargetReport(targetId);
@@ -323,6 +378,10 @@ public class CryostatMCP {
                     their internal structure, not as separate queryable columns.
                     Queries cannot use "objectClass"."name", "objectClass.name", or "objectClass"['name'] syntax.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<List<String>> executeQuery(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
             @ToolArg(
@@ -341,6 +400,10 @@ public class CryostatMCP {
                     need to discover which event types are available before selecting fields or
                     event rows.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<List<String>> listArchivedRecordingEventTypes(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
             @ToolArg(
@@ -357,6 +420,10 @@ public class CryostatMCP {
                     Recording. Use listArchivedRecordingEventTypes first if the event type name is
                     not known.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<List<String>> listArchivedRecordingEventFields(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
             @ToolArg(
@@ -380,6 +447,10 @@ public class CryostatMCP {
                     dedicated version of a simple SELECT query and returns up to limit rows from the
                     selected event type. If columns is omitted or empty, all fields are returned.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<List<String>> listArchivedRecordingEvents(
             @ToolArg(description = "The Target's JVM hash ID.", required = true) String jvmId,
             @ToolArg(
@@ -410,6 +481,10 @@ public class CryostatMCP {
                     """
                     Provides details about additional custom functions and structures available for SQL queries.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<QueryExample> getQueryAdditionalFunctions() {
         return List.of(
                 new QueryExample(
@@ -442,6 +517,10 @@ public class CryostatMCP {
                     """
                     Provides example SQL queries as reference.
                     """)
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<QueryExample> getQueryExamples() {
         return List.of(
                 new QueryExample(

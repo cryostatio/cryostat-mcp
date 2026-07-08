@@ -42,9 +42,12 @@ import io.cryostat.mcp.model.graphql.TargetWithStop;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -118,7 +121,7 @@ class CryostatMCPTest {
         when(graphqlClient.targetNodes(null, (Boolean) null)).thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
-                cryostatMCP.listTargets(null, null, null, null, null, null);
+                cryostatMCP.listTargets(null, null, null, null, null, null, null);
 
         assertEquals(mockNodes, result);
         verify(graphqlClient).targetNodes(null, (Boolean) null);
@@ -129,6 +132,7 @@ class CryostatMCPTest {
         List<Long> ids = Arrays.asList(1L, 2L);
         List<Long> targetIds = Arrays.asList(10L, 20L);
         List<String> names = Arrays.asList("pod1", "pod2");
+        List<String> aliases = Arrays.asList("alias1", "alias2");
         List<String> labels = Arrays.asList("env=prod", "app=test");
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> mockNodes =
@@ -138,10 +142,18 @@ class CryostatMCPTest {
                 .thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
-                cryostatMCP.listTargets(ids, targetIds, names, labels, null, null);
+                cryostatMCP.listTargets(ids, targetIds, names, aliases, labels, null, null);
 
         assertEquals(mockNodes, result);
-        verify(graphqlClient).targetNodes(any(DiscoveryNodeFilter.class), eq((Boolean) null));
+        ArgumentCaptor<DiscoveryNodeFilter> filterCaptor =
+                ArgumentCaptor.forClass(DiscoveryNodeFilter.class);
+        verify(graphqlClient).targetNodes(filterCaptor.capture(), eq((Boolean) null));
+        DiscoveryNodeFilter filter = filterCaptor.getValue();
+        assertEquals(ids, filter.ids());
+        assertEquals(targetIds, filter.targetIds());
+        assertEquals(names, filter.names());
+        assertEquals(aliases, filter.aliases());
+        assertEquals(labels, filter.labels());
     }
 
     @Test
@@ -152,10 +164,54 @@ class CryostatMCPTest {
         when(graphqlClient.targetNodes(null, true)).thenReturn(mockNodes);
 
         List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
-                cryostatMCP.listTargets(null, null, null, null, null, true);
+                cryostatMCP.listTargets(null, null, null, null, null, null, true);
 
         assertEquals(mockNodes, result);
         verify(graphqlClient).targetNodes(null, true);
+    }
+
+    @Test
+    void testListTargetsForPodNameUsesAnnotationFilterBeforeAliasFilterSupport() {
+        String podName = "sample-pod";
+        List<io.cryostat.mcp.model.graphql.DiscoveryNode> mockNodes =
+                Collections.singletonList(mock(io.cryostat.mcp.model.graphql.DiscoveryNode.class));
+
+        when(restClient.health()).thenReturn(health("4.2.0"));
+        when(graphqlClient.targetNodes(any(DiscoveryNodeFilter.class), eq(false)))
+                .thenReturn(mockNodes);
+
+        List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
+                cryostatMCP.listTargetsForPodName(podName, false);
+
+        assertEquals(mockNodes, result);
+        ArgumentCaptor<DiscoveryNodeFilter> filterCaptor =
+                ArgumentCaptor.forClass(DiscoveryNodeFilter.class);
+        verify(graphqlClient).targetNodes(filterCaptor.capture(), eq(false));
+        DiscoveryNodeFilter filter = filterCaptor.getValue();
+        assertNull(filter.aliases());
+        assertEquals(List.of("HOST==" + podName), filter.annotations());
+    }
+
+    @Test
+    void testListTargetsForPodNameUsesAliasFilterWhenSupported() {
+        String podName = "sample-pod";
+        List<io.cryostat.mcp.model.graphql.DiscoveryNode> mockNodes =
+                Collections.singletonList(mock(io.cryostat.mcp.model.graphql.DiscoveryNode.class));
+
+        when(restClient.health()).thenReturn(health("4.2.1"));
+        when(graphqlClient.targetNodes(any(DiscoveryNodeFilter.class), eq(true)))
+                .thenReturn(mockNodes);
+
+        List<io.cryostat.mcp.model.graphql.DiscoveryNode> result =
+                cryostatMCP.listTargetsForPodName(podName, true);
+
+        assertEquals(mockNodes, result);
+        ArgumentCaptor<DiscoveryNodeFilter> filterCaptor =
+                ArgumentCaptor.forClass(DiscoveryNodeFilter.class);
+        verify(graphqlClient).targetNodes(filterCaptor.capture(), eq(true));
+        DiscoveryNodeFilter filter = filterCaptor.getValue();
+        assertEquals(List.of(podName), filter.aliases());
+        assertNull(filter.annotations());
     }
 
     @Test
@@ -451,6 +507,17 @@ class CryostatMCPTest {
     }
 
     @Test
+    void testScrapeMetricsReturnsEmptyStringForEmptyBody() {
+        double minScore = 0.0;
+        when(restClient.scrapeMetrics(minScore)).thenReturn(null);
+
+        String result = cryostatMCP.scrapeMetrics(minScore);
+
+        assertEquals("", result);
+        verify(restClient).scrapeMetrics(minScore);
+    }
+
+    @Test
     void testScrapeTargetMetrics() {
         String jvmId = "test-jvm-id";
         String mockMetrics = "# HELP metric_name\nmetric_name{label=\"value\"} 42.0";
@@ -459,6 +526,32 @@ class CryostatMCPTest {
         String result = cryostatMCP.scrapeTargetMetrics(jvmId);
 
         assertEquals(mockMetrics, result);
+        verify(restClient).scrapeTargetMetrics(jvmId);
+    }
+
+    @Test
+    void testScrapeTargetMetricsReturnsEmptyStringForEmptyBody() {
+        String jvmId = "test-jvm-id";
+        when(restClient.scrapeTargetMetrics(jvmId)).thenReturn(null);
+
+        String result = cryostatMCP.scrapeTargetMetrics(jvmId);
+
+        assertEquals("", result);
+        verify(restClient).scrapeTargetMetrics(jvmId);
+    }
+
+    @Test
+    void testScrapeTargetMetricsReturnsEmptyStringWhenNoReportExists() {
+        String jvmId = "test-jvm-id";
+        Response response = mock(Response.class);
+        when(response.getStatus()).thenReturn(404);
+        WebApplicationException exception = mock(WebApplicationException.class);
+        when(exception.getResponse()).thenReturn(response);
+        when(restClient.scrapeTargetMetrics(jvmId)).thenThrow(exception);
+
+        String result = cryostatMCP.scrapeTargetMetrics(jvmId);
+
+        assertEquals("", result);
         verify(restClient).scrapeTargetMetrics(jvmId);
     }
 
@@ -720,5 +813,9 @@ class CryostatMCPTest {
 
         assertEquals(description, example.description());
         assertEquals(query, example.query());
+    }
+
+    private static Health health(String version) {
+        return new Health(version, false, false, false, false, false, false, null);
     }
 }

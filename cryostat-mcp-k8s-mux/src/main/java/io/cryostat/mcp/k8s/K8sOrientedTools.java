@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.UUID;
 
 import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.CryostatServerVersions;
+import io.cryostat.mcp.CryostatToolMetadata;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.EventTemplate;
 import io.cryostat.mcp.model.RecordingDescriptor;
@@ -47,6 +49,10 @@ public class K8sOrientedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<EventTemplate> listEventTemplates(
             @ToolArg(description = "The namespace of application.", required = true)
                     String namespace,
@@ -62,6 +68,10 @@ public class K8sOrientedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<RecordingDescriptor> getActiveRecordingsList(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -77,6 +87,10 @@ public class K8sOrientedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public RecordingDescriptor startFlightRecording(
             @ToolArg(description = "The namespace of application.", required = true)
                     String namespace,
@@ -114,6 +128,10 @@ public class K8sOrientedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public ArchivedRecordingDescriptor archiveRecording(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -129,6 +147,10 @@ public class K8sOrientedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public StoppedRecording stopRecording(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -148,6 +170,10 @@ public class K8sOrientedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<ArchivedRecordingDescriptor> getArchivedRecordingsList(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,

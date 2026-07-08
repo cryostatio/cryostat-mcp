@@ -80,7 +80,37 @@ public class CryostatMCPInstanceManager {
         if (authorizationHeader != null) {
             return createNewInstance(namespace, authorizationHeader);
         }
-        return instanceCache.computeIfAbsent(namespace, ns -> createNewInstance(ns, null));
+        return instanceCache.computeIfAbsent(
+                targetNamespaceCacheKey(namespace), ignored -> createNewInstance(namespace, null));
+    }
+
+    /**
+     * Get or create a CryostatMCP instance for a known Cryostat instance. This is used by
+     * non-directed tools that already operate over discovered Cryostat CRs instead of routing from
+     * an application namespace.
+     *
+     * @param instance the discovered Cryostat instance
+     * @return a configured CryostatMCP instance
+     */
+    public CryostatMCP createInstance(CryostatInstance instance) {
+        return createInstance(instance, null);
+    }
+
+    /**
+     * Get or create a CryostatMCP instance for a known Cryostat instance with explicit
+     * authorization header.
+     *
+     * @param instance the discovered Cryostat instance
+     * @param authorizationHeader the Authorization header to use, or null to fall back to
+     *     ConfigProperty
+     * @return a configured CryostatMCP instance
+     */
+    public CryostatMCP createInstance(CryostatInstance instance, String authorizationHeader) {
+        if (authorizationHeader != null) {
+            return createNewInstance(instance, authorizationHeader);
+        }
+        return instanceCache.computeIfAbsent(
+                cryostatInstanceCacheKey(instance), ignored -> createNewInstance(instance, null));
     }
 
     private CryostatMCP createNewInstance(String namespace, String authorizationHeader) {
@@ -103,15 +133,32 @@ public class CryostatMCPInstanceManager {
         }
 
         CryostatInstance instance = instanceOpt.get();
+        return createNewInstance(instance, authorizationHeader);
+    }
+
+    private CryostatMCP createNewInstance(CryostatInstance instance, String authorizationHeader) {
         log.debugf(
-                "Found Cryostat instance '%s' at %s for namespace '%s'",
-                instance.name(), instance.applicationUrl(), namespace);
+                "Creating CryostatMCP instance for Cryostat '%s/%s' at %s on thread %s with %s"
+                        + " auth header",
+                instance.namespace(),
+                instance.name(),
+                instance.applicationUrl(),
+                Thread.currentThread().getName(),
+                authorizationHeader != null ? "explicit" : "context-based");
 
         CryostatRESTClient restClient = createRESTClient(instance, authorizationHeader);
         CryostatGraphQLClientImpl graphqlClient =
                 createGraphQLClient(instance, authorizationHeader);
 
         return new CryostatMCP(restClient, graphqlClient, mapper);
+    }
+
+    private String targetNamespaceCacheKey(String namespace) {
+        return "target-namespace:" + namespace;
+    }
+
+    private String cryostatInstanceCacheKey(CryostatInstance instance) {
+        return "cryostat-instance:" + instance.namespace() + "/" + instance.name();
     }
 
     private CryostatRESTClient createRESTClient(

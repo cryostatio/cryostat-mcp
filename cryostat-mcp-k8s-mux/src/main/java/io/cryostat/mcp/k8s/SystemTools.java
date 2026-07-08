@@ -17,6 +17,9 @@ package io.cryostat.mcp.k8s;
 
 import java.util.List;
 
+import io.cryostat.mcp.CryostatServerVersions;
+import io.cryostat.mcp.CryostatToolMetadata;
+
 import io.quarkiverse.mcp.server.MetaField;
 import io.quarkiverse.mcp.server.Tool;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -40,6 +43,10 @@ public class SystemTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.ANY)
     public List<CryostatInstance> listCryostatInstances() {
         return discovery.getAllInstances().stream().toList();
     }

@@ -165,8 +165,8 @@ class K8sMultiMCPTest {
     void testNonDirectedToolAggregatesResults() {
         // Simulate aggregation of results from multiple instances
         when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
-        when(instanceManager.createInstance("namespace-1", null)).thenReturn(mockMCP);
-        when(instanceManager.createInstance("namespace-2", null)).thenReturn(mockMCP);
+        when(instanceManager.createInstance(testInstance1, null)).thenReturn(mockMCP);
+        when(instanceManager.createInstance(testInstance2, null)).thenReturn(mockMCP);
 
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
 
@@ -175,7 +175,7 @@ class K8sMultiMCPTest {
 
         // Verify each instance can be accessed
         for (CryostatInstance instance : instances) {
-            CryostatMCP mcp = instanceManager.createInstance(instance.namespace(), null);
+            CryostatMCP mcp = instanceManager.createInstance(instance, null);
             assertNotNull(mcp);
         }
     }
@@ -184,8 +184,8 @@ class K8sMultiMCPTest {
     void testNonDirectedToolHandlesIndividualInstanceFailure() {
         // Non-directed tools should continue even if one instance fails
         when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
-        when(instanceManager.createInstance("namespace-1", null)).thenReturn(mockMCP);
-        when(instanceManager.createInstance("namespace-2", null))
+        when(instanceManager.createInstance(testInstance1, null)).thenReturn(mockMCP);
+        when(instanceManager.createInstance(testInstance2, null))
                 .thenThrow(new RuntimeException("Instance unavailable"));
 
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
@@ -193,7 +193,7 @@ class K8sMultiMCPTest {
 
         for (CryostatInstance instance : instances) {
             try {
-                CryostatMCP mcp = instanceManager.createInstance(instance.namespace(), null);
+                CryostatMCP mcp = instanceManager.createInstance(instance, null);
                 results.add(mcp);
             } catch (Exception e) {
                 // Add null to maintain alignment with instances list
@@ -344,18 +344,18 @@ class K8sMultiMCPTest {
     void testNonDirectedToolWithAuthorizationHeader() {
         String authHeader = "Bearer test-token";
         when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
-        when(instanceManager.createInstance("namespace-1", authHeader)).thenReturn(mockMCP);
-        when(instanceManager.createInstance("namespace-2", authHeader)).thenReturn(mockMCP);
+        when(instanceManager.createInstance(testInstance1, authHeader)).thenReturn(mockMCP);
+        when(instanceManager.createInstance(testInstance2, authHeader)).thenReturn(mockMCP);
 
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
 
         for (CryostatInstance instance : instances) {
-            CryostatMCP mcp = instanceManager.createInstance(instance.namespace(), authHeader);
+            CryostatMCP mcp = instanceManager.createInstance(instance, authHeader);
             assertNotNull(mcp);
         }
 
-        verify(instanceManager).createInstance("namespace-1", authHeader);
-        verify(instanceManager).createInstance("namespace-2", authHeader);
+        verify(instanceManager).createInstance(testInstance1, authHeader);
+        verify(instanceManager).createInstance(testInstance2, authHeader);
     }
 
     @Test

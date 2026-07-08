@@ -20,7 +20,9 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import java.util.Arrays;
 import java.util.Optional;
 
-import com.tngtech.archunit.core.domain.JavaAnnotation;
+import io.cryostat.mcp.CryostatToolMetadata;
+import io.cryostat.mcp.CryostatVersion;
+
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -46,11 +48,11 @@ class ToolAnnotationArchitectureTest {
                 methods()
                         .that()
                         .areAnnotatedWith(Tool.class)
-                        .should()
-                        .beAnnotatedWith(MetaField.class)
+                        .should(haveToolLevelMetadata())
+                        .andShould(haveMinimumCryostatVersionMetadata())
                         .because(
-                                "all @Tool annotated methods must specify the tool-level using"
-                                        + " @MetaField annotation");
+                                "all @Tool annotated methods must specify tool-level and minimum"
+                                    + " Cryostat version metadata using @MetaField annotations");
 
         rule.check(CLASSES);
     }
@@ -77,58 +79,49 @@ class ToolAnnotationArchitectureTest {
         return new ArchCondition<JavaMethod>("have valid @MetaField annotation attributes") {
             @Override
             public void check(JavaMethod method, ConditionEvents events) {
-                Optional<JavaAnnotation<JavaMethod>> metaFieldAnnotation =
-                        method.getAnnotations().stream()
-                                .filter(
-                                        ann ->
-                                                ann.getRawType()
-                                                        .getName()
-                                                        .equals(MetaField.class.getName()))
-                                .findFirst();
-
-                if (metaFieldAnnotation.isEmpty()) {
-                    String message =
-                            String.format(
-                                    "Method %s.%s() is annotated with @Tool but missing @MetaField"
-                                            + " annotation",
-                                    method.getOwner().getSimpleName(), method.getName());
-                    events.add(SimpleConditionEvent.violated(method, message));
-                    return;
-                }
-
-                JavaAnnotation<JavaMethod> annotation = metaFieldAnnotation.get();
-
-                String prefix = (String) annotation.get("prefix").orElse(null);
-                String name = (String) annotation.get("name").orElse(null);
-                String value = (String) annotation.get("value").orElse(null);
-
                 boolean isValid = true;
                 StringBuilder errorMessage = new StringBuilder();
 
-                if (!ToolLevelFilter.TOOL_LEVEL_META_PREFIX.equals(prefix)) {
+                Optional<MetaField> toolLevel =
+                        findMetaField(
+                                method,
+                                ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+                                ToolLevelFilter.TOOL_LEVEL_META_NAME);
+                if (toolLevel.isEmpty()) {
                     isValid = false;
                     errorMessage.append(
                             String.format(
-                                    "Expected prefix '%s' but found '%s'. ",
-                                    ToolLevelFilter.TOOL_LEVEL_META_PREFIX, prefix));
+                                    "Expected @MetaField(prefix='%s', name='%s'). ",
+                                    ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+                                    ToolLevelFilter.TOOL_LEVEL_META_NAME));
+                } else if (Arrays.stream(ToolLevelFilter.ToolLevel.values())
+                        .noneMatch(level -> level.name().equals(toolLevel.get().value()))) {
+                    isValid = false;
+                    errorMessage.append(
+                            String.format(
+                                    "Expected tool-level value to be one of %s but found '%s'. ",
+                                    Arrays.toString(ToolLevelFilter.ToolLevel.values()),
+                                    toolLevel.get().value()));
                 }
 
-                if (!ToolLevelFilter.TOOL_LEVEL_META_NAME.equals(name)) {
+                Optional<MetaField> minimumVersion =
+                        findMetaField(
+                                method,
+                                CryostatToolMetadata.META_PREFIX,
+                                CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME);
+                if (minimumVersion.isEmpty()) {
                     isValid = false;
                     errorMessage.append(
                             String.format(
-                                    "Expected name '%s' but found '%s'. ",
-                                    ToolLevelFilter.TOOL_LEVEL_META_NAME, name));
-                }
-
-                if (value == null
-                        || Arrays.stream(ToolLevelFilter.ToolLevel.values())
-                                .noneMatch(level -> level.name().equals(value))) {
+                                    "Expected @MetaField(prefix='%s', name='%s'). ",
+                                    CryostatToolMetadata.META_PREFIX,
+                                    CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME));
+                } else if (CryostatVersion.parse(minimumVersion.get().value()).isEmpty()) {
                     isValid = false;
                     errorMessage.append(
                             String.format(
-                                    "Expected value to be one of %s but found '%s'. ",
-                                    Arrays.toString(ToolLevelFilter.ToolLevel.values()), value));
+                                    "Expected parseable minimum Cryostat version but found '%s'. ",
+                                    minimumVersion.get().value()));
                 }
 
                 if (!isValid) {
@@ -144,5 +137,61 @@ class ToolAnnotationArchitectureTest {
                 }
             }
         };
+    }
+
+    private static ArchCondition<JavaMethod> haveToolLevelMetadata() {
+        return new ArchCondition<JavaMethod>("have tool-level metadata") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                boolean hasMetadata =
+                        findMetaField(
+                                        method,
+                                        ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+                                        ToolLevelFilter.TOOL_LEVEL_META_NAME)
+                                .isPresent();
+                String message =
+                        String.format(
+                                "Method %s.%s() %s tool-level @MetaField annotation",
+                                method.getOwner().getSimpleName(),
+                                method.getName(),
+                                hasMetadata ? "has" : "is missing");
+                events.add(
+                        hasMetadata
+                                ? SimpleConditionEvent.satisfied(method, message)
+                                : SimpleConditionEvent.violated(method, message));
+            }
+        };
+    }
+
+    private static ArchCondition<JavaMethod> haveMinimumCryostatVersionMetadata() {
+        return new ArchCondition<JavaMethod>("have minimum Cryostat version metadata") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                boolean hasMetadata =
+                        findMetaField(
+                                        method,
+                                        CryostatToolMetadata.META_PREFIX,
+                                        CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME)
+                                .isPresent();
+                String message =
+                        String.format(
+                                "Method %s.%s() %s minimum Cryostat version @MetaField annotation",
+                                method.getOwner().getSimpleName(),
+                                method.getName(),
+                                hasMetadata ? "has" : "is missing");
+                events.add(
+                        hasMetadata
+                                ? SimpleConditionEvent.satisfied(method, message)
+                                : SimpleConditionEvent.violated(method, message));
+            }
+        };
+    }
+
+    private static Optional<MetaField> findMetaField(
+            JavaMethod method, String prefix, String name) {
+        return Arrays.stream(method.reflect().getAnnotationsByType(MetaField.class))
+                .filter(metaField -> prefix.equals(metaField.prefix()))
+                .filter(metaField -> name.equals(metaField.name()))
+                .findFirst();
     }
 }

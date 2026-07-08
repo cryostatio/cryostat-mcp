@@ -22,6 +22,8 @@ import java.util.concurrent.Executors;
 import java.util.function.Function;
 
 import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.CryostatServerVersions;
+import io.cryostat.mcp.CryostatToolMetadata;
 import io.cryostat.mcp.model.DiscoveryNode;
 
 import io.quarkiverse.mcp.server.MetaField;
@@ -56,6 +58,10 @@ public class NonDirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "ALL")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public DiscoveryNode getGlobalDiscoveryTree() {
         return aggregateFromAllInstances(
                 mcp -> mcp.getDiscoveryTree(true), discoveryTreeAggregationStrategy);
@@ -73,6 +79,10 @@ public class NonDirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "ALL")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listGlobalTargets(
             @ToolArg(
                             description =
@@ -94,7 +104,7 @@ public class NonDirectedTools {
                                         + " is needed.")
                     Boolean useAuditLog) {
         return aggregateFromAllInstances(
-                mcp -> mcp.listTargets(null, null, names, labels, null, useAuditLog),
+                mcp -> mcp.listTargets(null, null, names, null, labels, null, useAuditLog),
                 targetListAggregationStrategy);
     }
 
@@ -107,6 +117,10 @@ public class NonDirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "ALL")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_1)
     public String scrapeGlobalMetrics(
             @ToolArg(description = "Minimum target score for filtering metrics")
                     Double minTargetScore) {
@@ -145,7 +159,7 @@ public class NonDirectedTools {
                                                         try {
                                                             CryostatMCP mcp =
                                                                     instanceManager.createInstance(
-                                                                            instance.namespace());
+                                                                            instance);
                                                             return invoker.apply(mcp);
                                                         } catch (Exception e) {
                                                             log.warnf(

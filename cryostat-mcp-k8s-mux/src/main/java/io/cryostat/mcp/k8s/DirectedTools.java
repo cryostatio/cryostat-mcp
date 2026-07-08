@@ -18,6 +18,8 @@ package io.cryostat.mcp.k8s;
 import java.util.List;
 
 import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.CryostatServerVersions;
+import io.cryostat.mcp.CryostatToolMetadata;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
 import io.cryostat.mcp.model.EventTemplate;
@@ -49,6 +51,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.ANY)
     public Health getHealth(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace) {
@@ -72,6 +78,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public DiscoveryNode getDiscoveryTree(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -104,6 +114,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<io.cryostat.mcp.model.graphql.DiscoveryNode> listTargets(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -139,7 +153,7 @@ public class DirectedTools {
                             defaultValue = "false")
                     boolean useAuditLog) {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        return mcp.listTargets(ids, targetIds, names, labels, null, useAuditLog);
+        return mcp.listTargets(ids, targetIds, names, null, labels, null, useAuditLog);
     }
 
     @Tool(
@@ -152,6 +166,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public Target getAuditTarget(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -170,6 +188,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public DiscoveryNode getAuditTargetLineage(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -185,6 +207,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<EventTemplate> getTargetEventTemplates(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -198,6 +224,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public String getTargetEventTemplate(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -215,6 +245,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<RecordingDescriptor> listTargetActiveRecordings(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -228,6 +262,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public List<ArchivedRecordingDirectory> listTargetArchivedRecordings(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -245,6 +283,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_0)
     public RecordingDescriptor startTargetRecording(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -286,6 +328,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_1)
     public String scrapeMetrics(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -321,6 +367,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_1)
     public String scrapeTargetMetrics(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -341,6 +391,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_1)
     public Object getTargetReport(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -368,6 +422,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<List<String>> executeQuery(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -391,6 +449,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<List<String>> listArchivedRecordingEventTypes(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -412,6 +474,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<List<String>> listArchivedRecordingEventFields(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -440,6 +506,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<List<String>> listArchivedRecordingEvents(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
@@ -475,6 +545,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<CryostatMCP.QueryExample> getQueryAdditionalFunctions(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace) {
@@ -487,6 +561,10 @@ public class DirectedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "LOW")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2)
     public List<CryostatMCP.QueryExample> getQueryExamples(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace) {
