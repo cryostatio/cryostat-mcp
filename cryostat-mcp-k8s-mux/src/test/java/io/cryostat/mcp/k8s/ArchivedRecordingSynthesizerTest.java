@@ -30,6 +30,7 @@ import java.util.Date;
 import java.util.List;
 
 import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.k8s.PodNameResolver.TargetInfo;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.KeyValue;
@@ -59,6 +60,7 @@ class ArchivedRecordingSynthesizerTest {
     private static final String NAMESPACE = "test-ns";
     private static final String POD_NAME = "my-pod";
     private static final String JVM_ID = "jvmid123";
+    private static final TargetInfo TARGET = new TargetInfo(POD_NAME, 1234, JVM_ID);
 
     @BeforeEach
     void setUp() {
@@ -75,9 +77,7 @@ class ArchivedRecordingSynthesizerTest {
 
         assertThrows(
                 UnsatisfiableRangeException.class,
-                () ->
-                        synthesizer.synthesize(
-                                NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2000L)));
+                () -> synthesizer.synthesize(NAMESPACE, TARGET, new Date(1000L), new Date(2000L)));
     }
 
     @Test
@@ -87,9 +87,7 @@ class ArchivedRecordingSynthesizerTest {
 
         assertThrows(
                 UnsatisfiableRangeException.class,
-                () ->
-                        synthesizer.synthesize(
-                                NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2000L)));
+                () -> synthesizer.synthesize(NAMESPACE, TARGET, new Date(1000L), new Date(2000L)));
     }
 
     @Test
@@ -99,8 +97,7 @@ class ArchivedRecordingSynthesizerTest {
         when(mcp.listTargetArchivedRecordings(JVM_ID)).thenReturn(List.of(dir(JVM_ID, rec)));
 
         ArchivedRecordingDescriptor result =
-                synthesizer.synthesize(
-                        NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2000L));
+                synthesizer.synthesize(NAMESPACE, TARGET, new Date(1000L), new Date(2000L));
 
         assertSame(rec, result);
         verify(mcp, never()).uploadArchivedRecording(any(), any(), any(), any());
@@ -114,8 +111,7 @@ class ArchivedRecordingSynthesizerTest {
         when(mcp.listTargetArchivedRecordings(JVM_ID)).thenReturn(List.of(dir(JVM_ID, rec1, rec2)));
 
         ArchivedRecordingDescriptor result =
-                synthesizer.synthesize(
-                        NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2000L));
+                synthesizer.synthesize(NAMESPACE, TARGET, new Date(1000L), new Date(2000L));
 
         assertSame(rec1, result);
         verify(mcp, never()).uploadArchivedRecording(any(), any(), any(), any());
@@ -152,8 +148,7 @@ class ArchivedRecordingSynthesizerTest {
             files.when(() -> Files.deleteIfExists(tempFile)).thenReturn(true);
 
             ArchivedRecordingDescriptor result =
-                    synthesizer.synthesize(
-                            NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2500L));
+                    synthesizer.synthesize(NAMESPACE, TARGET, new Date(1000L), new Date(2500L));
 
             assertSame(syntheticRec, result);
         }
@@ -207,8 +202,7 @@ class ArchivedRecordingSynthesizerTest {
             files.when(() -> Files.deleteIfExists(tempFile)).thenReturn(true);
 
             ArchivedRecordingDescriptor result =
-                    synthesizer.synthesize(
-                            NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2500L));
+                    synthesizer.synthesize(NAMESPACE, TARGET, new Date(1000L), new Date(2500L));
 
             assertSame(syntheticRec, result);
         }

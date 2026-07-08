@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.List;
 
 import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.k8s.PodNameResolver.TargetInfo;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.KeyValue;
 import io.cryostat.mcp.model.Metadata;
@@ -48,6 +49,7 @@ class K8sOrientedToolsTest {
     private static final String NAMESPACE = "test-ns";
     private static final String POD_NAME = "my-pod";
     private static final String JVM_ID = "jvmid123";
+    private static final TargetInfo TARGET = new TargetInfo(POD_NAME, 1234, JVM_ID);
 
     @BeforeEach
     void setUp() {
@@ -57,9 +59,7 @@ class K8sOrientedToolsTest {
         tools.synthesizer = synthesizer;
 
         lenient().when(instanceManager.createInstance(NAMESPACE)).thenReturn(mcp);
-        lenient()
-                .when(podNameResolver.resolvePodNameToJvmId(NAMESPACE, POD_NAME))
-                .thenReturn(JVM_ID);
+        lenient().when(podNameResolver.resolveTarget(NAMESPACE, POD_NAME)).thenReturn(TARGET);
     }
 
     @Test
@@ -72,13 +72,13 @@ class K8sOrientedToolsTest {
         ArchivedRecordingDescriptor recording = recording("rec1.jfr");
         String expectedReport = "{\"score\":42}";
 
-        when(synthesizer.synthesize(NAMESPACE, POD_NAME, JVM_ID, from, to)).thenReturn(recording);
+        when(synthesizer.synthesize(NAMESPACE, TARGET, from, to)).thenReturn(recording);
         when(mcp.getArchivedReport(JVM_ID, "rec1.jfr")).thenReturn(expectedReport);
 
         String result = tools.getAnalysisReport(NAMESPACE, POD_NAME, fromTs, toTs);
 
         assertEquals(expectedReport, result);
-        verify(synthesizer).synthesize(NAMESPACE, POD_NAME, JVM_ID, from, to);
+        verify(synthesizer).synthesize(NAMESPACE, TARGET, from, to);
         verify(mcp).getArchivedReport(JVM_ID, "rec1.jfr");
     }
 
@@ -90,7 +90,7 @@ class K8sOrientedToolsTest {
         Date from = Date.from(Instant.parse(fromTs));
         Date to = Date.from(Instant.parse(toTs));
 
-        when(synthesizer.synthesize(NAMESPACE, POD_NAME, JVM_ID, from, to))
+        when(synthesizer.synthesize(NAMESPACE, TARGET, from, to))
                 .thenThrow(new UnsatisfiableRangeException(JVM_ID, from, to));
 
         assertThrows(
@@ -110,7 +110,7 @@ class K8sOrientedToolsTest {
 
         ArchivedRecordingDescriptor recording = recording("rec1.jfr");
 
-        when(synthesizer.synthesize(NAMESPACE, POD_NAME, JVM_ID, from, to)).thenReturn(recording);
+        when(synthesizer.synthesize(NAMESPACE, TARGET, from, to)).thenReturn(recording);
         when(mcp.getArchivedReport(JVM_ID, "rec1.jfr"))
                 .thenThrow(new IOException("connection refused"));
 
