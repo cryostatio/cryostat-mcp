@@ -25,6 +25,7 @@ import java.util.UUID;
 import io.cryostat.mcp.CryostatMCP;
 import io.cryostat.mcp.CryostatServerVersions;
 import io.cryostat.mcp.CryostatToolMetadata;
+import io.cryostat.mcp.k8s.PodNameResolver.TargetInfo;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.EventTemplate;
 import io.cryostat.mcp.model.RecordingDescriptor;
@@ -217,9 +218,8 @@ public class K8sOrientedTools {
         Date from = Date.from(Instant.parse(fromTimestamp));
         Date to = Date.from(Instant.parse(toTimestamp));
         CryostatMCP mcp = instanceManager.createInstance(namespace);
-        String jvmId = podNameResolver.resolvePodNameToJvmId(namespace, podName);
-        ArchivedRecordingDescriptor recording =
-                synthesizer.synthesize(namespace, podName, jvmId, from, to);
-        return mcp.getArchivedReport(jvmId, recording.name());
+        TargetInfo target = podNameResolver.resolveTarget(namespace, podName);
+        ArchivedRecordingDescriptor recording = synthesizer.synthesize(namespace, target, from, to);
+        return mcp.getArchivedReport(target.jvmId(), recording.name());
     }
 }

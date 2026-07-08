@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.k8s.PodNameResolver.TargetInfo;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.KeyValue;
 
@@ -63,33 +64,30 @@ public class ArchivedRecordingSynthesizer {
      * UnsatisfiableRangeException} is thrown.
      */
     public ArchivedRecordingDescriptor synthesize(
-            String namespace, String podName, String jvmId, Date fromTimestamp, Date toTimestamp)
+            String namespace, TargetInfo target, Date fromTimestamp, Date toTimestamp)
             throws UnsatisfiableRangeException, IOException {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
 
         List<ArchivedRecordingDescriptor> candidates =
-                mcp.listTargetArchivedRecordings(jvmId).stream()
+                mcp.listTargetArchivedRecordings(target.jvmId()).stream()
                         .flatMap(dir -> dir.recordings().stream())
                         .filter(r -> intersects(r, fromTimestamp, toTimestamp))
                         .sorted(Comparator.comparingLong(r -> startTimeOf(r)))
                         .collect(Collectors.toList());
 
         if (candidates.isEmpty()) {
-            throw new UnsatisfiableRangeException(jvmId, fromTimestamp, toTimestamp);
+            throw new UnsatisfiableRangeException(target.jvmId(), fromTimestamp, toTimestamp);
         }
 
         if (candidates.size() == 1) {
             return candidates.get(0);
         }
 
-        return synthesizeMultiple(mcp, podName, jvmId, candidates);
+        return synthesizeMultiple(mcp, target, candidates);
     }
 
     private ArchivedRecordingDescriptor synthesizeMultiple(
-            CryostatMCP mcp,
-            String podName,
-            String jvmId,
-            List<ArchivedRecordingDescriptor> candidates)
+            CryostatMCP mcp, TargetInfo target, List<ArchivedRecordingDescriptor> candidates)
             throws IOException {
         long minStart = candidates.stream().mapToLong(this::startTimeOf).min().getAsLong();
         long maxEnd =
@@ -102,13 +100,15 @@ public class ArchivedRecordingSynthesizer {
         String isoStart =
                 Instant.ofEpochMilli(minStart).toString().replace(':', '-').replace('.', '-');
         String humanDuration = DurationUtils.humanize(Duration.ofMillis(syntheticDuration));
-        String syntheticFilename = String.format("%s_%s_%s.jfr", podName, isoStart, humanDuration);
+        String syntheticFilename =
+                String.format("%s_%s_%s.jfr", target.podName(), isoStart, humanDuration);
 
         Path tempFile = tempDir.resolve(syntheticFilename);
         try {
             try (OutputStream out = Files.newOutputStream(tempFile)) {
                 for (ArchivedRecordingDescriptor candidate : candidates) {
-                    try (InputStream in = mcp.downloadArchivedRecording(jvmId, candidate.name())) {
+                    try (InputStream in =
+                            mcp.downloadArchivedRecording(target.jvmId(), candidate.name())) {
                         in.transferTo(out);
                     }
                 }
@@ -117,7 +117,7 @@ public class ArchivedRecordingSynthesizer {
             Map<String, String> labels =
                     Map.of(
                             "jvmId",
-                            jvmId,
+                            target.jvmId(),
                             "startTime",
                             String.valueOf(minStart),
                             "duration",
@@ -127,7 +127,8 @@ public class ArchivedRecordingSynthesizer {
                             "autoanalyze",
                             "true");
 
-            return mcp.uploadArchivedRecording(jvmId, syntheticFilename, tempFile.toFile(), labels);
+            return mcp.uploadArchivedRecording(
+                    target.jvmId(), syntheticFilename, tempFile.toFile(), labels);
         } finally {
             Files.deleteIfExists(tempFile);
         }
