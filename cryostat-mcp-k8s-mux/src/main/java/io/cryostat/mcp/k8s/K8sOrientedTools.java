@@ -201,6 +201,10 @@ public class K8sOrientedTools {
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
             value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2_1)
     public String getAnalysisReport(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
