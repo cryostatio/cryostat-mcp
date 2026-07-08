@@ -72,13 +72,13 @@ class K8sOrientedToolsTest {
         ArchivedRecordingDescriptor recording = recording("rec1.jfr");
         String expectedReport = "{\"score\":42}";
 
-        when(synthesizer.synthesize(NAMESPACE, JVM_ID, from, to)).thenReturn(recording);
+        when(synthesizer.synthesize(NAMESPACE, POD_NAME, JVM_ID, from, to)).thenReturn(recording);
         when(mcp.getArchivedReport(JVM_ID, "rec1.jfr")).thenReturn(expectedReport);
 
         String result = tools.getAnalysisReport(NAMESPACE, POD_NAME, fromTs, toTs);
 
         assertEquals(expectedReport, result);
-        verify(synthesizer).synthesize(NAMESPACE, JVM_ID, from, to);
+        verify(synthesizer).synthesize(NAMESPACE, POD_NAME, JVM_ID, from, to);
         verify(mcp).getArchivedReport(JVM_ID, "rec1.jfr");
     }
 
@@ -90,7 +90,7 @@ class K8sOrientedToolsTest {
         Date from = Date.from(Instant.parse(fromTs));
         Date to = Date.from(Instant.parse(toTs));
 
-        when(synthesizer.synthesize(NAMESPACE, JVM_ID, from, to))
+        when(synthesizer.synthesize(NAMESPACE, POD_NAME, JVM_ID, from, to))
                 .thenThrow(new UnsatisfiableRangeException(JVM_ID, from, to));
 
         assertThrows(
@@ -110,7 +110,7 @@ class K8sOrientedToolsTest {
 
         ArchivedRecordingDescriptor recording = recording("rec1.jfr");
 
-        when(synthesizer.synthesize(NAMESPACE, JVM_ID, from, to)).thenReturn(recording);
+        when(synthesizer.synthesize(NAMESPACE, POD_NAME, JVM_ID, from, to)).thenReturn(recording);
         when(mcp.getArchivedReport(JVM_ID, "rec1.jfr"))
                 .thenThrow(new IOException("connection refused"));
 

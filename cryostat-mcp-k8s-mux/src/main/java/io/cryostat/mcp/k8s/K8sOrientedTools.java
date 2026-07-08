@@ -218,7 +218,8 @@ public class K8sOrientedTools {
         Date to = Date.from(Instant.parse(toTimestamp));
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         String jvmId = podNameResolver.resolvePodNameToJvmId(namespace, podName);
-        ArchivedRecordingDescriptor recording = synthesizer.synthesize(namespace, jvmId, from, to);
+        ArchivedRecordingDescriptor recording =
+                synthesizer.synthesize(namespace, podName, jvmId, from, to);
         return mcp.getArchivedReport(jvmId, recording.name());
     }
 }

@@ -57,6 +57,7 @@ class ArchivedRecordingSynthesizerTest {
     private ArchivedRecordingSynthesizer synthesizer;
 
     private static final String NAMESPACE = "test-ns";
+    private static final String POD_NAME = "my-pod";
     private static final String JVM_ID = "jvmid123";
 
     @BeforeEach
@@ -74,7 +75,9 @@ class ArchivedRecordingSynthesizerTest {
 
         assertThrows(
                 UnsatisfiableRangeException.class,
-                () -> synthesizer.synthesize(NAMESPACE, JVM_ID, new Date(1000L), new Date(2000L)));
+                () ->
+                        synthesizer.synthesize(
+                                NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2000L)));
     }
 
     @Test
@@ -84,7 +87,9 @@ class ArchivedRecordingSynthesizerTest {
 
         assertThrows(
                 UnsatisfiableRangeException.class,
-                () -> synthesizer.synthesize(NAMESPACE, JVM_ID, new Date(1000L), new Date(2000L)));
+                () ->
+                        synthesizer.synthesize(
+                                NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2000L)));
     }
 
     @Test
@@ -94,7 +99,8 @@ class ArchivedRecordingSynthesizerTest {
         when(mcp.listTargetArchivedRecordings(JVM_ID)).thenReturn(List.of(dir(JVM_ID, rec)));
 
         ArchivedRecordingDescriptor result =
-                synthesizer.synthesize(NAMESPACE, JVM_ID, new Date(1000L), new Date(2000L));
+                synthesizer.synthesize(
+                        NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2000L));
 
         assertSame(rec, result);
         verify(mcp, never()).uploadArchivedRecording(any(), any(), any(), any());
@@ -108,7 +114,8 @@ class ArchivedRecordingSynthesizerTest {
         when(mcp.listTargetArchivedRecordings(JVM_ID)).thenReturn(List.of(dir(JVM_ID, rec1, rec2)));
 
         ArchivedRecordingDescriptor result =
-                synthesizer.synthesize(NAMESPACE, JVM_ID, new Date(1000L), new Date(2000L));
+                synthesizer.synthesize(
+                        NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2000L));
 
         assertSame(rec1, result);
         verify(mcp, never()).uploadArchivedRecording(any(), any(), any(), any());
@@ -121,11 +128,13 @@ class ArchivedRecordingSynthesizerTest {
         long dur1 = 1500L;
         long start2 = 1800L;
         long dur2 = 1000L;
+        // synthetic duration = 2800 - 500 = 2300 ms -> "2s"
+        String expectedFilename = "my-pod_1970-01-01T00-00-00-500Z_2s.jfr";
 
         ArchivedRecordingDescriptor rec1 = recording("rec1.jfr", start1, dur1);
         ArchivedRecordingDescriptor rec2 = recording("rec2.jfr", start2, dur2);
         ArchivedRecordingDescriptor syntheticRec =
-                recording("synthetic_jvmid12_500_2800.jfr", start1, start2 + dur2 - start1);
+                recording(expectedFilename, start1, start2 + dur2 - start1);
 
         when(mcp.listTargetArchivedRecordings(JVM_ID)).thenReturn(List.of(dir(JVM_ID, rec1, rec2)));
 
@@ -138,12 +147,13 @@ class ArchivedRecordingSynthesizerTest {
                 .thenReturn(syntheticRec);
 
         try (MockedStatic<Files> files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
-            Path tempFile = synthesizer.tempDir.resolve("synthetic_jvmid123_500_2800.jfr");
+            Path tempFile = synthesizer.tempDir.resolve(expectedFilename);
             files.when(() -> Files.newOutputStream(tempFile)).thenReturn(outputStream);
             files.when(() -> Files.deleteIfExists(tempFile)).thenReturn(true);
 
             ArchivedRecordingDescriptor result =
-                    synthesizer.synthesize(NAMESPACE, JVM_ID, new Date(1000L), new Date(2500L));
+                    synthesizer.synthesize(
+                            NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2500L));
 
             assertSame(syntheticRec, result);
         }
@@ -154,7 +164,7 @@ class ArchivedRecordingSynthesizerTest {
         verify(mcp)
                 .uploadArchivedRecording(
                         eq(JVM_ID),
-                        contains("synthetic_"),
+                        eq(expectedFilename),
                         any(File.class),
                         argThat(
                                 labels ->
@@ -163,8 +173,7 @@ class ArchivedRecordingSynthesizerTest {
                                                         .equals(labels.get("startTime"))
                                                 && String.valueOf(start2 + dur2 - start1)
                                                         .equals(labels.get("duration"))
-                                                && String.valueOf(start2 + dur2)
-                                                        .equals(labels.get("endTime"))));
+                                                && !labels.containsKey("endTime")));
     }
 
     @Test
@@ -174,11 +183,13 @@ class ArchivedRecordingSynthesizerTest {
         long dur1 = 2000L;
         long start2 = 1200L;
         long dur2 = 1000L;
+        // synthetic duration = 2200 - 500 = 1700 ms -> "2s"
+        String expectedFilename = "my-pod_1970-01-01T00-00-00-500Z_2s.jfr";
 
         ArchivedRecordingDescriptor rec1 = recording("rec1.jfr", start1, dur1);
         ArchivedRecordingDescriptor rec2 = recording("rec2.jfr", start2, dur2);
         ArchivedRecordingDescriptor syntheticRec =
-                recording("synthetic_jvmid12_500_2500.jfr", start1, start2 + dur2 - start1);
+                recording(expectedFilename, start1, start2 + dur2 - start1);
 
         when(mcp.listTargetArchivedRecordings(JVM_ID)).thenReturn(List.of(dir(JVM_ID, rec1, rec2)));
 
@@ -191,12 +202,13 @@ class ArchivedRecordingSynthesizerTest {
                 .thenReturn(syntheticRec);
 
         try (MockedStatic<Files> files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
-            Path tempFile = synthesizer.tempDir.resolve("synthetic_jvmid123_500_2500.jfr");
+            Path tempFile = synthesizer.tempDir.resolve(expectedFilename);
             files.when(() -> Files.newOutputStream(tempFile)).thenReturn(outputStream);
             files.when(() -> Files.deleteIfExists(tempFile)).thenReturn(true);
 
             ArchivedRecordingDescriptor result =
-                    synthesizer.synthesize(NAMESPACE, JVM_ID, new Date(1000L), new Date(2500L));
+                    synthesizer.synthesize(
+                            NAMESPACE, POD_NAME, JVM_ID, new Date(1000L), new Date(2500L));
 
             assertSame(syntheticRec, result);
         }

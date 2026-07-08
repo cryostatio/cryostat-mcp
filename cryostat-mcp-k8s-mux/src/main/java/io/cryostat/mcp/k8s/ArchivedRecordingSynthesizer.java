@@ -20,6 +20,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -61,7 +63,7 @@ public class ArchivedRecordingSynthesizer {
      * UnsatisfiableRangeException} is thrown.
      */
     public ArchivedRecordingDescriptor synthesize(
-            String namespace, String jvmId, Date fromTimestamp, Date toTimestamp)
+            String namespace, String podName, String jvmId, Date fromTimestamp, Date toTimestamp)
             throws UnsatisfiableRangeException, IOException {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
 
@@ -80,11 +82,14 @@ public class ArchivedRecordingSynthesizer {
             return candidates.get(0);
         }
 
-        return synthesizeMultiple(mcp, jvmId, candidates);
+        return synthesizeMultiple(mcp, podName, jvmId, candidates);
     }
 
     private ArchivedRecordingDescriptor synthesizeMultiple(
-            CryostatMCP mcp, String jvmId, List<ArchivedRecordingDescriptor> candidates)
+            CryostatMCP mcp,
+            String podName,
+            String jvmId,
+            List<ArchivedRecordingDescriptor> candidates)
             throws IOException {
         long minStart = candidates.stream().mapToLong(this::startTimeOf).min().getAsLong();
         long maxEnd =
@@ -94,10 +99,10 @@ public class ArchivedRecordingSynthesizer {
                         .getAsLong();
         long syntheticDuration = maxEnd - minStart;
 
-        String syntheticFilename =
-                String.format(
-                        "synthetic_%s_%d_%d.jfr",
-                        jvmId.length() > 8 ? jvmId.substring(0, 8) : jvmId, minStart, maxEnd);
+        String isoStart =
+                Instant.ofEpochMilli(minStart).toString().replace(':', '-').replace('.', '-');
+        String humanDuration = DurationUtils.humanize(Duration.ofMillis(syntheticDuration));
+        String syntheticFilename = String.format("%s_%s_%s.jfr", podName, isoStart, humanDuration);
 
         Path tempFile = tempDir.resolve(syntheticFilename);
         try {
@@ -117,8 +122,6 @@ public class ArchivedRecordingSynthesizer {
                             String.valueOf(minStart),
                             "duration",
                             String.valueOf(syntheticDuration),
-                            "endTime",
-                            String.valueOf(maxEnd),
                             "synthetic",
                             "true",
                             "autoanalyze",
