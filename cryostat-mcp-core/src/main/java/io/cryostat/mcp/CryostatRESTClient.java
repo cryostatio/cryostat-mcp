@@ -15,7 +15,9 @@
  */
 package io.cryostat.mcp;
 
+import java.io.File;
 import java.util.List;
+import java.util.Map;
 
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
 import io.cryostat.mcp.model.DiscoveryNode;
@@ -31,6 +33,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
@@ -107,6 +110,14 @@ public interface CryostatRESTClient {
     @Path("/api/v4.1/targets/{targetId}/reports")
     @Produces(MediaType.APPLICATION_JSON)
     Object getTargetReport(long targetId);
+
+    @POST
+    @Path("/api/beta/recordings/{jvmId}")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    Map<String, Object> uploadArchivedRecording(
+            @PathParam("jvmId") String jvmId,
+            @FormParam("recording") File recording,
+            @FormParam("labels") String labels);
 
     @POST
     @Path("/api/beta/recording_analytics/{jvmId}/{filename}")

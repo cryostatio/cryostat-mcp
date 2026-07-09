@@ -137,7 +137,7 @@ public class PodNameResolver {
                             podName, namespace));
         }
 
-        return new TargetInfo(targetId, jvmId);
+        return new TargetInfo(podName, targetId, jvmId);
     }
 
     /**
@@ -171,5 +171,5 @@ public class PodNameResolver {
     }
 
     /** Holds the Target ID and JVM hash ID for a resolved Pod. */
-    public record TargetInfo(long targetId, String jvmId) {}
+    public record TargetInfo(String podName, long targetId, String jvmId) {}
 }

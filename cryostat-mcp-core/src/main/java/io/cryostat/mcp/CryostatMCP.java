@@ -15,12 +15,26 @@
  */
 package io.cryostat.mcp;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.WebSocket;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import io.cryostat.mcp.model.ActiveRecordingsFilter;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
@@ -43,14 +57,25 @@ public class CryostatMCP {
     static final int ARCHIVE_POLL_ATTEMPTS = 6;
     static final long ARCHIVE_INITIAL_DELAY_MS = 3_000L;
     static final long ARCHIVE_RETRY_DELAY_MS = 5_000L;
+    static final Duration REPORT_NOTIFICATION_TIMEOUT = Duration.ofSeconds(30);
 
     private final CryostatRESTClient rest;
     private final CryostatGraphQLClient graphql;
     private final ObjectMapper mapper;
     private volatile Optional<CryostatVersion> serverVersion;
+    private final String authorizationHeader;
+    private final URI baseUri;
+    private final HttpClient httpClient;
 
     public CryostatMCP(
-            CryostatRESTClient rest, CryostatGraphQLClient graphql, ObjectMapper mapper) {
+            URI baseUri,
+            String authorizationHeader,
+            CryostatRESTClient rest,
+            CryostatGraphQLClient graphql,
+            ObjectMapper mapper) {
+        this.httpClient = HttpClient.newHttpClient();
+        this.baseUri = baseUri;
+        this.authorizationHeader = authorizationHeader;
         this.rest = rest;
         this.graphql = graphql;
         this.mapper = mapper;
@@ -270,6 +295,91 @@ public class CryostatMCP {
         return value == null ? "" : value;
     }
 
+    public InputStream downloadArchivedRecording(String jvmId, String filename) throws IOException {
+        String downloadUrl =
+                listTargetArchivedRecordings(jvmId).stream()
+                        .flatMap(dir -> dir.recordings().stream())
+                        .filter(r -> r.name().equals(filename))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Archived recording not found: " + filename))
+                        .downloadUrl();
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(resolveUri(downloadUrl)).GET();
+        if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
+            requestBuilder.header("Authorization", authorizationHeader);
+        }
+        try {
+            return httpClient
+                    .send(requestBuilder.build(), HttpResponse.BodyHandlers.ofInputStream())
+                    .body();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while downloading recording: " + filename, e);
+        }
+    }
+
+    public String getArchivedReport(String jvmId, String filename) throws IOException {
+        String reportUrl =
+                listTargetArchivedRecordings(jvmId).stream()
+                        .flatMap(dir -> dir.recordings().stream())
+                        .filter(r -> r.name().equals(filename))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Archived recording not found: " + filename))
+                        .reportUrl();
+        URI resolvedReportUri = resolveUri(reportUrl);
+        ReportNotificationListener listener = new ReportNotificationListener();
+        WebSocket webSocket = connectNotifications(listener);
+        try {
+            HttpResponse<String> response = sendStringGet(resolvedReportUri);
+            if (response.statusCode() == 200) {
+                return response.body();
+            }
+            if (response.statusCode() != 202) {
+                throw new IOException(
+                        "Unexpected response while fetching report for "
+                                + filename
+                                + ": HTTP "
+                                + response.statusCode());
+            }
+            String jobId = response.body().trim();
+            boolean success = listener.awaitJob(jobId, REPORT_NOTIFICATION_TIMEOUT);
+            if (!success) {
+                throw new IOException("Report generation failed for: " + filename);
+            }
+            HttpResponse<String> completed = sendStringGet(resolvedReportUri);
+            if (completed.statusCode() != 200) {
+                throw new IOException(
+                        "Unexpected response while fetching completed report for "
+                                + filename
+                                + ": HTTP "
+                                + completed.statusCode());
+            }
+            return completed.body();
+        } finally {
+            closeWebSocket(webSocket);
+        }
+    }
+
+    public ArchivedRecordingDescriptor uploadArchivedRecording(
+            String jvmId, String filename, File recording, Map<String, String> labels)
+            throws IOException {
+        String labelsJson = mapper.writeValueAsString(labels);
+        rest.uploadArchivedRecording(jvmId, recording, labelsJson);
+        return listTargetArchivedRecordings(jvmId).stream()
+                .flatMap(dir -> dir.recordings().stream())
+                .filter(r -> r.name().equals(filename))
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new NoSuchElementException(
+                                        "Uploaded recording not found: " + filename));
+    }
+
     public List<List<String>> executeQuery(String jvmId, String filename, String query) {
         return rest.executeQuery(jvmId, filename, query);
     }
@@ -379,6 +489,129 @@ public class CryostatMCP {
                                 LEFT JOIN jfr."jdk.ThreadEnd" te ON ts."thread"."javaThreadId" = te."thread"."javaThreadId"
                                 ORDER BY ts."thread"."javaThreadId"
                         """));
+    }
+
+    URI resolveUri(String pathOrUri) {
+        URI uri = URI.create(pathOrUri);
+        if (uri.isAbsolute()) {
+            return uri;
+        }
+        return baseUri.resolve(uri);
+    }
+
+    HttpResponse<String> sendStringGet(URI uri) throws IOException {
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(uri).GET();
+        if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
+            requestBuilder.header("Authorization", authorizationHeader);
+        }
+        try {
+            return httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while fetching URI: " + uri, e);
+        }
+    }
+
+    private WebSocket connectNotifications(ReportNotificationListener listener) throws IOException {
+        URI notificationsUri = notificationsUri();
+        var builder = httpClient.newWebSocketBuilder();
+        if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
+            builder.header("Authorization", authorizationHeader);
+        }
+        try {
+            return builder.buildAsync(notificationsUri, listener).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while connecting notifications WebSocket", e);
+        } catch (ExecutionException e) {
+            throw new IOException("Failed to connect notifications WebSocket", e.getCause());
+        }
+    }
+
+    private URI notificationsUri() {
+        String scheme = baseUri.getScheme();
+        String wsScheme = "https".equalsIgnoreCase(scheme) ? "wss" : "ws";
+        return URI.create(wsScheme + "://" + baseUri.getAuthority() + "/api/notifications");
+    }
+
+    private void closeWebSocket(WebSocket webSocket) throws IOException {
+        try {
+            webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "done").get(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while closing notifications WebSocket", e);
+        } catch (ExecutionException | TimeoutException e) {
+            throw new IOException("Failed to close notifications WebSocket", e);
+        }
+    }
+
+    private final class ReportNotificationListener implements WebSocket.Listener {
+        private final CompletableFuture<Boolean> result = new CompletableFuture<>();
+        private final StringBuilder text = new StringBuilder();
+        private volatile String awaitedJobId;
+
+        @Override
+        public void onOpen(WebSocket webSocket) {
+            webSocket.request(1);
+            WebSocket.Listener.super.onOpen(webSocket);
+        }
+
+        @Override
+        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+            text.append(data);
+            if (last) {
+                handleMessage(text.toString());
+                text.setLength(0);
+            }
+            webSocket.request(1);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public void onError(WebSocket webSocket, Throwable error) {
+            result.completeExceptionally(error);
+        }
+
+        boolean awaitJob(String jobId, Duration timeout) throws IOException {
+            awaitedJobId = jobId;
+            try {
+                return result.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while awaiting report notification", e);
+            } catch (ExecutionException e) {
+                throw new IOException("Failed while awaiting report notification", e.getCause());
+            } catch (TimeoutException e) {
+                throw new IOException(
+                        "Timed out awaiting report notification for job: " + jobId, e);
+            }
+        }
+
+        private void handleMessage(String json) {
+            try {
+                Map<?, ?> payload = mapper.readValue(json, Map.class);
+                Object metaObj = payload.get("meta");
+                Object messageObj = payload.get("message");
+                if (!(metaObj instanceof Map<?, ?> meta)
+                        || !(messageObj instanceof Map<?, ?> message)) {
+                    return;
+                }
+                Object categoryObj = meta.get("category");
+                Object jobIdObj = message.get("jobId");
+                if (!(categoryObj instanceof String category)
+                        || !(jobIdObj instanceof String jobId)
+                        || !jobId.equals(awaitedJobId)) {
+                    return;
+                }
+                if ("ReportSuccess".equals(category)) {
+                    result.complete(true);
+                } else if ("ReportFailure".equals(category)) {
+                    result.complete(false);
+                }
+            } catch (JsonProcessingException e) {
+                // ignore unrelated or malformed notifications
+            }
+        }
     }
 
     public record QueryExample(String description, String query) {}

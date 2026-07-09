@@ -15,13 +15,17 @@
  */
 package io.cryostat.mcp.k8s;
 
+import java.io.IOException;
 import java.text.ParseException;
+import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
 import io.cryostat.mcp.CryostatMCP;
 import io.cryostat.mcp.CryostatServerVersions;
 import io.cryostat.mcp.CryostatToolMetadata;
+import io.cryostat.mcp.k8s.PodNameResolver.TargetInfo;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.EventTemplate;
 import io.cryostat.mcp.model.RecordingDescriptor;
@@ -40,6 +44,7 @@ public class K8sOrientedTools {
 
     @Inject CryostatMCPInstanceManager instanceManager;
     @Inject PodNameResolver podNameResolver;
+    @Inject ArchivedRecordingSynthesizer synthesizer;
 
     @Tool(
             description =
@@ -184,5 +189,41 @@ public class K8sOrientedTools {
         return mcp.listTargetArchivedRecordings(jvmId).stream()
                 .flatMap(dir -> dir.recordings().stream())
                 .toList();
+    }
+
+    @Tool(
+            description =
+                    "Get the automated analysis report for a JVM's archived Flight Recordings that"
+                        + " intersect the given time range. If a single recording covers the range"
+                        + " it is used directly; if multiple recordings intersect the range they"
+                        + " are synthesized into a single recording first.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2_1)
+    public String getAnalysisReport(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The podName of the application.", required = true)
+                    String podName,
+            @ToolArg(
+                            description = "Filter events after this timestamp (ISO 8601).",
+                            required = true)
+                    String fromTimestamp,
+            @ToolArg(
+                            description = "Filter events before this timestamp (ISO 8601).",
+                            required = true)
+                    String toTimestamp)
+            throws IOException, UnsatisfiableRangeException {
+        Date from = Date.from(Instant.parse(fromTimestamp));
+        Date to = Date.from(Instant.parse(toTimestamp));
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        TargetInfo target = podNameResolver.resolveTarget(namespace, podName);
+        ArchivedRecordingDescriptor recording = synthesizer.synthesize(namespace, target, from, to);
+        return mcp.getArchivedReport(target.jvmId(), recording.name());
     }
 }
