@@ -33,6 +33,8 @@ import io.cryostat.mcp.model.Metadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -124,6 +126,200 @@ class K8sOrientedToolsTest {
         assertThrows(
                 Exception.class,
                 () -> tools.getAnalysisReport(NAMESPACE, POD_NAME, "not-a-date", "also-not"));
+    }
+
+    @Test
+    void testListEventTypesInRecordings_delegatesToMcp()
+            throws IOException, UnsatisfiableRangeException {
+        String fromTs = "2024-01-01T00:00:00Z";
+        String toTs = "2024-01-01T01:00:00Z";
+        Date from = Date.from(Instant.parse(fromTs));
+        Date to = Date.from(Instant.parse(toTs));
+
+        ArchivedRecordingDescriptor recording = recording("rec1.jfr");
+        List<List<String>> expected =
+                List.of(List.of("jdk.GarbageCollection"), List.of("jdk.CPULoad"));
+
+        when(synthesizer.synthesize(NAMESPACE, TARGET, from, to)).thenReturn(recording);
+        when(mcp.listArchivedRecordingEventTypes(JVM_ID, "rec1.jfr")).thenReturn(expected);
+
+        List<List<String>> result = tools.listJfrEvents(NAMESPACE, POD_NAME, fromTs, toTs);
+
+        assertEquals(expected, result);
+        verify(synthesizer).synthesize(NAMESPACE, TARGET, from, to);
+        verify(mcp).listArchivedRecordingEventTypes(JVM_ID, "rec1.jfr");
+    }
+
+    @Test
+    void testListEventTypesInRecordings_propagatesUnsatisfiableRangeException()
+            throws IOException, UnsatisfiableRangeException {
+        String fromTs = "2024-01-01T00:00:00Z";
+        String toTs = "2024-01-01T01:00:00Z";
+        Date from = Date.from(Instant.parse(fromTs));
+        Date to = Date.from(Instant.parse(toTs));
+
+        when(synthesizer.synthesize(NAMESPACE, TARGET, from, to))
+                .thenThrow(new UnsatisfiableRangeException(JVM_ID, from, to));
+
+        assertThrows(
+                UnsatisfiableRangeException.class,
+                () -> tools.listJfrEvents(NAMESPACE, POD_NAME, fromTs, toTs));
+
+        verify(mcp, never()).listArchivedRecordingEventTypes(any(), any());
+    }
+
+    @Test
+    void testListEventFieldsInRecordings_delegatesToMcp()
+            throws IOException, UnsatisfiableRangeException {
+        String fromTs = "2024-01-01T00:00:00Z";
+        String toTs = "2024-01-01T01:00:00Z";
+        Date from = Date.from(Instant.parse(fromTs));
+        Date to = Date.from(Instant.parse(toTs));
+        String eventType = "jdk.GarbageCollection";
+
+        ArchivedRecordingDescriptor recording = recording("rec1.jfr");
+        List<List<String>> expected = List.of(List.of("startTime"), List.of("gcId"));
+
+        when(synthesizer.synthesize(NAMESPACE, TARGET, from, to)).thenReturn(recording);
+        when(mcp.listArchivedRecordingEventFields(JVM_ID, "rec1.jfr", eventType))
+                .thenReturn(expected);
+
+        List<List<String>> result =
+                tools.getJfrSchema(NAMESPACE, POD_NAME, fromTs, toTs, eventType);
+
+        assertEquals(expected, result);
+        verify(synthesizer).synthesize(NAMESPACE, TARGET, from, to);
+        verify(mcp).listArchivedRecordingEventFields(JVM_ID, "rec1.jfr", eventType);
+    }
+
+    @Test
+    void testListEventFieldsInRecordings_propagatesUnsatisfiableRangeException()
+            throws IOException, UnsatisfiableRangeException {
+        String fromTs = "2024-01-01T00:00:00Z";
+        String toTs = "2024-01-01T01:00:00Z";
+        Date from = Date.from(Instant.parse(fromTs));
+        Date to = Date.from(Instant.parse(toTs));
+
+        when(synthesizer.synthesize(NAMESPACE, TARGET, from, to))
+                .thenThrow(new UnsatisfiableRangeException(JVM_ID, from, to));
+
+        assertThrows(
+                UnsatisfiableRangeException.class,
+                () ->
+                        tools.getJfrSchema(
+                                NAMESPACE, POD_NAME, fromTs, toTs, "jdk.GarbageCollection"));
+
+        verify(mcp, never()).listArchivedRecordingEventFields(any(), any(), any());
+    }
+
+    @Test
+    void testListEventsInRecordings_delegatesToMcp()
+            throws IOException, UnsatisfiableRangeException {
+        String fromTs = "2024-01-01T00:00:00Z";
+        String toTs = "2024-01-01T01:00:00Z";
+        Date from = Date.from(Instant.parse(fromTs));
+        Date to = Date.from(Instant.parse(toTs));
+        String eventType = "jdk.GarbageCollection";
+        List<String> columns = List.of("startTime", "gcId");
+        int limit = 50;
+
+        ArchivedRecordingDescriptor recording = recording("rec1.jfr");
+        List<List<String>> expected =
+                List.of(List.of("2024-01-01T00:00:01Z", "1"), List.of("2024-01-01T00:00:02Z", "2"));
+
+        when(synthesizer.synthesize(NAMESPACE, TARGET, from, to)).thenReturn(recording);
+        when(mcp.listArchivedRecordingEvents(JVM_ID, "rec1.jfr", eventType, columns, limit))
+                .thenReturn(expected);
+
+        List<List<String>> result =
+                tools.getJfrEvents(NAMESPACE, POD_NAME, fromTs, toTs, eventType, columns, limit);
+
+        assertEquals(expected, result);
+        verify(synthesizer).synthesize(NAMESPACE, TARGET, from, to);
+        verify(mcp).listArchivedRecordingEvents(JVM_ID, "rec1.jfr", eventType, columns, limit);
+    }
+
+    @Test
+    void testListEventsInRecordings_nullColumns_delegatesToMcp()
+            throws IOException, UnsatisfiableRangeException {
+        String fromTs = "2024-01-01T00:00:00Z";
+        String toTs = "2024-01-01T01:00:00Z";
+        Date from = Date.from(Instant.parse(fromTs));
+        Date to = Date.from(Instant.parse(toTs));
+        String eventType = "jdk.GarbageCollection";
+
+        ArchivedRecordingDescriptor recording = recording("rec1.jfr");
+        List<List<String>> expected = List.of(List.of("2024-01-01T00:00:01Z", "1", "Young"));
+
+        when(synthesizer.synthesize(NAMESPACE, TARGET, from, to)).thenReturn(recording);
+        when(mcp.listArchivedRecordingEvents(JVM_ID, "rec1.jfr", eventType, null, 100))
+                .thenReturn(expected);
+
+        List<List<String>> result =
+                tools.getJfrEvents(NAMESPACE, POD_NAME, fromTs, toTs, eventType, null, 100);
+
+        assertEquals(expected, result);
+        verify(mcp).listArchivedRecordingEvents(JVM_ID, "rec1.jfr", eventType, null, 100);
+    }
+
+    @Test
+    void testListEventsInRecordings_propagatesUnsatisfiableRangeException()
+            throws IOException, UnsatisfiableRangeException {
+        String fromTs = "2024-01-01T00:00:00Z";
+        String toTs = "2024-01-01T01:00:00Z";
+        Date from = Date.from(Instant.parse(fromTs));
+        Date to = Date.from(Instant.parse(toTs));
+
+        when(synthesizer.synthesize(NAMESPACE, TARGET, from, to))
+                .thenThrow(new UnsatisfiableRangeException(JVM_ID, from, to));
+
+        assertThrows(
+                UnsatisfiableRangeException.class,
+                () ->
+                        tools.getJfrEvents(
+                                NAMESPACE,
+                                POD_NAME,
+                                fromTs,
+                                toTs,
+                                "jdk.GarbageCollection",
+                                null,
+                                100));
+
+        verify(mcp, never()).listArchivedRecordingEvents(any(), any(), any(), any(), anyInt());
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "listEventTypesInRecordings",
+                "listEventFieldsInRecordings",
+                "listEventsInRecordings"
+            })
+    void testInvalidTimestampThrowsException(String methodName) {
+        assertThrows(
+                Exception.class,
+                () -> {
+                    switch (methodName) {
+                        case "listEventTypesInRecordings" ->
+                                tools.listJfrEvents(NAMESPACE, POD_NAME, "not-a-date", "also-not");
+                        case "listEventFieldsInRecordings" ->
+                                tools.getJfrSchema(
+                                        NAMESPACE,
+                                        POD_NAME,
+                                        "not-a-date",
+                                        "also-not",
+                                        "jdk.GarbageCollection");
+                        case "listEventsInRecordings" ->
+                                tools.getJfrEvents(
+                                        NAMESPACE,
+                                        POD_NAME,
+                                        "not-a-date",
+                                        "also-not",
+                                        "jdk.GarbageCollection",
+                                        null,
+                                        100);
+                    }
+                });
     }
 
     private static ArchivedRecordingDescriptor recording(String name) {
