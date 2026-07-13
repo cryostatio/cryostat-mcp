@@ -226,4 +226,139 @@ public class K8sOrientedTools {
         ArchivedRecordingDescriptor recording = synthesizer.synthesize(namespace, target, from, to);
         return mcp.getArchivedReport(target.jvmId(), recording.name());
     }
+
+    @Tool(
+            description =
+                    "List the JFR event types present in archived Flight Recordings for the given"
+                        + " application that intersect the specified time range. If a single"
+                        + " recording covers the range it is used directly; if multiple recordings"
+                        + " intersect the range they are synthesized into a single recording"
+                        + " first.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2_1)
+    public List<List<String>> listJfrEvents(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The podName of the application.", required = true)
+                    String podName,
+            @ToolArg(
+                            description = "Filter events after this timestamp (ISO 8601).",
+                            required = true)
+                    String fromTimestamp,
+            @ToolArg(
+                            description = "Filter events before this timestamp (ISO 8601).",
+                            required = true)
+                    String toTimestamp)
+            throws IOException, UnsatisfiableRangeException {
+        Date from = Date.from(Instant.parse(fromTimestamp));
+        Date to = Date.from(Instant.parse(toTimestamp));
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        TargetInfo target = podNameResolver.resolveTarget(namespace, podName);
+        ArchivedRecordingDescriptor recording = synthesizer.synthesize(namespace, target, from, to);
+        return mcp.listArchivedRecordingEventTypes(target.jvmId(), recording.name());
+    }
+
+    @Tool(
+            description =
+                    "List the field names available on a JFR event type in archived Flight"
+                        + " Recordings for the given application that intersect the specified time"
+                        + " range. If a single recording covers the range it is used directly; if"
+                        + " multiple recordings intersect the range they are synthesized into a"
+                        + " single recording first. Use listEventTypesInRecordings first if the"
+                        + " event type name is not known.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2_1)
+    public List<List<String>> getJfrSchema(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The podName of the application.", required = true)
+                    String podName,
+            @ToolArg(
+                            description = "Filter events after this timestamp (ISO 8601).",
+                            required = true)
+                    String fromTimestamp,
+            @ToolArg(
+                            description = "Filter events before this timestamp (ISO 8601).",
+                            required = true)
+                    String toTimestamp,
+            @ToolArg(
+                            description =
+                                    "The JFR event type name, for example"
+                                            + " jdk.ObjectAllocationSample.",
+                            required = true)
+                    String eventType)
+            throws IOException, UnsatisfiableRangeException {
+        Date from = Date.from(Instant.parse(fromTimestamp));
+        Date to = Date.from(Instant.parse(toTimestamp));
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        TargetInfo target = podNameResolver.resolveTarget(namespace, podName);
+        ArchivedRecordingDescriptor recording = synthesizer.synthesize(namespace, target, from, to);
+        return mcp.listArchivedRecordingEventFields(target.jvmId(), recording.name(), eventType);
+    }
+
+    @Tool(
+            description =
+                    "List event rows for a JFR event type in archived Flight Recordings for the"
+                        + " given application that intersect the specified time range. If a single"
+                        + " recording covers the range it is used directly; if multiple recordings"
+                        + " intersect the range they are synthesized into a single recording first."
+                        + " Returns up to limit rows from the selected event type. If columns is"
+                        + " omitted or empty, all fields are returned.")
+    @MetaField(
+            prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
+            name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
+            value = "HIGH")
+    @MetaField(
+            prefix = CryostatToolMetadata.META_PREFIX,
+            name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
+            value = CryostatServerVersions.V4_2_1)
+    public List<List<String>> getJfrEvents(
+            @ToolArg(description = "The namespace of the application.", required = true)
+                    String namespace,
+            @ToolArg(description = "The podName of the application.", required = true)
+                    String podName,
+            @ToolArg(
+                            description = "Filter events after this timestamp (ISO 8601).",
+                            required = true)
+                    String fromTimestamp,
+            @ToolArg(
+                            description = "Filter events before this timestamp (ISO 8601).",
+                            required = true)
+                    String toTimestamp,
+            @ToolArg(
+                            description =
+                                    "The JFR event type name, for example"
+                                            + " jdk.ObjectAllocationSample.",
+                            required = true)
+                    String eventType,
+            @ToolArg(
+                            description =
+                                    "Field names to return for each event row. Omit or pass an"
+                                            + " empty array to return all fields.")
+                    List<String> columns,
+            @ToolArg(
+                            description = "The maximum number of event rows to return.",
+                            defaultValue = "100")
+                    int limit)
+            throws IOException, UnsatisfiableRangeException {
+        Date from = Date.from(Instant.parse(fromTimestamp));
+        Date to = Date.from(Instant.parse(toTimestamp));
+        CryostatMCP mcp = instanceManager.createInstance(namespace);
+        TargetInfo target = podNameResolver.resolveTarget(namespace, podName);
+        ArchivedRecordingDescriptor recording = synthesizer.synthesize(namespace, target, from, to);
+        return mcp.listArchivedRecordingEvents(
+                target.jvmId(), recording.name(), eventType, columns, limit);
+    }
 }
