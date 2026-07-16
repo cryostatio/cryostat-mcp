@@ -60,13 +60,15 @@ spec:
             - name: QUARKUS_TLS_NOTLS_HOSTNAME_VERIFICATION_ALGORITHM
               value: {{ if eq (.Values.env.trustAllTls | toString) "true" }}"NONE"{{ else }}"HTTPS"{{ end }}
 
-            # Authorization header for MCP client authentication
-            # This is used by CryostatMCPInstanceManager to authenticate with Cryostat instances
+          {{- if or .Values.auth.authorizationHeader .Values.auth.existingSecret }}
+            # Optional static Authorization header for Cryostat instances. Per-invocation
+            # Cryostat-Authorization headers take precedence when supplied by an MCP client.
             - name: K8S_MUX_AUTHORIZATION_HEADER
               valueFrom:
                 secretKeyRef:
                   name: {{ include "cryostat-k8s-multi-mcp.secretName" . }}
                   key: {{ .Values.auth.secretKey }}
+          {{- end }}
 
             - name: CRYOSTAT_MCP_TOOL_LEVEL
               value: {{ .Values.env.toolLevel | quote }}

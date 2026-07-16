@@ -42,9 +42,10 @@ public class CryostatMCPInstanceManager {
     @Inject Logger log;
     @Inject CryostatInstanceDiscovery discovery;
     @Inject ObjectMapper mapper;
+    @Inject CryostatAuthorization authorization;
 
     @ConfigProperty(name = "k8s.mux.authorization.header")
-    Optional<String> authorizationHeaderConfig;
+    Optional<String> staticAuthorizationHeader;
 
     @ConfigProperty(name = "cryostat.graphql.path", defaultValue = "/api/v4/graphql")
     String graphqlPath;
@@ -59,29 +60,8 @@ public class CryostatMCPInstanceManager {
      * @throws IllegalStateException if no Cryostat instance is found monitoring the namespace
      */
     public CryostatMCP createInstance(String namespace) {
-        return createInstance(namespace, null);
-    }
-
-    /**
-     * Get or create a CryostatMCP instance for the given target application namespace with explicit
-     * authorization header. Instances are cached to avoid recreating clients repeatedly. Finds the
-     * appropriate Cryostat instance that monitors the specified namespace and configures clients
-     * with credentials.
-     *
-     * @param namespace the target application namespace (where monitored applications run)
-     * @param authorizationHeader the Authorization header to use, or null to fall back to
-     *     ConfigProperty
-     * @return a configured CryostatMCP instance
-     * @throws IllegalStateException if no Cryostat instance is found monitoring the namespace
-     */
-    public CryostatMCP createInstance(String namespace, String authorizationHeader) {
-        // Note: We don't cache instances with explicit auth headers to avoid credential leakage
-        // between requests
-        if (authorizationHeader != null) {
-            return createNewInstance(namespace, authorizationHeader);
-        }
         return instanceCache.computeIfAbsent(
-                targetNamespaceCacheKey(namespace), ignored -> createNewInstance(namespace, null));
+                targetNamespaceCacheKey(namespace), ignored -> createNewInstance(namespace));
     }
 
     /**
@@ -93,32 +73,22 @@ public class CryostatMCPInstanceManager {
      * @return a configured CryostatMCP instance
      */
     public CryostatMCP createInstance(CryostatInstance instance) {
-        return createInstance(instance, null);
-    }
-
-    /**
-     * Get or create a CryostatMCP instance for a known Cryostat instance with explicit
-     * authorization header.
-     *
-     * @param instance the discovered Cryostat instance
-     * @param authorizationHeader the Authorization header to use, or null to fall back to
-     *     ConfigProperty
-     * @return a configured CryostatMCP instance
-     */
-    public CryostatMCP createInstance(CryostatInstance instance, String authorizationHeader) {
-        if (authorizationHeader != null) {
-            return createNewInstance(instance, authorizationHeader);
-        }
         return instanceCache.computeIfAbsent(
-                cryostatInstanceCacheKey(instance), ignored -> createNewInstance(instance, null));
+                cryostatInstanceCacheKey(instance), ignored -> createNewInstance(instance));
     }
 
-    private CryostatMCP createNewInstance(String namespace, String authorizationHeader) {
+    String getAuthorizationHeader() {
+        String passthrough = authorization.getPassthroughAuthorizationHeader();
+        if (passthrough != null) {
+            return passthrough;
+        }
+        return staticAuthorizationHeader.filter(header -> !header.isBlank()).orElse(null);
+    }
+
+    private CryostatMCP createNewInstance(String namespace) {
         log.debugf(
-                "Creating CryostatMCP instance for namespace '%s' on thread %s with %s auth header",
-                namespace,
-                Thread.currentThread().getName(),
-                authorizationHeader != null ? "explicit" : "context-based");
+                "Creating CryostatMCP instance for namespace '%s' on thread %s",
+                namespace, Thread.currentThread().getName());
 
         Optional<CryostatInstance> instanceOpt = discovery.findByNamespace(namespace);
 
@@ -133,30 +103,23 @@ public class CryostatMCPInstanceManager {
         }
 
         CryostatInstance instance = instanceOpt.get();
-        return createNewInstance(instance, authorizationHeader);
+        return createNewInstance(instance);
     }
 
-    private CryostatMCP createNewInstance(CryostatInstance instance, String authorizationHeader) {
+    private CryostatMCP createNewInstance(CryostatInstance instance) {
         log.debugf(
-                "Creating CryostatMCP instance for Cryostat '%s/%s' at %s on thread %s with %s"
-                        + " auth header",
+                "Creating CryostatMCP instance for Cryostat '%s/%s' at %s on thread %s",
                 instance.namespace(),
                 instance.name(),
                 instance.applicationUrl(),
-                Thread.currentThread().getName(),
-                authorizationHeader != null ? "explicit" : "context-based");
+                Thread.currentThread().getName());
 
-        CryostatRESTClient restClient = createRESTClient(instance, authorizationHeader);
-        CryostatGraphQLClientImpl graphqlClient =
-                createGraphQLClient(instance, authorizationHeader);
+        CryostatRESTClient restClient = createRESTClient(instance);
+        CryostatGraphQLClientImpl graphqlClient = createGraphQLClient(instance);
 
-        String resolvedAuthHeader =
-                authorizationHeader != null
-                        ? authorizationHeader
-                        : authorizationHeaderConfig.orElse(null);
-        return new CryostatMCP(
+        return CryostatMCP.withAuthorizationHeaderSupplier(
                 URI.create(instance.applicationUrl()),
-                resolvedAuthHeader,
+                this::getAuthorizationHeader,
                 restClient,
                 graphqlClient,
                 mapper);
@@ -170,55 +133,28 @@ public class CryostatMCPInstanceManager {
         return "cryostat-instance:" + instance.namespace() + "/" + instance.name();
     }
 
-    private CryostatRESTClient createRESTClient(
-            CryostatInstance instance, String authorizationHeader) {
+    private CryostatRESTClient createRESTClient(CryostatInstance instance) {
         RestClientBuilder builder =
                 RestClientBuilder.newBuilder()
                         .baseUri(URI.create(instance.applicationUrl()))
                         .followRedirects(true);
-
-        // Use explicit auth header if provided, otherwise fall back to config property
-        String authHeader =
-                authorizationHeader != null
-                        ? authorizationHeader
-                        : authorizationHeaderConfig.orElse(null);
-
-        if (authHeader != null && !authHeader.isEmpty()) {
-            // Use builder.header() to set the Authorization header directly
-            // This is the correct way for programmatic REST client configuration in Quarkus
-            builder.header("Authorization", authHeader);
-        } else {
-            log.warnf(
-                    "No authorization header available for %s - requests will likely fail with 403",
-                    instance.applicationUrl());
-        }
+        builder.register(new CryostatAuthorizationFilter(this::getAuthorizationHeader));
 
         return builder.build(CryostatRESTClient.class);
     }
 
-    private CryostatGraphQLClientImpl createGraphQLClient(
-            CryostatInstance instance, String authorizationHeader) {
+    private CryostatGraphQLClientImpl createGraphQLClient(CryostatInstance instance) {
         String graphqlEndpoint = instance.applicationUrl() + graphqlPath;
+        AuthorizationAwareGraphQLClient.Delegate delegate =
+                newGraphQLClientBuilder(graphqlEndpoint)
+                        .build(AuthorizationAwareGraphQLClient.Delegate.class);
+        return new AuthorizationAwareGraphQLClient(delegate, this::getAuthorizationHeader);
+    }
 
-        TypesafeGraphQLClientBuilder builder =
-                TypesafeGraphQLClientBuilder.newBuilder()
-                        .endpoint(graphqlEndpoint)
-                        // Use named TLS configuration for certificate trust settings
-                        .configKey("notls");
-
-        // Use explicit auth header if provided, otherwise fall back to config property
-        String authHeader =
-                authorizationHeader != null
-                        ? authorizationHeader
-                        : authorizationHeaderConfig.orElse(null);
-
-        if (authHeader != null && !authHeader.isEmpty()) {
-            log.debugf(
-                    "Forwarding Authorization header to GraphQL client for %s (source: %s)",
-                    graphqlEndpoint, authorizationHeader != null ? "explicit" : "config");
-            builder.header("Authorization", authHeader);
-        }
-
-        return builder.build(CryostatGraphQLClientImpl.class);
+    private TypesafeGraphQLClientBuilder newGraphQLClientBuilder(String graphqlEndpoint) {
+        return TypesafeGraphQLClientBuilder.newBuilder()
+                .endpoint(graphqlEndpoint)
+                // Use named TLS configuration for certificate trust settings
+                .configKey("notls");
     }
 }

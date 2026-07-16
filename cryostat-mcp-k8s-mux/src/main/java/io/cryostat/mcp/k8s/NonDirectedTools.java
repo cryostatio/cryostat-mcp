@@ -42,6 +42,7 @@ public class NonDirectedTools {
 
     @Inject Logger log;
     @Inject CryostatMCPInstanceManager instanceManager;
+    @Inject CryostatAuthorization authorization;
     @Inject CryostatInstanceDiscovery discovery;
     @Inject PrometheusMetricsAggregationStrategy prometheusAggregationStrategy;
     @Inject DiscoveryTreeAggregationStrategy discoveryTreeAggregationStrategy;
@@ -139,6 +140,9 @@ public class NonDirectedTools {
      */
     private <T> T aggregateFromAllInstances(
             Function<CryostatMCP, T> invoker, AggregationStrategy<T> aggregationStrategy) {
+        // Worker virtual threads do not retain the HTTP request context. Capture the header while
+        // handling the MCP request, then scope it to each downstream call.
+        String authorizationHeader = authorization.getPassthroughAuthorizationHeader();
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
         if (instances.isEmpty()) {
             log.warn("No Cryostat instances available for non-directed tool invocation");
@@ -157,10 +161,14 @@ public class NonDirectedTools {
                                             CompletableFuture.supplyAsync(
                                                     () -> {
                                                         try {
-                                                            CryostatMCP mcp =
-                                                                    instanceManager.createInstance(
-                                                                            instance);
-                                                            return invoker.apply(mcp);
+                                                            return authorization
+                                                                    .withPassthroughAuthorizationHeader(
+                                                                            authorizationHeader,
+                                                                            () ->
+                                                                                    invoker.apply(
+                                                                                            instanceManager
+                                                                                                    .createInstance(
+                                                                                                            instance)));
                                                         } catch (Exception e) {
                                                             log.warnf(
                                                                     e,

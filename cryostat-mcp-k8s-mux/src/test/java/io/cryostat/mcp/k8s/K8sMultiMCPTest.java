@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import io.cryostat.mcp.CryostatMCP;
 
@@ -39,11 +40,17 @@ class K8sMultiMCPTest {
 
     @Mock private CryostatMCPInstanceManager instanceManager;
 
+    @Mock private CryostatAuthorization authorization;
+
     @Mock private CryostatInstanceDiscovery discovery;
 
     @Mock private CryostatMCP mockMCP;
 
     @Mock private PrometheusMetricsAggregationStrategy prometheusAggregationStrategy;
+
+    @Mock private DiscoveryTreeAggregationStrategy discoveryTreeAggregationStrategy;
+
+    @Mock private TargetListAggregationStrategy targetListAggregationStrategy;
 
     private DirectedTools directedTools;
     private NonDirectedTools nonDirectedTools;
@@ -60,7 +67,10 @@ class K8sMultiMCPTest {
         nonDirectedTools = new NonDirectedTools();
         nonDirectedTools.discovery = discovery;
         nonDirectedTools.instanceManager = instanceManager;
+        nonDirectedTools.authorization = authorization;
         nonDirectedTools.prometheusAggregationStrategy = prometheusAggregationStrategy;
+        nonDirectedTools.discoveryTreeAggregationStrategy = discoveryTreeAggregationStrategy;
+        nonDirectedTools.targetListAggregationStrategy = targetListAggregationStrategy;
 
         systemTools = new SystemTools();
         systemTools.discovery = discovery;
@@ -83,16 +93,16 @@ class K8sMultiMCPTest {
     @Test
     void testDirectedToolRequiresNamespace() {
         // Verify that directed tools require namespace parameter
-        when(instanceManager.createInstance("namespace-1", null)).thenReturn(mockMCP);
+        when(instanceManager.createInstance("namespace-1")).thenReturn(mockMCP);
 
         Map<String, Object> args = new HashMap<>();
         args.put("namespace", "namespace-1");
 
-        CryostatMCP result = instanceManager.createInstance("namespace-1", null);
+        CryostatMCP result = instanceManager.createInstance("namespace-1");
 
         assertNotNull(result);
         assertEquals(mockMCP, result);
-        verify(instanceManager).createInstance("namespace-1", null);
+        verify(instanceManager).createInstance("namespace-1");
     }
 
     @Test
@@ -115,26 +125,26 @@ class K8sMultiMCPTest {
 
     @Test
     void testDirectedToolRoutesToCorrectInstance() {
-        when(instanceManager.createInstance("namespace-1", null)).thenReturn(mockMCP);
+        when(instanceManager.createInstance("namespace-1")).thenReturn(mockMCP);
 
-        CryostatMCP result = instanceManager.createInstance("namespace-1", null);
+        CryostatMCP result = instanceManager.createInstance("namespace-1");
 
         assertNotNull(result);
         assertEquals(mockMCP, result);
-        verify(instanceManager).createInstance("namespace-1", null);
+        verify(instanceManager).createInstance("namespace-1");
     }
 
     @Test
     void testDirectedToolThrowsWhenInstanceNotFound() {
-        when(instanceManager.createInstance("unknown-namespace", null))
+        when(instanceManager.createInstance("unknown-namespace"))
                 .thenThrow(
                         new IllegalStateException(
                                 "No Cryostat instance found for namespace: unknown-namespace"));
 
         assertThrows(
                 IllegalStateException.class,
-                () -> instanceManager.createInstance("unknown-namespace", null));
-        verify(instanceManager).createInstance("unknown-namespace", null);
+                () -> instanceManager.createInstance("unknown-namespace"));
+        verify(instanceManager).createInstance("unknown-namespace");
     }
 
     @Test
@@ -165,8 +175,8 @@ class K8sMultiMCPTest {
     void testNonDirectedToolAggregatesResults() {
         // Simulate aggregation of results from multiple instances
         when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
-        when(instanceManager.createInstance(testInstance1, null)).thenReturn(mockMCP);
-        when(instanceManager.createInstance(testInstance2, null)).thenReturn(mockMCP);
+        when(instanceManager.createInstance(testInstance1)).thenReturn(mockMCP);
+        when(instanceManager.createInstance(testInstance2)).thenReturn(mockMCP);
 
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
 
@@ -175,7 +185,7 @@ class K8sMultiMCPTest {
 
         // Verify each instance can be accessed
         for (CryostatInstance instance : instances) {
-            CryostatMCP mcp = instanceManager.createInstance(instance, null);
+            CryostatMCP mcp = instanceManager.createInstance(instance);
             assertNotNull(mcp);
         }
     }
@@ -184,8 +194,8 @@ class K8sMultiMCPTest {
     void testNonDirectedToolHandlesIndividualInstanceFailure() {
         // Non-directed tools should continue even if one instance fails
         when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
-        when(instanceManager.createInstance(testInstance1, null)).thenReturn(mockMCP);
-        when(instanceManager.createInstance(testInstance2, null))
+        when(instanceManager.createInstance(testInstance1)).thenReturn(mockMCP);
+        when(instanceManager.createInstance(testInstance2))
                 .thenThrow(new RuntimeException("Instance unavailable"));
 
         List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
@@ -193,7 +203,7 @@ class K8sMultiMCPTest {
 
         for (CryostatInstance instance : instances) {
             try {
-                CryostatMCP mcp = instanceManager.createInstance(instance, null);
+                CryostatMCP mcp = instanceManager.createInstance(instance);
                 results.add(mcp);
             } catch (Exception e) {
                 // Add null to maintain alignment with instances list
@@ -292,32 +302,6 @@ class K8sMultiMCPTest {
     }
 
     @Test
-    void testInstanceManagerCreatesInstanceWithAuthorization() {
-        String authHeader = "Bearer test-token";
-        when(instanceManager.createInstance("namespace-1", authHeader)).thenReturn(mockMCP);
-
-        CryostatMCP result = instanceManager.createInstance("namespace-1", authHeader);
-
-        assertNotNull(result);
-        assertEquals(mockMCP, result);
-        verify(instanceManager).createInstance("namespace-1", authHeader);
-    }
-
-    @Test
-    void testDirectedToolWithAuthorizationHeader() {
-        String authHeader = "Bearer test-token";
-        Map<String, Object> args = new HashMap<>();
-        args.put("namespace", "namespace-1");
-
-        when(instanceManager.createInstance("namespace-1", authHeader)).thenReturn(mockMCP);
-
-        CryostatMCP result = instanceManager.createInstance("namespace-1", authHeader);
-
-        assertNotNull(result);
-        verify(instanceManager).createInstance("namespace-1", authHeader);
-    }
-
-    @Test
     void testDirectedArchivedRecordingEventToolsRouteToCorrectInstance() {
         String namespace = "namespace-1";
         String jvmId = "test-jvm-id";
@@ -341,21 +325,24 @@ class K8sMultiMCPTest {
     }
 
     @Test
-    void testNonDirectedToolWithAuthorizationHeader() {
-        String authHeader = "Bearer test-token";
+    void testNonDirectedToolCapturesPassthroughAuthorizationBeforeFanOut() {
+        String authHeader = "Bearer per-invocation-token";
         when(discovery.getAllInstances()).thenReturn(List.of(testInstance1, testInstance2));
-        when(instanceManager.createInstance(testInstance1, authHeader)).thenReturn(mockMCP);
-        when(instanceManager.createInstance(testInstance2, authHeader)).thenReturn(mockMCP);
+        when(authorization.getPassthroughAuthorizationHeader()).thenReturn(authHeader);
+        when(instanceManager.createInstance(testInstance1)).thenReturn(mockMCP);
+        when(instanceManager.createInstance(testInstance2)).thenReturn(mockMCP);
+        when(authorization.withPassthroughAuthorizationHeader(eq(authHeader), any(Supplier.class)))
+                .thenAnswer(invocation -> invocation.<Supplier<?>>getArgument(1).get());
+        when(mockMCP.scrapeMetrics(0.5)).thenReturn("metric 1");
+        when(prometheusAggregationStrategy.aggregate(anyList(), anyList())).thenReturn("metric 1");
 
-        List<CryostatInstance> instances = new ArrayList<>(discovery.getAllInstances());
+        String result = nonDirectedTools.scrapeGlobalMetrics(0.5);
 
-        for (CryostatInstance instance : instances) {
-            CryostatMCP mcp = instanceManager.createInstance(instance, authHeader);
-            assertNotNull(mcp);
-        }
-
-        verify(instanceManager).createInstance(testInstance1, authHeader);
-        verify(instanceManager).createInstance(testInstance2, authHeader);
+        assertEquals("metric 1", result);
+        verify(instanceManager).createInstance(testInstance1);
+        verify(instanceManager).createInstance(testInstance2);
+        verify(authorization, times(2))
+                .withPassthroughAuthorizationHeader(eq(authHeader), any(Supplier.class));
     }
 
     @Test

@@ -40,22 +40,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class CryostatMCPInstanceManagerTest {
 
-    @Mock private Logger log;
-
-    @Mock private CryostatInstanceDiscovery discovery;
-
-    @Mock private ObjectMapper mapper;
-
-    @Mock private RestClientBuilder restClientBuilder;
-
-    @Mock private TypesafeGraphQLClientBuilder graphqlClientBuilder;
-
-    @Mock private CryostatRESTClient restClient;
-
-    @Mock private CryostatGraphQLClientImpl graphqlClient;
+    @Mock Logger log;
+    @Mock CryostatInstanceDiscovery discovery;
+    @Mock ObjectMapper mapper;
+    @Mock RestClientBuilder restClientBuilder;
+    @Mock TypesafeGraphQLClientBuilder graphqlClientBuilder;
+    @Mock CryostatRESTClient restClient;
+    @Mock AuthorizationAwareGraphQLClient.Delegate graphqlClient;
+    @Mock CryostatAuthorization authorization;
 
     private CryostatMCPInstanceManager manager;
-
     private CryostatInstance testInstance;
 
     @BeforeEach
@@ -70,89 +64,58 @@ class CryostatMCPInstanceManagerTest {
         manager.log = log;
         manager.discovery = discovery;
         manager.mapper = mapper;
-        manager.authorizationHeaderConfig = Optional.empty();
+        manager.authorization = authorization;
+        manager.staticAuthorizationHeader = Optional.empty();
         manager.graphqlPath = "/api/v4/graphql";
     }
 
     @Test
-    void testCreateInstanceSuccess() {
+    void createsInstanceForTargetNamespace() {
         try (MockedStatic<RestClientBuilder> mockedRestBuilder =
                         mockStatic(RestClientBuilder.class);
                 MockedStatic<TypesafeGraphQLClientBuilder> mockedGraphQLBuilder =
                         mockStatic(TypesafeGraphQLClientBuilder.class)) {
-            mockedRestBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
-            when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
-            when(restClientBuilder.followRedirects(anyBoolean())).thenReturn(restClientBuilder);
-            when(restClientBuilder.build(CryostatRESTClient.class)).thenReturn(restClient);
-
-            mockedGraphQLBuilder
-                    .when(TypesafeGraphQLClientBuilder::newBuilder)
-                    .thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.build(CryostatGraphQLClientImpl.class))
-                    .thenReturn(graphqlClient);
-
+            configureClientBuilders(mockedRestBuilder, mockedGraphQLBuilder);
             when(discovery.findByNamespace("app-namespace")).thenReturn(Optional.of(testInstance));
 
             CryostatMCP mcp = manager.createInstance("app-namespace");
 
             assertNotNull(mcp);
             verify(discovery).findByNamespace("app-namespace");
+            verify(restClientBuilder).register(any(CryostatAuthorizationFilter.class));
         }
     }
 
     @Test
-    void testCreateInstanceWithCredentials() {
-        try (MockedStatic<RestClientBuilder> mockedRestBuilder =
-                        mockStatic(RestClientBuilder.class);
-                MockedStatic<TypesafeGraphQLClientBuilder> mockedGraphQLBuilder =
-                        mockStatic(TypesafeGraphQLClientBuilder.class)) {
-            mockedRestBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
-            when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
-            when(restClientBuilder.followRedirects(anyBoolean())).thenReturn(restClientBuilder);
-            when(restClientBuilder.header(anyString(), anyString())).thenReturn(restClientBuilder);
-            when(restClientBuilder.build(CryostatRESTClient.class)).thenReturn(restClient);
+    void usesStaticAuthorizationHeaderByDefault() {
+        manager.staticAuthorizationHeader = Optional.of("Bearer static-token");
 
-            mockedGraphQLBuilder
-                    .when(TypesafeGraphQLClientBuilder::newBuilder)
-                    .thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.header(anyString(), anyString()))
-                    .thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.build(CryostatGraphQLClientImpl.class))
-                    .thenReturn(graphqlClient);
-
-            when(discovery.findByNamespace("app-namespace")).thenReturn(Optional.of(testInstance));
-            manager.authorizationHeaderConfig = Optional.of("Bearer test-token");
-
-            CryostatMCP mcp = manager.createInstance("app-namespace");
-
-            assertNotNull(mcp);
-            verify(restClientBuilder).header("Authorization", "Bearer test-token");
-            verify(graphqlClientBuilder).header("Authorization", "Bearer test-token");
-        }
+        assertEquals("Bearer static-token", manager.getAuthorizationHeader());
     }
 
     @Test
-    void testCreateInstanceForKnownCryostatInstance() {
+    void passthroughAuthorizationTakesPrecedenceOverStaticAuthorization() {
+        when(authorization.getPassthroughAuthorizationHeader())
+                .thenReturn("Bearer per-invocation-token");
+        manager.staticAuthorizationHeader = Optional.of("Bearer static-token");
+
+        assertEquals("Bearer per-invocation-token", manager.getAuthorizationHeader());
+    }
+
+    @Test
+    void ignoresBlankStaticAuthorizationHeader() {
+        manager.staticAuthorizationHeader = Optional.of("   ");
+
+        assertNull(manager.getAuthorizationHeader());
+    }
+
+    @Test
+    void createsInstanceForKnownCryostat() {
         try (MockedStatic<RestClientBuilder> mockedRestBuilder =
                         mockStatic(RestClientBuilder.class);
                 MockedStatic<TypesafeGraphQLClientBuilder> mockedGraphQLBuilder =
                         mockStatic(TypesafeGraphQLClientBuilder.class)) {
-            mockedRestBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
-            when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
-            when(restClientBuilder.followRedirects(anyBoolean())).thenReturn(restClientBuilder);
-            when(restClientBuilder.build(CryostatRESTClient.class)).thenReturn(restClient);
-
-            mockedGraphQLBuilder
-                    .when(TypesafeGraphQLClientBuilder::newBuilder)
-                    .thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.build(CryostatGraphQLClientImpl.class))
-                    .thenReturn(graphqlClient);
+            configureClientBuilders(mockedRestBuilder, mockedGraphQLBuilder);
 
             CryostatMCP mcp = manager.createInstance(testInstance);
 
@@ -162,11 +125,12 @@ class CryostatMCPInstanceManagerTest {
                     .baseUri(URI.create("http://test-cryostat.test-namespace.svc:8181"));
             verify(graphqlClientBuilder)
                     .endpoint("http://test-cryostat.test-namespace.svc:8181/api/v4/graphql");
+            verify(graphqlClientBuilder).build(AuthorizationAwareGraphQLClient.Delegate.class);
         }
     }
 
     @Test
-    void testCreateInstanceNoInstanceFound() {
+    void throwsWhenNoInstanceIsFound() {
         when(discovery.findByNamespace("unknown-namespace")).thenReturn(Optional.empty());
         when(discovery.getAllInstances()).thenReturn(List.of(testInstance));
 
@@ -182,7 +146,7 @@ class CryostatMCPInstanceManagerTest {
     }
 
     @Test
-    void testCreateInstanceForDifferentNamespaces() {
+    void createsSeparateInstancesForDifferentNamespaces() {
         try (MockedStatic<RestClientBuilder> mockedRestBuilder =
                         mockStatic(RestClientBuilder.class);
                 MockedStatic<TypesafeGraphQLClientBuilder> mockedGraphQLBuilder =
@@ -199,28 +163,13 @@ class CryostatMCPInstanceManagerTest {
                             "ns2",
                             "http://cryostat-2.ns2.svc:8181",
                             Set.of("ns2", "app2"));
-
-            mockedRestBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
-            when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
-            when(restClientBuilder.followRedirects(anyBoolean())).thenReturn(restClientBuilder);
-            when(restClientBuilder.build(CryostatRESTClient.class)).thenReturn(restClient);
-
-            mockedGraphQLBuilder
-                    .when(TypesafeGraphQLClientBuilder::newBuilder)
-                    .thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.build(CryostatGraphQLClientImpl.class))
-                    .thenReturn(graphqlClient);
-
+            configureClientBuilders(mockedRestBuilder, mockedGraphQLBuilder);
             when(discovery.findByNamespace("app1")).thenReturn(Optional.of(instance1));
             when(discovery.findByNamespace("app2")).thenReturn(Optional.of(instance2));
 
             CryostatMCP mcp1 = manager.createInstance("app1");
             CryostatMCP mcp2 = manager.createInstance("app2");
 
-            assertNotNull(mcp1);
-            assertNotNull(mcp2);
             assertNotSame(mcp1, mcp2);
             verify(discovery).findByNamespace("app1");
             verify(discovery).findByNamespace("app2");
@@ -228,33 +177,40 @@ class CryostatMCPInstanceManagerTest {
     }
 
     @Test
-    void testCreateInstanceMultipleTimes() {
+    void reusesInstanceForSameNamespace() {
         try (MockedStatic<RestClientBuilder> mockedRestBuilder =
                         mockStatic(RestClientBuilder.class);
                 MockedStatic<TypesafeGraphQLClientBuilder> mockedGraphQLBuilder =
                         mockStatic(TypesafeGraphQLClientBuilder.class)) {
-            mockedRestBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
-            when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
-            when(restClientBuilder.followRedirects(anyBoolean())).thenReturn(restClientBuilder);
-            when(restClientBuilder.build(CryostatRESTClient.class)).thenReturn(restClient);
-
-            mockedGraphQLBuilder
-                    .when(TypesafeGraphQLClientBuilder::newBuilder)
-                    .thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
-            when(graphqlClientBuilder.build(CryostatGraphQLClientImpl.class))
-                    .thenReturn(graphqlClient);
-
+            configureClientBuilders(mockedRestBuilder, mockedGraphQLBuilder);
             when(discovery.findByNamespace("app-namespace")).thenReturn(Optional.of(testInstance));
 
             CryostatMCP mcp1 = manager.createInstance("app-namespace");
             CryostatMCP mcp2 = manager.createInstance("app-namespace");
 
-            assertNotNull(mcp1);
-            assertNotNull(mcp2);
             assertSame(mcp1, mcp2);
-            verify(discovery, times(1)).findByNamespace("app-namespace");
+            verify(discovery).findByNamespace("app-namespace");
+            mockedRestBuilder.verify(RestClientBuilder::newBuilder);
+            mockedGraphQLBuilder.verify(TypesafeGraphQLClientBuilder::newBuilder);
         }
+    }
+
+    private void configureClientBuilders(
+            MockedStatic<RestClientBuilder> mockedRestBuilder,
+            MockedStatic<TypesafeGraphQLClientBuilder> mockedGraphQLBuilder) {
+        mockedRestBuilder.when(RestClientBuilder::newBuilder).thenReturn(restClientBuilder);
+        when(restClientBuilder.baseUri(any(URI.class))).thenReturn(restClientBuilder);
+        when(restClientBuilder.followRedirects(anyBoolean())).thenReturn(restClientBuilder);
+        when(restClientBuilder.register(any(CryostatAuthorizationFilter.class)))
+                .thenReturn(restClientBuilder);
+        when(restClientBuilder.build(CryostatRESTClient.class)).thenReturn(restClient);
+
+        mockedGraphQLBuilder
+                .when(TypesafeGraphQLClientBuilder::newBuilder)
+                .thenReturn(graphqlClientBuilder);
+        when(graphqlClientBuilder.endpoint(anyString())).thenReturn(graphqlClientBuilder);
+        when(graphqlClientBuilder.configKey(anyString())).thenReturn(graphqlClientBuilder);
+        when(graphqlClientBuilder.build(AuthorizationAwareGraphQLClient.Delegate.class))
+                .thenReturn(graphqlClient);
     }
 }

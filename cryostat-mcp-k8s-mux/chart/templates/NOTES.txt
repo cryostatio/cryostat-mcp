@@ -49,11 +49,16 @@ To access it from outside the cluster, you can:
 Configuration:
 - Namespace: {{ .Values.namespace }}
 - Service: {{ include "cryostat-k8s-multi-mcp.fullname" . }}
+{{- if or .Values.auth.authorizationHeader .Values.auth.existingSecret }}
 - Secret: {{ include "cryostat-k8s-multi-mcp.secretName" . }}
 {{- if .Values.auth.existingSecret }}
   (Using existing secret)
 {{- else }}
   (Created by Helm)
+{{- end }}
+{{- else }}
+- Static Cryostat credential: not configured
+  (MCP clients must provide Cryostat-Authorization for downstream Cryostat requests)
 {{- end }}
 
 To view the deployment status:
