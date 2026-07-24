@@ -35,6 +35,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
 import io.cryostat.mcp.model.ActiveRecordingsFilter;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
@@ -63,13 +64,31 @@ public class CryostatMCP {
     private final CryostatGraphQLClient graphql;
     private final ObjectMapper mapper;
     private volatile Optional<CryostatVersion> serverVersion;
-    private final String authorizationHeader;
+    private final Supplier<String> authorizationHeader;
     private final URI baseUri;
     private final HttpClient httpClient;
 
     public CryostatMCP(
             URI baseUri,
             String authorizationHeader,
+            CryostatRESTClient rest,
+            CryostatGraphQLClient graphql,
+            ObjectMapper mapper) {
+        this(baseUri, () -> authorizationHeader, rest, graphql, mapper);
+    }
+
+    public static CryostatMCP withAuthorizationHeaderSupplier(
+            URI baseUri,
+            Supplier<String> authorizationHeader,
+            CryostatRESTClient rest,
+            CryostatGraphQLClient graphql,
+            ObjectMapper mapper) {
+        return new CryostatMCP(baseUri, authorizationHeader, rest, graphql, mapper);
+    }
+
+    private CryostatMCP(
+            URI baseUri,
+            Supplier<String> authorizationHeader,
             CryostatRESTClient rest,
             CryostatGraphQLClient graphql,
             ObjectMapper mapper) {
@@ -307,6 +326,7 @@ public class CryostatMCP {
                                                 "Archived recording not found: " + filename))
                         .downloadUrl();
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(resolveUri(downloadUrl)).GET();
+        String authorizationHeader = this.authorizationHeader.get();
         if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
             requestBuilder.header("Authorization", authorizationHeader);
         }
@@ -501,6 +521,7 @@ public class CryostatMCP {
 
     HttpResponse<String> sendStringGet(URI uri) throws IOException {
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(uri).GET();
+        String authorizationHeader = this.authorizationHeader.get();
         if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
             requestBuilder.header("Authorization", authorizationHeader);
         }
@@ -515,6 +536,7 @@ public class CryostatMCP {
     private WebSocket connectNotifications(ReportNotificationListener listener) throws IOException {
         URI notificationsUri = notificationsUri();
         var builder = httpClient.newWebSocketBuilder();
+        String authorizationHeader = this.authorizationHeader.get();
         if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
             builder.header("Authorization", authorizationHeader);
         }

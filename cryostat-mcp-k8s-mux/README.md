@@ -11,7 +11,8 @@ The k8s-multi-mcp service is an HTTP-based MCP server that:
 - **Discovers** Cryostat Custom Resources (CRs) deployed in a Kubernetes cluster
 - **Routes** MCP tool requests to the appropriate Cryostat instance based on target application namespace
 - **Multiplexes** access to multiple Cryostat instances through a single endpoint
-- **Forwards** client credentials transparently to Cryostat instances
+- **Authenticates** downstream requests with an optional static credential or a per-invocation
+  passthrough credential
 
 ### How It Works
 
@@ -19,14 +20,15 @@ The service uses a composable architecture that reuses the existing `cryostat-mc
 
 1. **Discovery**: Watches Kubernetes API for Cryostat CRs using the Fabric8 Kubernetes client
 2. **Routing**: Maps target namespaces to Cryostat instances based on CR specifications
-3. **Delegation**: Creates per-request `cryostat-mcp` instances with client credentials
-4. **Forwarding**: Passes client Authorization headers to Cryostat instances
+3. **Delegation**: Reuses a configured `cryostat-mcp` client for each discovered Cryostat instance
+4. **Forwarding**: Selects a per-invocation credential or the configured static credential and
+   sends it to Cryostat as `Authorization`
 
 ```
 ┌─────────────┐
 │ MCP Client  │
 └──────┬──────┘
-       │ HTTP/MCP + Auth Header
+       │ HTTP/MCP + Cryostat-Authorization (optional)
        ▼
 ┌─────────────────────────────────┐
 │   k8s-multi-mcp (This Service)  │
@@ -36,10 +38,10 @@ The service uses a composable architecture that reuses the existing `cryostat-mc
 │              │                   │
 │  ┌───────────▼───────────────┐  │
 │  │ cryostat-mcp instances    │  │
-│  │ (created per-request)     │  │
+│  │ (cached per Cryostat)     │  │
 │  └───────────┬───────────────┘  │
 └──────────────┼───────────────────┘
-               │ Client Auth
+               │ Authorization
        ┌───────┴────────┐
        ▼                ▼
 ┌─────────────┐  ┌─────────────┐
@@ -51,7 +53,9 @@ The service uses a composable architecture that reuses the existing `cryostat-mc
 ### Key Features
 
 - **Namespace-Based Routing**: Automatically routes requests to the correct Cryostat instance based on target application namespace (where monitored applications run)
-- **Credential Forwarding**: Transparently forwards client credentials to Cryostat instances (no privilege escalation)
+- **Credential Forwarding**: An optional `Cryostat-Authorization` request header is forwarded as
+  `Authorization` to Cryostat. It takes precedence over the optional static credential configured
+  by the deployment administrator.
 - **Deterministic Tiebreaker**: When multiple Cryostat instances monitor the same namespace, selects alphabetically first CR name
 - **Real-Time Discovery**: Uses Kubernetes Watch API for immediate CR change notifications
 - **Tool Parity**: Inherits all tools from `cryostat-mcp` automatically
@@ -130,7 +134,7 @@ mvn clean package -Dquarkus.container-image.build=true \
 Deploy to your Kubernetes cluster using the Helm chart:
 
 ```bash
-# Install with basic configuration
+# Install with an optional static credential
 helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ \
   --set auth.authorizationHeader="Bearer your-token-value"
 
@@ -138,6 +142,14 @@ helm install my-mcp ./cryostat-mcp-k8s-mux/chart/ \
 kubectl get pods -n cryostat-mcp-system
 kubectl logs -n cryostat-mcp-system -l app.kubernetes.io/name=cryostat-k8s-multi-mcp
 ```
+
+#### Passthrough-Only Credentials
+
+To use individual Cryostat credentials, omit both `auth.authorizationHeader` and
+`auth.existingSecret`. Send the credential on every MCP tool invocation using
+`Cryostat-Authorization`; the mux forwards its value as the downstream `Authorization` header.
+The normal HTTP `Authorization` header is intentionally not used for this purpose, so it remains
+available for future authentication of the MCP server itself.
 
 ### Installation Options
 
@@ -217,7 +229,8 @@ The service requires a ServiceAccount with permissions to:
 - **List/Watch Cryostat CRs**: `operator.cryostat.io/v1beta2` resources
 - **List Services**: For Cryostat service discovery
 
-**Important**: The ServiceAccount is ONLY used for Kubernetes API access. Client credentials are used for all Cryostat access.
+**Important**: The ServiceAccount is ONLY used for Kubernetes API access. Static or
+per-invocation Cryostat credentials are used for downstream Cryostat access.
 
 The Helm chart automatically creates the required ClusterRole and ClusterRoleBinding.
 
@@ -228,8 +241,8 @@ Configure via Helm values. Key configuration parameters:
 | Parameter | Default | Description |
 |----------|---------|-------------|
 | `namespace` | `cryostat-mcp-system` | Namespace for installation |
-| `auth.authorizationHeader` | `""` | Authorization header value |
-| `auth.existingSecret` | `""` | Name of existing secret |
+| `auth.authorizationHeader` | `""` | Optional static Authorization header forwarded to Cryostat |
+| `auth.existingSecret` | `""` | Existing Secret containing the optional static Authorization header |
 | `image.repository` | `quay.io/cryostat/k8s-multi-mcp` | Container image |
 | `image.tag` | `latest` | Image tag |
 | `service.port` | `8080` | Service port |
@@ -320,12 +333,14 @@ spec:
 
 ### Authentication
 
-All requests must include an `Authorization` header:
+Downstream Cryostat authentication can use either the optional static credential configured by the
+deployment administrator or a credential supplied for an individual MCP tool invocation. To use an
+individual credential, send it as `Cryostat-Authorization`:
 
 ```http
 POST /mcp HTTP/1.1
 Host: k8s-multi-mcp.cryostat-mcp-system:8080
-Authorization: Bearer <your-token>
+Cryostat-Authorization: Bearer <your-cryostat-token>
 Content-Type: application/json
 
 {
@@ -341,7 +356,13 @@ Content-Type: application/json
 }
 ```
 
-The service forwards this header to the appropriate Cryostat instance.
+The mux sends this value to the selected Cryostat instance as its HTTP `Authorization` header. A
+per-invocation credential takes precedence over the static credential. If no static credential is
+configured, clients must send `Cryostat-Authorization` on tool invocations that require an
+authenticated Cryostat request.
+
+The mux deliberately does not forward its standard HTTP `Authorization` header. That header remains
+available for future authentication of the MCP server itself.
 
 ### Tool Calls with Namespace Parameters
 
@@ -442,7 +463,8 @@ If `namespace` is omitted, the service aggregates results from all Cryostat inst
 }
 ```
 
-**Resolution**: Verify your Authorization header is valid for the target Cryostat instance.
+**Resolution**: Verify that the configured static credential or the invocation's
+`Cryostat-Authorization` header is valid for the target Cryostat instance.
 
 ## Development
 
@@ -483,15 +505,17 @@ mvn verify -Pcoverage
 ```
 cryostat-mcp-k8s-mux/
 ├── src/main/java/io/cryostat/mcp/k8s/
-│   ├── K8sMultiMCP.java                    # Main MCP tools wrapper
+│   ├── DirectedTools.java                  # Namespace-routed Cryostat tools
+│   ├── K8sOrientedTools.java               # Kubernetes-oriented tools
+│   ├── NonDirectedTools.java               # Cross-Cryostat aggregate tools
+│   ├── SystemTools.java                    # Mux discovery tools
 │   ├── CryostatInstanceDiscovery.java      # CR discovery via Watch API
-│   ├── CryostatMCPInstanceManager.java     # Sub-MCP instance management
-│   ├── ClientCredentialsContext.java       # Thread-local credential storage
+│   ├── CryostatMCPInstanceManager.java     # Cached downstream clients
+│   ├── CryostatAuthorization.java          # Per-invocation credential propagation
 │   └── model/
 │       ├── Cryostat.java                   # Cryostat CR model
 │       ├── CryostatSpec.java               # CR spec model
-│       ├── CryostatStatus.java             # CR status model
-│       └── CryostatInstance.java           # Internal instance representation
+│       └── CryostatStatus.java             # CR status model
 ├── src/main/resources/
 │   └── application.properties              # Quarkus configuration
 ├── chart/                                  # Helm chart
@@ -509,16 +533,17 @@ cryostat-mcp-k8s-mux/
 │       └── ingress.yaml                    # Kubernetes Ingress (optional)
 ├── src/test/java/                          # Tests
 ├── pom.xml                                 # Maven configuration
-├── README.md                               # This file
-└── EXAMPLES.md                             # Usage examples
+└── README.md                               # This file
 ```
 
 ### Key Components
 
-- **K8sMultiMCP**: Wraps `cryostat-mcp` tools with namespace routing
+- **DirectedTools/K8sOrientedTools**: Wrap `cryostat-mcp` tools with namespace routing
 - **CryostatInstanceDiscovery**: Watches Kubernetes for Cryostat CRs and builds namespace mappings
-- **CryostatMCPInstanceManager**: Creates per-request `cryostat-mcp` instances with client credentials
-- **ClientCredentialsContext**: Stores client Authorization header in ThreadLocal for request duration
+- **CryostatMCPInstanceManager**: Caches clients for discovered Cryostat instances and selects the
+  credential for each downstream call
+- **CryostatAuthorization**: Reads `Cryostat-Authorization` from an MCP request and safely propagates
+  it to fan-out worker threads
 
 ## Troubleshooting
 

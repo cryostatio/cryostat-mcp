@@ -24,11 +24,13 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.cryostat.mcp.model.ActiveRecordingsFilter;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
@@ -847,6 +849,42 @@ class CryostatMCPTest {
                     var actual = mcp.downloadArchivedRecording(jvmId, filename)) {
                 assertArrayEquals(expected.readAllBytes(), actual.readAllBytes());
             }
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void testDirectHttpRequestsUseCurrentAuthorizationHeader() throws Exception {
+        List<String> authorizationHeaders = new ArrayList<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext(
+                "/test",
+                exchange -> {
+                    authorizationHeaders.add(
+                            exchange.getRequestHeaders().getFirst("Authorization"));
+                    writeResponse(exchange, "ok", "text/plain");
+                });
+        server.start();
+
+        try {
+            AtomicReference<String> authorizationHeader =
+                    new AtomicReference<>("Bearer first-token");
+            CryostatMCP mcp =
+                    CryostatMCP.withAuthorizationHeaderSupplier(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            authorizationHeader::get,
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            URI uri = URI.create("http://localhost:" + server.getAddress().getPort() + "/test");
+
+            mcp.sendStringGet(uri);
+            authorizationHeader.set("Bearer second-token");
+            mcp.sendStringGet(uri);
+
+            assertEquals(
+                    List.of("Bearer first-token", "Bearer second-token"), authorizationHeaders);
         } finally {
             server.stop(0);
         }

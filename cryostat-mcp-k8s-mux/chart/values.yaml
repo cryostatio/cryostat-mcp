@@ -11,15 +11,16 @@ createNamespace: true
 
 # Authentication configuration
 auth:
-  # Authorization header value for MCP client authentication
-  # If provided, a secret will be created with this value
-  # Leave empty to use existingSecret instead
+  # Optional static Authorization header forwarded to every Cryostat instance.
+  # If provided, a Secret will be created with this value.
+  # Leave this and existingSecret empty to use only per-invocation
+  # Cryostat-Authorization headers from MCP clients.
   # Example: "Bearer my-token-value"
   authorizationHeader: ""
   
-  # Name of an existing secret to use instead of creating one
-  # The secret must contain the authorization header value
-  # Leave empty to create a new secret from authorizationHeader
+  # Name of an existing Secret containing a static Authorization header.
+  # Leave empty to create a new Secret from authorizationHeader, or leave both
+  # empty for passthrough-only authentication.
   existingSecret: ""
   
   # Key name in the secret that contains the authorization header

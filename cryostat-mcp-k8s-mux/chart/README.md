@@ -10,7 +10,7 @@ This Helm chart deploys the Kubernetes Multi-MCP for Cryostat, which multiplexes
 
 ## Installing the Chart
 
-### Basic Installation
+### Static Credentials
 
 Install the chart with a release name `my-mcp`:
 
@@ -18,6 +18,19 @@ Install the chart with a release name `my-mcp`:
 helm install my-mcp ./k8s-multi-mcp/chart/ \
   --set auth.authorizationHeader="Bearer your-token-value"
 ```
+
+### Passthrough-Only Credentials
+
+Static credentials are optional. Omit both `auth.authorizationHeader` and
+`auth.existingSecret` to forward the `Cryostat-Authorization` header from each MCP tool
+invocation as the downstream Cryostat `Authorization` header:
+
+```bash
+helm install my-mcp ./k8s-multi-mcp/chart/
+```
+
+When both a static credential and a `Cryostat-Authorization` request header are present, the
+request header takes precedence for that invocation.
 
 ### Custom Namespace
 
@@ -95,11 +108,13 @@ The following table lists the configurable parameters of the cryostat-k8s-multi-
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `auth.authorizationHeader` | Authorization header value (creates secret if provided) | `""` |
-| `auth.existingSecret` | Name of existing secret to use | `""` |
+| `auth.authorizationHeader` | Optional static Authorization header forwarded to Cryostat (creates a Secret if provided) | `""` |
+| `auth.existingSecret` | Existing Secret containing the optional static Authorization header | `""` |
 | `auth.secretKey` | Key name in the secret | `"authorization-header"` |
 
-**Note:** Either `auth.authorizationHeader` or `auth.existingSecret` must be provided, but not both.
+**Note:** Both static credential settings may be empty for passthrough-only authentication. If a
+static credential and a `Cryostat-Authorization` HTTP header are both supplied, the request header
+takes precedence for that tool invocation.
 
 ### Image Configuration
 
