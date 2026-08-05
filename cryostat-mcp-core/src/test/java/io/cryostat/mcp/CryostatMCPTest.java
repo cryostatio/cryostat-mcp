@@ -944,6 +944,127 @@ class CryostatMCPTest {
     }
 
     @Test
+    void sendStringGetStripsTrailingNewlineFromAuthorizationHeader() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        AtomicReference<String> capturedAuthHeader = new AtomicReference<>();
+        server.createContext(
+                "/api/v4/health",
+                exchange -> {
+                    capturedAuthHeader.set(exchange.getRequestHeaders().getFirst("Authorization"));
+                    writeResponse(exchange, "{}", "application/json");
+                });
+        server.start();
+        try {
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            "Bearer token-with-newline\n",
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            mcp.sendStringGet(
+                    URI.create(
+                            "http://localhost:"
+                                    + server.getAddress().getPort()
+                                    + "/api/v4/health"));
+            assertEquals("Bearer token-with-newline", capturedAuthHeader.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void sendStringGetStripsTrailingCarriageReturnNewlineFromAuthorizationHeader()
+            throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        AtomicReference<String> capturedAuthHeader = new AtomicReference<>();
+        server.createContext(
+                "/api/v4/health",
+                exchange -> {
+                    capturedAuthHeader.set(exchange.getRequestHeaders().getFirst("Authorization"));
+                    writeResponse(exchange, "{}", "application/json");
+                });
+        server.start();
+        try {
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            "Bearer token-with-crlf\r\n",
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            mcp.sendStringGet(
+                    URI.create(
+                            "http://localhost:"
+                                    + server.getAddress().getPort()
+                                    + "/api/v4/health"));
+            assertEquals("Bearer token-with-crlf", capturedAuthHeader.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void sendStringGetOmitsAuthorizationHeaderWhenNull() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        AtomicReference<String> capturedAuthHeader = new AtomicReference<>("PRESENT");
+        server.createContext(
+                "/api/v4/health",
+                exchange -> {
+                    capturedAuthHeader.set(exchange.getRequestHeaders().getFirst("Authorization"));
+                    writeResponse(exchange, "{}", "application/json");
+                });
+        server.start();
+        try {
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            null,
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            mcp.sendStringGet(
+                    URI.create(
+                            "http://localhost:"
+                                    + server.getAddress().getPort()
+                                    + "/api/v4/health"));
+            assertNull(capturedAuthHeader.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void sendStringGetOmitsAuthorizationHeaderWhenBlank() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        AtomicReference<String> capturedAuthHeader = new AtomicReference<>("PRESENT");
+        server.createContext(
+                "/api/v4/health",
+                exchange -> {
+                    capturedAuthHeader.set(exchange.getRequestHeaders().getFirst("Authorization"));
+                    writeResponse(exchange, "{}", "application/json");
+                });
+        server.start();
+        try {
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            "   \n  ",
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            mcp.sendStringGet(
+                    URI.create(
+                            "http://localhost:"
+                                    + server.getAddress().getPort()
+                                    + "/api/v4/health"));
+            assertNull(capturedAuthHeader.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void testQueryExampleRecord() {
         String description = "Test description";
         String query = "SELECT * FROM test";

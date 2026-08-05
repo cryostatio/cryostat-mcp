@@ -23,6 +23,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.ContextNotActiveException;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import org.apache.commons.lang3.StringUtils;
 
 /** Obtains the per-invocation Cryostat authorization header from an HTTP MCP request. */
 @ApplicationScoped
@@ -42,7 +43,7 @@ public class CryostatAuthorization {
     public String getPassthroughAuthorizationHeader() {
         String propagated = propagatedAuthorization.get();
         if (propagated != null) {
-            return propagated;
+            return propagated.strip();
         }
 
         if (!routingContexts.isResolvable()) {
@@ -83,8 +84,6 @@ public class CryostatAuthorization {
     }
 
     private String normalize(String authorizationHeader) {
-        return authorizationHeader == null || authorizationHeader.isBlank()
-                ? null
-                : authorizationHeader;
+        return StringUtils.stripToNull(authorizationHeader);
     }
 }

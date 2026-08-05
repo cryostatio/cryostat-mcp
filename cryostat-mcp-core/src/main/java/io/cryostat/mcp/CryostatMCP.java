@@ -314,6 +314,14 @@ public class CryostatMCP {
         return value == null ? "" : value;
     }
 
+    private String normalizeHeader(String value) {
+        if (value == null) {
+            return null;
+        }
+        String stripped = value.strip();
+        return stripped.isEmpty() ? null : stripped;
+    }
+
     public InputStream downloadArchivedRecording(String jvmId, String filename) throws IOException {
         String downloadUrl =
                 listTargetArchivedRecordings(jvmId).stream()
@@ -521,8 +529,8 @@ public class CryostatMCP {
 
     HttpResponse<String> sendStringGet(URI uri) throws IOException {
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(uri).GET();
-        String authorizationHeader = this.authorizationHeader.get();
-        if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
+        String authorizationHeader = normalizeHeader(this.authorizationHeader.get());
+        if (authorizationHeader != null) {
             requestBuilder.header("Authorization", authorizationHeader);
         }
         try {
@@ -536,8 +544,8 @@ public class CryostatMCP {
     private WebSocket connectNotifications(ReportNotificationListener listener) throws IOException {
         URI notificationsUri = notificationsUri();
         var builder = httpClient.newWebSocketBuilder();
-        String authorizationHeader = this.authorizationHeader.get();
-        if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
+        String authorizationHeader = normalizeHeader(this.authorizationHeader.get());
+        if (authorizationHeader != null) {
             builder.header("Authorization", authorizationHeader);
         }
         try {

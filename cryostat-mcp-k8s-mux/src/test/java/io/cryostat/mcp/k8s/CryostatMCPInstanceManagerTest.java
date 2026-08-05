@@ -110,6 +110,28 @@ class CryostatMCPInstanceManagerTest {
     }
 
     @Test
+    void stripsTrailingNewlineFromStaticAuthorizationHeader() {
+        manager.staticAuthorizationHeader = Optional.of("Bearer static-token\n");
+
+        assertEquals("Bearer static-token", manager.getAuthorizationHeader());
+    }
+
+    @Test
+    void stripsTrailingCarriageReturnNewlineFromStaticAuthorizationHeader() {
+        manager.staticAuthorizationHeader = Optional.of("Bearer static-token\r\n");
+
+        assertEquals("Bearer static-token", manager.getAuthorizationHeader());
+    }
+
+    @Test
+    void stripsTrailingNewlineFromPassthroughAuthorizationHeader() {
+        when(authorization.getPassthroughAuthorizationHeader())
+                .thenReturn("Bearer per-invocation-token\n");
+
+        assertEquals("Bearer per-invocation-token", manager.getAuthorizationHeader());
+    }
+
+    @Test
     void createsInstanceForKnownCryostat() {
         try (MockedStatic<RestClientBuilder> mockedRestBuilder =
                         mockStatic(RestClientBuilder.class);
