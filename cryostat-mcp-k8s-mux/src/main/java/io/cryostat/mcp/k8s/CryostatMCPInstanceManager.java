@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.graphql.client.typesafe.api.TypesafeGraphQLClientBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
 import org.jboss.logging.Logger;
@@ -79,10 +80,13 @@ public class CryostatMCPInstanceManager {
 
     String getAuthorizationHeader() {
         String passthrough = authorization.getPassthroughAuthorizationHeader();
-        if (passthrough != null) {
-            return passthrough;
+        if (StringUtils.isNotBlank(passthrough)) {
+            return passthrough.strip();
         }
-        return staticAuthorizationHeader.filter(header -> !header.isBlank()).orElse(null);
+        return staticAuthorizationHeader
+                .filter(StringUtils::isNotBlank)
+                .map(StringUtils::strip)
+                .orElse(null);
     }
 
     private CryostatMCP createNewInstance(String namespace) {

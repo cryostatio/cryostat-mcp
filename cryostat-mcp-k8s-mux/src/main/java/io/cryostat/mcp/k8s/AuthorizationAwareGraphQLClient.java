@@ -26,6 +26,7 @@ import io.cryostat.mcp.model.graphql.TargetNodeForStop;
 
 import io.smallrye.graphql.client.typesafe.api.Header;
 import io.smallrye.graphql.client.typesafe.api.NestedParameter;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.graphql.Name;
 import org.eclipse.microprofile.graphql.Query;
 
@@ -61,17 +62,21 @@ class AuthorizationAwareGraphQLClient implements CryostatGraphQLClientImpl {
 
     @Override
     public List<DiscoveryNode> targetNodes(DiscoveryNodeFilter filter, Boolean useAuditLog) {
-        return delegate.targetNodes(filter, useAuditLog, authorizationHeader.get());
+        return delegate.targetNodes(filter, useAuditLog, normalizeHeader());
     }
 
     @Override
     public List<DiscoveryNode> environmentNodes(DiscoveryNodeFilter filter) {
-        return delegate.environmentNodes(filter, authorizationHeader.get());
+        return delegate.environmentNodes(filter, normalizeHeader());
     }
 
     @Override
     public List<TargetNodeForStop> targetNodes(
             DiscoveryNodeFilter filter, ActiveRecordingsFilter recordingsFilter) {
-        return delegate.targetNodes(filter, recordingsFilter, authorizationHeader.get());
+        return delegate.targetNodes(filter, recordingsFilter, normalizeHeader());
+    }
+
+    private String normalizeHeader() {
+        return StringUtils.stripToNull(authorizationHeader.get());
     }
 }

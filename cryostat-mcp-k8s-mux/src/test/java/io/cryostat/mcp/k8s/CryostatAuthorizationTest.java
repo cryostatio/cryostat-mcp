@@ -59,6 +59,30 @@ class CryostatAuthorizationTest {
     }
 
     @Test
+    void stripsTrailingNewlineFromPassthroughHeader() {
+        when(routingContexts.isResolvable()).thenReturn(true);
+        when(routingContexts.get()).thenReturn(routingContext);
+        when(routingContext.request()).thenReturn(request);
+        when(request.getHeader(CryostatAuthorization.PASSTHROUGH_HEADER))
+                .thenReturn("Bearer per-invocation-token\n");
+
+        assertEquals(
+                "Bearer per-invocation-token", authorization.getPassthroughAuthorizationHeader());
+    }
+
+    @Test
+    void stripsTrailingCarriageReturnNewlineFromPassthroughHeader() {
+        when(routingContexts.isResolvable()).thenReturn(true);
+        when(routingContexts.get()).thenReturn(routingContext);
+        when(routingContext.request()).thenReturn(request);
+        when(request.getHeader(CryostatAuthorization.PASSTHROUGH_HEADER))
+                .thenReturn("Bearer per-invocation-token\r\n");
+
+        assertEquals(
+                "Bearer per-invocation-token", authorization.getPassthroughAuthorizationHeader());
+    }
+
+    @Test
     void ignoresBlankCryostatAuthorizationHeader() {
         when(routingContexts.isResolvable()).thenReturn(true);
         when(routingContexts.get()).thenReturn(routingContext);

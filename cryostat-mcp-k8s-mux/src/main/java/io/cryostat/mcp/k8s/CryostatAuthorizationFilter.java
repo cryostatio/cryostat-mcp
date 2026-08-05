@@ -22,6 +22,7 @@ import java.util.function.Supplier;
 import jakarta.ws.rs.client.ClientRequestContext;
 import jakarta.ws.rs.client.ClientRequestFilter;
 import jakarta.ws.rs.core.HttpHeaders;
+import org.apache.commons.lang3.StringUtils;
 
 /** Adds the credential selected for the current MCP invocation to a downstream REST request. */
 class CryostatAuthorizationFilter implements ClientRequestFilter {
@@ -34,8 +35,8 @@ class CryostatAuthorizationFilter implements ClientRequestFilter {
 
     @Override
     public void filter(ClientRequestContext requestContext) throws IOException {
-        String header = authorizationHeader.get();
-        if (header != null && !header.isBlank()) {
+        String header = StringUtils.stripToNull(authorizationHeader.get());
+        if (header != null) {
             requestContext.getHeaders().putSingle(HttpHeaders.AUTHORIZATION, header);
         }
     }

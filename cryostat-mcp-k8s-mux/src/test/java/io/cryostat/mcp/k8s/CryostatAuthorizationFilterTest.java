@@ -54,4 +54,37 @@ class CryostatAuthorizationFilterTest {
 
         verify(requestContext, never()).getHeaders();
     }
+
+    @Test
+    void doesNotAddNullAuthorizationHeader() throws Exception {
+        CryostatAuthorizationFilter filter = new CryostatAuthorizationFilter(() -> null);
+
+        filter.filter(requestContext);
+
+        verify(requestContext, never()).getHeaders();
+    }
+
+    @Test
+    void stripsTrailingNewlineFromHeader() throws Exception {
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        when(requestContext.getHeaders()).thenReturn(headers);
+        CryostatAuthorizationFilter filter =
+                new CryostatAuthorizationFilter(() -> "Bearer token-with-newline\n");
+
+        filter.filter(requestContext);
+
+        assertEquals("Bearer token-with-newline", headers.getFirst(HttpHeaders.AUTHORIZATION));
+    }
+
+    @Test
+    void stripsTrailingCarriageReturnNewlineFromHeader() throws Exception {
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        when(requestContext.getHeaders()).thenReturn(headers);
+        CryostatAuthorizationFilter filter =
+                new CryostatAuthorizationFilter(() -> "Bearer token-with-crlf\r\n");
+
+        filter.filter(requestContext);
+
+        assertEquals("Bearer token-with-crlf", headers.getFirst(HttpHeaders.AUTHORIZATION));
+    }
 }

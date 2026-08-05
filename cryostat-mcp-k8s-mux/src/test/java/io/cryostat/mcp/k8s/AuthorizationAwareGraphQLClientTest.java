@@ -55,4 +55,62 @@ class AuthorizationAwareGraphQLClientTest {
 
         verify(delegate).targetNodes(filter, recordingsFilter, "Bearer static-token");
     }
+
+    @Test
+    void stripsTrailingNewlineFromHeaderForTargetNodes() {
+        AuthorizationAwareGraphQLClient client =
+                new AuthorizationAwareGraphQLClient(delegate, () -> "Bearer token-with-newline\n");
+
+        client.targetNodes(filter, false);
+
+        verify(delegate).targetNodes(filter, false, "Bearer token-with-newline");
+    }
+
+    @Test
+    void stripsTrailingCarriageReturnNewlineFromHeaderForEnvironmentNodes() {
+        AuthorizationAwareGraphQLClient client =
+                new AuthorizationAwareGraphQLClient(delegate, () -> "Bearer token-with-crlf\r\n");
+
+        client.environmentNodes(filter);
+
+        verify(delegate).environmentNodes(filter, "Bearer token-with-crlf");
+    }
+
+    @Test
+    void stripsTrailingNewlineFromHeaderForTargetNodesWithRecordingsFilter() {
+        AuthorizationAwareGraphQLClient client =
+                new AuthorizationAwareGraphQLClient(delegate, () -> "Bearer token-with-newline\n");
+
+        client.targetNodes(filter, recordingsFilter);
+
+        verify(delegate).targetNodes(filter, recordingsFilter, "Bearer token-with-newline");
+    }
+
+    @Test
+    void passesNullToAllDelegateMethodsWhenSupplierReturnsNull() {
+        AuthorizationAwareGraphQLClient client =
+                new AuthorizationAwareGraphQLClient(delegate, () -> null);
+
+        client.targetNodes(filter, false);
+        client.environmentNodes(filter);
+        client.targetNodes(filter, recordingsFilter);
+
+        verify(delegate).targetNodes(filter, false, null);
+        verify(delegate).environmentNodes(filter, null);
+        verify(delegate).targetNodes(filter, recordingsFilter, null);
+    }
+
+    @Test
+    void passesNullToAllDelegateMethodsWhenSupplierReturnsBlank() {
+        AuthorizationAwareGraphQLClient client =
+                new AuthorizationAwareGraphQLClient(delegate, () -> "   \n  ");
+
+        client.targetNodes(filter, false);
+        client.environmentNodes(filter);
+        client.targetNodes(filter, recordingsFilter);
+
+        verify(delegate).targetNodes(filter, false, null);
+        verify(delegate).environmentNodes(filter, null);
+        verify(delegate).targetNodes(filter, recordingsFilter, null);
+    }
 }
