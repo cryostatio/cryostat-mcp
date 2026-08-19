@@ -28,6 +28,7 @@ public final class CryostatServerVersions {
     public static final String V4_1 = "4.1";
     public static final String V4_2 = "4.2";
     public static final String V4_2_1 = "4.2.1";
+    public static final String V4_3 = "4.3";
 
     private CryostatServerVersions() {}
 }

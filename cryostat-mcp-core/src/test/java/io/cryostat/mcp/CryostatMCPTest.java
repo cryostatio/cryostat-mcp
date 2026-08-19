@@ -1065,6 +1065,66 @@ class CryostatMCPTest {
     }
 
     @Test
+    void testSynthesizeRecordingServerSideReturnsDescriptorOn200() throws Exception {
+        String jvmId = "jvm-001";
+        ArchivedRecordingDescriptor expected =
+                new ArchivedRecordingDescriptor(jvmId, "rec.jfr", null, null, null, 0L, 0L);
+        Response response = mock(Response.class);
+        when(response.getStatus()).thenReturn(200);
+        when(response.readEntity(ArchivedRecordingDescriptor.class)).thenReturn(expected);
+        when(restClient.synthesizeRecording(eq(jvmId), eq(1L), eq(2L))).thenReturn(response);
+
+        ArchivedRecordingDescriptor result =
+                cryostatMCP.synthesizeRecordingServerSide(jvmId, 1_000L, 2_000L);
+
+        assertSame(expected, result);
+        verify(restClient).synthesizeRecording(jvmId, 1L, 2L);
+    }
+
+    @Test
+    void testSynthesizeRecordingServerSideThrowsOn400() {
+        String jvmId = "jvm-001";
+        Response response = mock(Response.class);
+        when(response.getStatus()).thenReturn(400);
+        when(restClient.synthesizeRecording(eq(jvmId), anyLong(), anyLong())).thenReturn(response);
+
+        IOException ex =
+                assertThrows(
+                        IOException.class,
+                        () -> cryostatMCP.synthesizeRecordingServerSide(jvmId, 1_000L, 2_000L));
+        assertTrue(ex.getMessage().contains(jvmId));
+    }
+
+    @Test
+    void testSynthesizeRecordingServerSideThrowsOnUnexpectedStatus() {
+        String jvmId = "jvm-001";
+        Response response = mock(Response.class);
+        when(response.getStatus()).thenReturn(500);
+        when(restClient.synthesizeRecording(eq(jvmId), anyLong(), anyLong())).thenReturn(response);
+
+        IOException ex =
+                assertThrows(
+                        IOException.class,
+                        () -> cryostatMCP.synthesizeRecordingServerSide(jvmId, 1_000L, 2_000L));
+        assertTrue(ex.getMessage().contains("500"));
+    }
+
+    @Test
+    void testSynthesizeRecordingServerSideConvertsMillisecondsToSeconds() throws Exception {
+        String jvmId = "jvm-001";
+        ArchivedRecordingDescriptor expected =
+                new ArchivedRecordingDescriptor(jvmId, "rec.jfr", null, null, null, 0L, 0L);
+        Response response = mock(Response.class);
+        when(response.getStatus()).thenReturn(200);
+        when(response.readEntity(ArchivedRecordingDescriptor.class)).thenReturn(expected);
+        when(restClient.synthesizeRecording(eq(jvmId), eq(10L), eq(20L))).thenReturn(response);
+
+        cryostatMCP.synthesizeRecordingServerSide(jvmId, 10_000L, 20_000L);
+
+        verify(restClient).synthesizeRecording(jvmId, 10L, 20L);
+    }
+
+    @Test
     void testQueryExampleRecord() {
         String description = "Test description";
         String query = "SELECT * FROM test";

@@ -52,6 +52,7 @@ import io.cryostat.mcp.model.graphql.TargetNodeForStop;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 
 public class CryostatMCP {
 
@@ -408,6 +409,44 @@ public class CryostatMCP {
                                         "Uploaded recording not found: " + filename));
     }
 
+    public ArchivedRecordingDescriptor synthesizeRecordingServerSide(
+            String jvmId, long fromMs, long toMs) throws IOException {
+        long fromSeconds = fromMs / 1000L;
+        long toSeconds = toMs / 1000L;
+        Response response = rest.synthesizeRecording(jvmId, fromSeconds, toSeconds);
+        int status = response.getStatus();
+        if (status == 200) {
+            return response.readEntity(ArchivedRecordingDescriptor.class);
+        }
+        if (status == 400) {
+            throw new IOException(
+                    "No archived recording candidates found on server for jvmId: " + jvmId);
+        }
+        if (status != 202) {
+            throw new IOException(
+                    "Unexpected response from server-side synthesis for jvmId "
+                            + jvmId
+                            + ": HTTP "
+                            + status);
+        }
+        String jobId = response.readEntity(String.class).trim();
+        SynthesisNotificationListener listener = new SynthesisNotificationListener();
+        WebSocket webSocket = connectNotifications(listener);
+        try {
+            String recordingName = listener.awaitJob(jobId, REPORT_NOTIFICATION_TIMEOUT);
+            return listTargetArchivedRecordings(jvmId).stream()
+                    .flatMap(dir -> dir.recordings().stream())
+                    .filter(r -> r.name().equals(recordingName))
+                    .findFirst()
+                    .orElseThrow(
+                            () ->
+                                    new NoSuchElementException(
+                                            "Synthesized recording not found: " + recordingName));
+        } finally {
+            closeWebSocket(webSocket);
+        }
+    }
+
     public List<List<String>> executeQuery(String jvmId, String filename, String query) {
         return rest.executeQuery(jvmId, filename, query);
     }
@@ -541,7 +580,7 @@ public class CryostatMCP {
         }
     }
 
-    private WebSocket connectNotifications(ReportNotificationListener listener) throws IOException {
+    private WebSocket connectNotifications(WebSocket.Listener listener) throws IOException {
         URI notificationsUri = notificationsUri();
         var builder = httpClient.newWebSocketBuilder();
         String authorizationHeader = normalizeHeader(this.authorizationHeader.get());
@@ -572,6 +611,86 @@ public class CryostatMCP {
             throw new IOException("Interrupted while closing notifications WebSocket", e);
         } catch (ExecutionException | TimeoutException e) {
             throw new IOException("Failed to close notifications WebSocket", e);
+        }
+    }
+
+    private final class SynthesisNotificationListener implements WebSocket.Listener {
+        private final CompletableFuture<String> result = new CompletableFuture<>();
+        private final StringBuilder text = new StringBuilder();
+        private volatile String awaitedJobId;
+
+        @Override
+        public void onOpen(WebSocket webSocket) {
+            webSocket.request(1);
+            WebSocket.Listener.super.onOpen(webSocket);
+        }
+
+        @Override
+        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+            text.append(data);
+            if (last) {
+                handleMessage(text.toString());
+                text.setLength(0);
+            }
+            webSocket.request(1);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public void onError(WebSocket webSocket, Throwable error) {
+            result.completeExceptionally(error);
+        }
+
+        String awaitJob(String jobId, Duration timeout) throws IOException {
+            awaitedJobId = jobId;
+            try {
+                return result.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while awaiting synthesis notification", e);
+            } catch (ExecutionException e) {
+                throw new IOException("Failed while awaiting synthesis notification", e.getCause());
+            } catch (TimeoutException e) {
+                throw new IOException(
+                        "Timed out awaiting synthesis notification for job: " + jobId, e);
+            }
+        }
+
+        private void handleMessage(String json) {
+            try {
+                Map<?, ?> payload = mapper.readValue(json, Map.class);
+                Object metaObj = payload.get("meta");
+                Object messageObj = payload.get("message");
+                if (!(metaObj instanceof Map<?, ?> meta)
+                        || !(messageObj instanceof Map<?, ?> message)) {
+                    return;
+                }
+                Object categoryObj = meta.get("category");
+                Object jobIdObj = message.get("jobId");
+                if (!(categoryObj instanceof String category)
+                        || !(jobIdObj instanceof String jobId)
+                        || !jobId.equals(awaitedJobId)) {
+                    return;
+                }
+                if ("RecordingSynthesisComplete".equals(category)) {
+                    Object recordingObj = message.get("recording");
+                    if (recordingObj instanceof Map<?, ?> recording) {
+                        Object nameObj = recording.get("name");
+                        if (nameObj instanceof String name) {
+                            result.complete(name);
+                            return;
+                        }
+                    }
+                    result.completeExceptionally(
+                            new IOException("Missing recording name in synthesis notification"));
+                } else if ("RecordingSynthesisFailure".equals(category)) {
+                    result.completeExceptionally(
+                            new IOException(
+                                    "Server-side recording synthesis failed for job: " + jobId));
+                }
+            } catch (JsonProcessingException e) {
+                // ignore unrelated or malformed notifications
+            }
         }
     }
 

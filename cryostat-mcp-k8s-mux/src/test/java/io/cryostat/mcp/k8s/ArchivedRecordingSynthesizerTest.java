@@ -30,6 +30,7 @@ import java.util.Date;
 import java.util.List;
 
 import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.CryostatVersion;
 import io.cryostat.mcp.k8s.PodNameResolver.TargetInfo;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.ArchivedRecordingDirectory;
@@ -43,8 +44,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ArchivedRecordingSynthesizerTest {
 
     @Mock private CryostatMCPInstanceManager instanceManager;
@@ -69,6 +73,18 @@ class ArchivedRecordingSynthesizerTest {
         synthesizer.log = log;
         synthesizer.tempDir = Path.of("/tmp/cryostat-mcp-synthetic-test");
         when(instanceManager.createInstance(NAMESPACE)).thenReturn(mcp);
+        stubServerVersion("4.2.1");
+    }
+
+    private void stubServerVersion(String version) {
+        when(mcp.getServerVersion()).thenReturn(CryostatVersion.parse(version));
+        for (io.cryostat.mcp.CryostatFeature feature : io.cryostat.mcp.CryostatFeature.values()) {
+            boolean supported =
+                    CryostatVersion.parse(version)
+                            .map(v -> v.isAtLeast(feature.minimumVersion()))
+                            .orElse(false);
+            when(mcp.supports(feature)).thenReturn(supported);
+        }
     }
 
     @Test
@@ -213,6 +229,48 @@ class ArchivedRecordingSynthesizerTest {
                         anyString(),
                         any(File.class),
                         argThat(labels -> String.valueOf(start1).equals(labels.get("startTime"))));
+    }
+
+    @Test
+    void testThrowsUnsupportedOperationWhenServerVersionTooOld() {
+        stubServerVersion("4.2.0");
+
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> synthesizer.synthesize(NAMESPACE, TARGET, new Date(1000L), new Date(2000L)));
+        verify(mcp, never()).listTargetArchivedRecordings(any());
+    }
+
+    @Test
+    void testDelegatesToServerSynthesisWhenVersionAtLeast430()
+            throws UnsatisfiableRangeException, IOException {
+        stubServerVersion("4.3.0");
+        ArchivedRecordingDescriptor syntheticRec = recording("synthetic.jfr", 500L, 2000L);
+        when(mcp.synthesizeRecordingServerSide(JVM_ID, 1000L, 2000L)).thenReturn(syntheticRec);
+
+        ArchivedRecordingDescriptor result =
+                synthesizer.synthesize(NAMESPACE, TARGET, new Date(1000L), new Date(2000L));
+
+        assertSame(syntheticRec, result);
+        verify(mcp).synthesizeRecordingServerSide(JVM_ID, 1000L, 2000L);
+        verify(mcp, never()).listTargetArchivedRecordings(any());
+        verify(mcp, never()).downloadArchivedRecording(any(), any());
+        verify(mcp, never()).uploadArchivedRecording(any(), any(), any(), any());
+    }
+
+    @Test
+    void testLocalSynthesisPathUsedWhenVersionIn421To430()
+            throws UnsatisfiableRangeException, IOException {
+        stubServerVersion("4.2.2");
+        ArchivedRecordingDescriptor rec = recording("rec1.jfr", 500L, 2000L);
+        when(mcp.listTargetArchivedRecordings(JVM_ID)).thenReturn(List.of(dir(JVM_ID, rec)));
+
+        ArchivedRecordingDescriptor result =
+                synthesizer.synthesize(NAMESPACE, TARGET, new Date(1000L), new Date(2000L));
+
+        assertSame(rec, result);
+        verify(mcp).listTargetArchivedRecordings(JVM_ID);
+        verify(mcp, never()).synthesizeRecordingServerSide(any(), anyLong(), anyLong());
     }
 
     private static ArchivedRecordingDescriptor recording(

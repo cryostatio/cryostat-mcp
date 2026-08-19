@@ -37,6 +37,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 public interface CryostatRESTClient {
 
@@ -123,4 +124,11 @@ public interface CryostatRESTClient {
     @Path("/api/beta/recording_analytics/{jvmId}/{filename}")
     List<List<String>> executeQuery(
             String jvmId, String filename, @FormParam("query") String query);
+
+    @POST
+    @Path("/api/beta/recording_synthesis/{jvmId}")
+    Response synthesizeRecording(
+            @PathParam("jvmId") String jvmId,
+            @QueryParam("fromTimestamp") long fromTimestamp,
+            @QueryParam("toTimestamp") long toTimestamp);
 }

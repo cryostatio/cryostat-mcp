@@ -28,7 +28,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import io.cryostat.mcp.CryostatFeature;
 import io.cryostat.mcp.CryostatMCP;
+import io.cryostat.mcp.CryostatVersion;
 import io.cryostat.mcp.k8s.PodNameResolver.TargetInfo;
 import io.cryostat.mcp.model.ArchivedRecordingDescriptor;
 import io.cryostat.mcp.model.KeyValue;
@@ -67,6 +69,19 @@ public class ArchivedRecordingSynthesizer {
             String namespace, TargetInfo target, Date fromTimestamp, Date toTimestamp)
             throws UnsatisfiableRangeException, IOException {
         CryostatMCP mcp = instanceManager.createInstance(namespace);
+
+        CryostatVersion minSynthesisVersion = CryostatVersion.parse("4.2.1").orElseThrow();
+        boolean atLeast421 =
+                mcp.getServerVersion().map(v -> v.isAtLeast(minSynthesisVersion)).orElse(false);
+        if (!atLeast421) {
+            throw new UnsupportedOperationException(
+                    "Recording synthesis requires Cryostat >= 4.2.1");
+        }
+
+        if (mcp.supports(CryostatFeature.RECORDING_SYNTHESIS)) {
+            return mcp.synthesizeRecordingServerSide(
+                    target.jvmId(), fromTimestamp.getTime(), toTimestamp.getTime());
+        }
 
         List<ArchivedRecordingDescriptor> candidates =
                 mcp.listTargetArchivedRecordings(target.jvmId()).stream()
