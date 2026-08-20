@@ -361,22 +361,22 @@ public class CryostatMCP {
                                                 "Archived recording not found: " + filename))
                         .reportUrl();
         URI resolvedReportUri = resolveUri(reportUrl);
-        ReportNotificationListener listener = new ReportNotificationListener();
+        HttpResponse<String> response = sendStringGet(resolvedReportUri);
+        if (response.statusCode() == 200) {
+            return response.body();
+        }
+        if (response.statusCode() != 202) {
+            throw new IOException(
+                    "Unexpected response while fetching report for "
+                            + filename
+                            + ": HTTP "
+                            + response.statusCode());
+        }
+        String jobId = response.body().trim();
+        ReportNotificationListener listener = new ReportNotificationListener(jobId);
         WebSocket webSocket = connectNotifications(listener);
         try {
-            HttpResponse<String> response = sendStringGet(resolvedReportUri);
-            if (response.statusCode() == 200) {
-                return response.body();
-            }
-            if (response.statusCode() != 202) {
-                throw new IOException(
-                        "Unexpected response while fetching report for "
-                                + filename
-                                + ": HTTP "
-                                + response.statusCode());
-            }
-            String jobId = response.body().trim();
-            boolean success = listener.awaitJob(jobId, REPORT_NOTIFICATION_TIMEOUT);
+            boolean success = listener.awaitJob(REPORT_NOTIFICATION_TIMEOUT);
             if (!success) {
                 throw new IOException("Report generation failed for: " + filename);
             }
@@ -413,27 +413,29 @@ public class CryostatMCP {
             String jvmId, long fromMs, long toMs) throws IOException {
         long fromSeconds = fromMs / 1000L;
         long toSeconds = toMs / 1000L;
-        Response response = rest.synthesizeRecording(jvmId, fromSeconds, toSeconds);
-        int status = response.getStatus();
-        if (status == 200) {
-            return response.readEntity(ArchivedRecordingDescriptor.class);
+        String jobId;
+        try (Response response = rest.synthesizeRecording(jvmId, fromSeconds, toSeconds)) {
+            int status = response.getStatus();
+            if (status == 200) {
+                return response.readEntity(ArchivedRecordingDescriptor.class);
+            }
+            if (status == 400) {
+                throw new IOException(
+                        "No archived recording candidates found on server for jvmId: " + jvmId);
+            }
+            if (status != 202) {
+                throw new IOException(
+                        "Unexpected response from server-side synthesis for jvmId "
+                                + jvmId
+                                + ": HTTP "
+                                + status);
+            }
+            jobId = response.readEntity(String.class).trim();
         }
-        if (status == 400) {
-            throw new IOException(
-                    "No archived recording candidates found on server for jvmId: " + jvmId);
-        }
-        if (status != 202) {
-            throw new IOException(
-                    "Unexpected response from server-side synthesis for jvmId "
-                            + jvmId
-                            + ": HTTP "
-                            + status);
-        }
-        String jobId = response.readEntity(String.class).trim();
-        SynthesisNotificationListener listener = new SynthesisNotificationListener();
+        SynthesisNotificationListener listener = new SynthesisNotificationListener(jobId);
         WebSocket webSocket = connectNotifications(listener);
         try {
-            String recordingName = listener.awaitJob(jobId, REPORT_NOTIFICATION_TIMEOUT);
+            String recordingName = listener.awaitJob(REPORT_NOTIFICATION_TIMEOUT);
             return listTargetArchivedRecordings(jvmId).stream()
                     .flatMap(dir -> dir.recordings().stream())
                     .filter(r -> r.name().equals(recordingName))
@@ -588,12 +590,15 @@ public class CryostatMCP {
             builder.header("Authorization", authorizationHeader);
         }
         try {
-            return builder.buildAsync(notificationsUri, listener).get();
+            return builder.buildAsync(notificationsUri, listener)
+                    .get(REPORT_NOTIFICATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while connecting notifications WebSocket", e);
         } catch (ExecutionException e) {
             throw new IOException("Failed to connect notifications WebSocket", e.getCause());
+        } catch (TimeoutException e) {
+            throw new IOException("Timed out connecting notifications WebSocket", e);
         }
     }
 
@@ -617,7 +622,11 @@ public class CryostatMCP {
     private final class SynthesisNotificationListener implements WebSocket.Listener {
         private final CompletableFuture<String> result = new CompletableFuture<>();
         private final StringBuilder text = new StringBuilder();
-        private volatile String awaitedJobId;
+        private final String awaitedJobId;
+
+        SynthesisNotificationListener(String awaitedJobId) {
+            this.awaitedJobId = awaitedJobId;
+        }
 
         @Override
         public void onOpen(WebSocket webSocket) {
@@ -641,8 +650,7 @@ public class CryostatMCP {
             result.completeExceptionally(error);
         }
 
-        String awaitJob(String jobId, Duration timeout) throws IOException {
-            awaitedJobId = jobId;
+        String awaitJob(Duration timeout) throws IOException {
             try {
                 return result.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
@@ -652,7 +660,7 @@ public class CryostatMCP {
                 throw new IOException("Failed while awaiting synthesis notification", e.getCause());
             } catch (TimeoutException e) {
                 throw new IOException(
-                        "Timed out awaiting synthesis notification for job: " + jobId, e);
+                        "Timed out awaiting synthesis notification for job: " + awaitedJobId, e);
             }
         }
 
@@ -697,7 +705,11 @@ public class CryostatMCP {
     private final class ReportNotificationListener implements WebSocket.Listener {
         private final CompletableFuture<Boolean> result = new CompletableFuture<>();
         private final StringBuilder text = new StringBuilder();
-        private volatile String awaitedJobId;
+        private final String awaitedJobId;
+
+        ReportNotificationListener(String awaitedJobId) {
+            this.awaitedJobId = awaitedJobId;
+        }
 
         @Override
         public void onOpen(WebSocket webSocket) {
@@ -721,8 +733,7 @@ public class CryostatMCP {
             result.completeExceptionally(error);
         }
 
-        boolean awaitJob(String jobId, Duration timeout) throws IOException {
-            awaitedJobId = jobId;
+        boolean awaitJob(Duration timeout) throws IOException {
             try {
                 return result.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
@@ -732,7 +743,7 @@ public class CryostatMCP {
                 throw new IOException("Failed while awaiting report notification", e.getCause());
             } catch (TimeoutException e) {
                 throw new IOException(
-                        "Timed out awaiting report notification for job: " + jobId, e);
+                        "Timed out awaiting report notification for job: " + awaitedJobId, e);
             }
         }
 
