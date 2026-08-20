@@ -24,6 +24,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -35,6 +36,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 import io.cryostat.mcp.model.ActiveRecordingsFilter;
@@ -361,21 +363,22 @@ public class CryostatMCP {
                                                 "Archived recording not found: " + filename))
                         .reportUrl();
         URI resolvedReportUri = resolveUri(reportUrl);
-        HttpResponse<String> response = sendStringGet(resolvedReportUri);
-        if (response.statusCode() == 200) {
-            return response.body();
-        }
-        if (response.statusCode() != 202) {
-            throw new IOException(
-                    "Unexpected response while fetching report for "
-                            + filename
-                            + ": HTTP "
-                            + response.statusCode());
-        }
-        String jobId = response.body().trim();
-        ReportNotificationListener listener = new ReportNotificationListener(jobId);
+        ReportNotificationListener listener = new ReportNotificationListener();
         WebSocket webSocket = connectNotifications(listener);
         try {
+            HttpResponse<String> response = sendStringGet(resolvedReportUri);
+            if (response.statusCode() == 200) {
+                return response.body();
+            }
+            if (response.statusCode() != 202) {
+                throw new IOException(
+                        "Unexpected response while fetching report for "
+                                + filename
+                                + ": HTTP "
+                                + response.statusCode());
+            }
+            String jobId = response.body().trim();
+            listener.subscribeToJob(jobId);
             boolean success = listener.awaitJob(REPORT_NOTIFICATION_TIMEOUT);
             if (!success) {
                 throw new IOException("Report generation failed for: " + filename);
@@ -413,28 +416,28 @@ public class CryostatMCP {
             String jvmId, long fromMs, long toMs) throws IOException {
         long fromSeconds = fromMs / 1000L;
         long toSeconds = toMs / 1000L;
-        String jobId;
-        try (Response response = rest.synthesizeRecording(jvmId, fromSeconds, toSeconds)) {
-            int status = response.getStatus();
-            if (status == 200) {
-                return response.readEntity(ArchivedRecordingDescriptor.class);
-            }
-            if (status == 400) {
-                throw new IOException(
-                        "No archived recording candidates found on server for jvmId: " + jvmId);
-            }
-            if (status != 202) {
-                throw new IOException(
-                        "Unexpected response from server-side synthesis for jvmId "
-                                + jvmId
-                                + ": HTTP "
-                                + status);
-            }
-            jobId = response.readEntity(String.class).trim();
-        }
-        SynthesisNotificationListener listener = new SynthesisNotificationListener(jobId);
+        SynthesisNotificationListener listener = new SynthesisNotificationListener();
         WebSocket webSocket = connectNotifications(listener);
         try {
+            try (Response response = rest.synthesizeRecording(jvmId, fromSeconds, toSeconds)) {
+                int status = response.getStatus();
+                if (status == 200) {
+                    return response.readEntity(ArchivedRecordingDescriptor.class);
+                }
+                if (status == 400) {
+                    throw new IOException(
+                            "No archived recording candidates found on server for jvmId: " + jvmId);
+                }
+                if (status != 202) {
+                    throw new IOException(
+                            "Unexpected response from server-side synthesis for jvmId "
+                                    + jvmId
+                                    + ": HTTP "
+                                    + status);
+                }
+                String jobId = response.readEntity(String.class).trim();
+                listener.subscribeToJob(jobId);
+            }
             String recordingName = listener.awaitJob(REPORT_NOTIFICATION_TIMEOUT);
             return listTargetArchivedRecordings(jvmId).stream()
                     .flatMap(dir -> dir.recordings().stream())
@@ -589,15 +592,23 @@ public class CryostatMCP {
         if (authorizationHeader != null) {
             builder.header("Authorization", authorizationHeader);
         }
+        CompletableFuture<WebSocket> future = builder.buildAsync(notificationsUri, listener);
         try {
-            return builder.buildAsync(notificationsUri, listener)
-                    .get(REPORT_NOTIFICATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            return future.get(REPORT_NOTIFICATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
+            future.cancel(false);
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while connecting notifications WebSocket", e);
         } catch (ExecutionException e) {
             throw new IOException("Failed to connect notifications WebSocket", e.getCause());
         } catch (TimeoutException e) {
+            future.cancel(false);
+            future.whenComplete(
+                    (ws, t) -> {
+                        if (ws != null) {
+                            ws.abort();
+                        }
+                    });
             throw new IOException("Timed out connecting notifications WebSocket", e);
         }
     }
@@ -622,10 +633,24 @@ public class CryostatMCP {
     private final class SynthesisNotificationListener implements WebSocket.Listener {
         private final CompletableFuture<String> result = new CompletableFuture<>();
         private final StringBuilder text = new StringBuilder();
-        private final String awaitedJobId;
+        private final ReentrantLock lock = new ReentrantLock();
+        private final List<String> buffer = new ArrayList<>();
+        private String awaitedJobId;
 
-        SynthesisNotificationListener(String awaitedJobId) {
-            this.awaitedJobId = awaitedJobId;
+        void subscribeToJob(String jobId) {
+            lock.lock();
+            try {
+                this.awaitedJobId = jobId;
+                for (String buffered : buffer) {
+                    processMessage(buffered);
+                    if (result.isDone()) {
+                        break;
+                    }
+                }
+                buffer.clear();
+            } finally {
+                lock.unlock();
+            }
         }
 
         @Override
@@ -665,6 +690,19 @@ public class CryostatMCP {
         }
 
         private void handleMessage(String json) {
+            lock.lock();
+            try {
+                if (awaitedJobId == null) {
+                    buffer.add(json);
+                    return;
+                }
+                processMessage(json);
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        private void processMessage(String json) {
             try {
                 Map<?, ?> payload = mapper.readValue(json, Map.class);
                 Object metaObj = payload.get("meta");
@@ -705,10 +743,24 @@ public class CryostatMCP {
     private final class ReportNotificationListener implements WebSocket.Listener {
         private final CompletableFuture<Boolean> result = new CompletableFuture<>();
         private final StringBuilder text = new StringBuilder();
-        private final String awaitedJobId;
+        private final ReentrantLock lock = new ReentrantLock();
+        private final List<String> buffer = new ArrayList<>();
+        private String awaitedJobId;
 
-        ReportNotificationListener(String awaitedJobId) {
-            this.awaitedJobId = awaitedJobId;
+        void subscribeToJob(String jobId) {
+            lock.lock();
+            try {
+                this.awaitedJobId = jobId;
+                for (String buffered : buffer) {
+                    processMessage(buffered);
+                    if (result.isDone()) {
+                        break;
+                    }
+                }
+                buffer.clear();
+            } finally {
+                lock.unlock();
+            }
         }
 
         @Override
@@ -748,6 +800,19 @@ public class CryostatMCP {
         }
 
         private void handleMessage(String json) {
+            lock.lock();
+            try {
+                if (awaitedJobId == null) {
+                    buffer.add(json);
+                    return;
+                }
+                processMessage(json);
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        private void processMessage(String json) {
             try {
                 Map<?, ?> payload = mapper.readValue(json, Map.class);
                 Object metaObj = payload.get("meta");

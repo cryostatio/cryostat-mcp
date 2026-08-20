@@ -24,8 +24,11 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -1074,39 +1077,74 @@ class CryostatMCPTest {
         when(response.readEntity(ArchivedRecordingDescriptor.class)).thenReturn(expected);
         when(restClient.synthesizeRecording(eq(jvmId), eq(1L), eq(2L))).thenReturn(response);
 
-        ArchivedRecordingDescriptor result =
-                cryostatMCP.synthesizeRecordingServerSide(jvmId, 1_000L, 2_000L);
-
-        assertSame(expected, result);
-        verify(restClient).synthesizeRecording(jvmId, 1L, 2L);
+        HttpServer server = startMinimalWebSocketServer();
+        try {
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            null,
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            ArchivedRecordingDescriptor result =
+                    mcp.synthesizeRecordingServerSide(jvmId, 1_000L, 2_000L);
+            assertSame(expected, result);
+            verify(restClient).synthesizeRecording(jvmId, 1L, 2L);
+        } finally {
+            server.stop(0);
+        }
     }
 
     @Test
-    void testSynthesizeRecordingServerSideThrowsOn400() {
+    void testSynthesizeRecordingServerSideThrowsOn400() throws Exception {
         String jvmId = "jvm-001";
         Response response = mock(Response.class);
         when(response.getStatus()).thenReturn(400);
         when(restClient.synthesizeRecording(eq(jvmId), anyLong(), anyLong())).thenReturn(response);
 
-        IOException ex =
-                assertThrows(
-                        IOException.class,
-                        () -> cryostatMCP.synthesizeRecordingServerSide(jvmId, 1_000L, 2_000L));
-        assertTrue(ex.getMessage().contains(jvmId));
+        HttpServer server = startMinimalWebSocketServer();
+        try {
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            null,
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            IOException ex =
+                    assertThrows(
+                            IOException.class,
+                            () -> mcp.synthesizeRecordingServerSide(jvmId, 1_000L, 2_000L));
+            assertTrue(ex.getMessage().contains(jvmId));
+        } finally {
+            server.stop(0);
+        }
     }
 
     @Test
-    void testSynthesizeRecordingServerSideThrowsOnUnexpectedStatus() {
+    void testSynthesizeRecordingServerSideThrowsOnUnexpectedStatus() throws Exception {
         String jvmId = "jvm-001";
         Response response = mock(Response.class);
         when(response.getStatus()).thenReturn(500);
         when(restClient.synthesizeRecording(eq(jvmId), anyLong(), anyLong())).thenReturn(response);
 
-        IOException ex =
-                assertThrows(
-                        IOException.class,
-                        () -> cryostatMCP.synthesizeRecordingServerSide(jvmId, 1_000L, 2_000L));
-        assertTrue(ex.getMessage().contains("500"));
+        HttpServer server = startMinimalWebSocketServer();
+        try {
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            null,
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            IOException ex =
+                    assertThrows(
+                            IOException.class,
+                            () -> mcp.synthesizeRecordingServerSide(jvmId, 1_000L, 2_000L));
+            assertTrue(ex.getMessage().contains("500"));
+        } finally {
+            server.stop(0);
+        }
     }
 
     @Test
@@ -1119,9 +1157,20 @@ class CryostatMCPTest {
         when(response.readEntity(ArchivedRecordingDescriptor.class)).thenReturn(expected);
         when(restClient.synthesizeRecording(eq(jvmId), eq(10L), eq(20L))).thenReturn(response);
 
-        cryostatMCP.synthesizeRecordingServerSide(jvmId, 10_000L, 20_000L);
-
-        verify(restClient).synthesizeRecording(jvmId, 10L, 20L);
+        HttpServer server = startMinimalWebSocketServer();
+        try {
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://localhost:" + server.getAddress().getPort()),
+                            null,
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            mcp.synthesizeRecordingServerSide(jvmId, 10_000L, 20_000L);
+            verify(restClient).synthesizeRecording(jvmId, 10L, 20L);
+        } finally {
+            server.stop(0);
+        }
     }
 
     @Test
@@ -1146,6 +1195,39 @@ class CryostatMCPTest {
         exchange.sendResponseHeaders(200, bytes.length);
         try (var out = exchange.getResponseBody()) {
             out.write(bytes);
+        }
+    }
+
+    private static HttpServer startMinimalWebSocketServer() throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext(
+                "/api/notifications",
+                exchange -> {
+                    String key = exchange.getRequestHeaders().getFirst("Sec-WebSocket-Key");
+                    if (key == null) {
+                        exchange.sendResponseHeaders(400, -1);
+                        exchange.close();
+                        return;
+                    }
+                    String accept = computeWebSocketAccept(key);
+                    exchange.getResponseHeaders().add("Upgrade", "websocket");
+                    exchange.getResponseHeaders().add("Connection", "Upgrade");
+                    exchange.getResponseHeaders().add("Sec-WebSocket-Accept", accept);
+                    exchange.sendResponseHeaders(101, -1);
+                    exchange.close();
+                });
+        server.start();
+        return server;
+    }
+
+    private static String computeWebSocketAccept(String key) {
+        try {
+            String combined = key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+            MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+            byte[] digest = sha1.digest(combined.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-1 not available", e);
         }
     }
 }
