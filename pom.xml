@@ -24,7 +24,7 @@
         <quarkus.mcp.extension.version>1.13.1</quarkus.mcp.extension.version>
         <com.diffplug.spotless.maven.plugin.version>3.8.0</com.diffplug.spotless.maven.plugin.version>
         <com.google.java-format.version>1.35.0</com.google.java-format.version>
-        <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
+        <com.mycila.license.maven.plugin.version>5.1.2</com.mycila.license.maven.plugin.version>
         <com.google.java-format.version>1.28.0</com.google.java-format.version>
         <surefire-plugin.version>3.5.6</surefire-plugin.version>
     </properties>
