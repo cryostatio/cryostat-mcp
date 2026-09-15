@@ -64,7 +64,7 @@ jobs:
         ref: ${{ github.event.pull_request.head.ref }}
     - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
       with:
-        java-version: '25'
+        java-version: '25.0.4+101.0.LTS'
         distribution: 'temurin'
     - uses: skjolber/maven-cache-github-action@c4a30022e05fa8a86dde82cd8c1e49420d4a45dd # v3.1.2
       with:
