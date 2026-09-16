@@ -248,10 +248,29 @@ Configure via Helm values. Key configuration parameters:
 | `service.port` | `8080` | Service port |
 | `env.logLevel` | `INFO` | Global log level |
 | `env.k8sLogLevel` | `DEBUG` | k8s-multi-mcp log level |
+| `env.allowInsecureCredentials` | `false` | Send Cryostat credentials over cleartext `http://`/`ws://` to non-loopback hosts |
 | `route.enabled` | `false` | Enable OpenShift Route |
 | `ingress.enabled` | `false` | Enable Kubernetes Ingress |
 
 For a complete list of configuration options, see [`chart/README.md`](chart/README.md) or [`chart/values.yaml`](chart/values.yaml).
+
+### Credentials and Transport Security
+
+Credentials - the per-invocation passthrough token or the static
+`auth.authorizationHeader` - are forwarded to Cryostat on every REST, GraphQL, and
+notifications WebSocket request. Requests that carry a credential are refused unless the connection
+is `https://`/`wss://` or targets a loopback host, so that the credential is not exposed on the
+wire.
+
+This matters for discovery: the Cryostat instance URL comes from the CR's
+`status.applicationUrl`, or is derived from the Cryostat Service, in which case it is only
+`https://` when the Service port sets `appProtocol: https`. An instance discovered at
+`http://cryostat.my-namespace.svc:8181` will therefore reject credentialed requests with an error
+naming that URL.
+
+To keep using a cleartext in-cluster URL, either give the Cryostat Service port
+`appProtocol: https`, or set `CRYOSTAT_ALLOW_INSECURE_CREDENTIALS=true` on the k8s-multi-mcp
+deployment to accept the exposure. Instances accessed without credentials are unaffected.
 
 ### Customizing the Deployment
 

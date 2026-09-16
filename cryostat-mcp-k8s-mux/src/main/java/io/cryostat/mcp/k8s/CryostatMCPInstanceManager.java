@@ -152,7 +152,8 @@ public class CryostatMCPInstanceManager {
         AuthorizationAwareGraphQLClient.Delegate delegate =
                 newGraphQLClientBuilder(graphqlEndpoint)
                         .build(AuthorizationAwareGraphQLClient.Delegate.class);
-        return new AuthorizationAwareGraphQLClient(delegate, this::getAuthorizationHeader);
+        return new AuthorizationAwareGraphQLClient(
+                delegate, this::getAuthorizationHeader, URI.create(graphqlEndpoint));
     }
 
     private TypesafeGraphQLClientBuilder newGraphQLClientBuilder(String graphqlEndpoint) {

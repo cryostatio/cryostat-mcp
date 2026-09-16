@@ -149,6 +149,7 @@ takes precedence for that tool invocation.
 | `env.k8sLogLevel` | k8s-multi-mcp specific log level | `DEBUG` |
 | `env.trustCerts` | Trust cluster certificates | `true` |
 | `env.trustAllTls` | Trust all TLS certificates | `true` |
+| `env.allowInsecureCredentials` | Send Cryostat credentials over cleartext `http://`/`ws://` to non-loopback hosts | `false` |
 
 ### OpenShift Route Configuration
 

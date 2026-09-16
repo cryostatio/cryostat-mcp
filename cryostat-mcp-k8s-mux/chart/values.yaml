@@ -130,6 +130,12 @@ env:
   # Set to true only in development/test environments with self-signed certificates
   trustAllTls: false
 
+  # Allow Cryostat credentials to be sent over cleartext http:// / ws:// connections to
+  # non-loopback hosts. Credentialed requests to such URLs are refused by default, since the
+  # credential would be exposed to anything observing the network path. Set to true only if
+  # Cryostat is reachable solely over a cleartext in-cluster URL and that exposure is acceptable.
+  allowInsecureCredentials: false
+
   # MCP tool level configuration
   # Controls which tools are exposed by the MCP server
   # Options: ALL (default), LOW, HIGH

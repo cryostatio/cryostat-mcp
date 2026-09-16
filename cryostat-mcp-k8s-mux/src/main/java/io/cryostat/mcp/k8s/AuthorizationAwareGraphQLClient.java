@@ -15,10 +15,12 @@
  */
 package io.cryostat.mcp.k8s;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import io.cryostat.mcp.CredentialTransportPolicy;
 import io.cryostat.mcp.model.ActiveRecordingsFilter;
 import io.cryostat.mcp.model.DiscoveryNodeFilter;
 import io.cryostat.mcp.model.graphql.DiscoveryNode;
@@ -54,10 +56,13 @@ class AuthorizationAwareGraphQLClient implements CryostatGraphQLClientImpl {
 
     private final Delegate delegate;
     private final Supplier<String> authorizationHeader;
+    private final URI endpoint;
 
-    AuthorizationAwareGraphQLClient(Delegate delegate, Supplier<String> authorizationHeader) {
+    AuthorizationAwareGraphQLClient(
+            Delegate delegate, Supplier<String> authorizationHeader, URI endpoint) {
         this.delegate = Objects.requireNonNull(delegate);
         this.authorizationHeader = Objects.requireNonNull(authorizationHeader);
+        this.endpoint = Objects.requireNonNull(endpoint);
     }
 
     @Override
@@ -77,6 +82,8 @@ class AuthorizationAwareGraphQLClient implements CryostatGraphQLClientImpl {
     }
 
     private String normalizeHeader() {
-        return StringUtils.stripToNull(authorizationHeader.get());
+        String header = StringUtils.stripToNull(authorizationHeader.get());
+        CredentialTransportPolicy.requireSecureTransportUnchecked(endpoint, header);
+        return header;
     }
 }

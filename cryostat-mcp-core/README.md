@@ -105,6 +105,25 @@ Configure the server using environment variables:
 | `QUARKUS_TLS_NOTLS_TRUST_ALL` | No | Disable TLS verification (dev only) | `true` |
 | `QUARKUS_REST_CLIENT_CRYOSTAT_VERIFY_HOST` | No | Verify TLS hostname | `false` (dev only) |
 | `QUARKUS_REST_CLIENT_CRYOSTAT_TLS_CONFIGURATION_NAME` | No | TLS configuration name | `notls` (dev only) |
+| `CRYOSTAT_ALLOW_INSECURE_CREDENTIALS` | No | Permit sending credentials over cleartext `http://`/`ws://` to a non-loopback host | `true` (not recommended) |
+
+### Credentials and Transport Security
+
+`CRYOSTAT_AUTH_VALUE` is attached to every REST, GraphQL, and notifications WebSocket request. To
+keep it from being exposed on the wire, requests that carry a credential are refused unless the
+connection is one of:
+
+- `https://` or `wss://`, or
+- cleartext to a loopback host (`localhost`, `127.0.0.0/8`, `::1`), where the traffic never leaves
+  the machine.
+
+Any other cleartext connection - for example `http://cryostat.my-namespace.svc:8181` - fails with an
+error naming the URL. Endpoints used **without** credentials are unaffected and may still be plain
+`http://`.
+
+Set `CRYOSTAT_ALLOW_INSECURE_CREDENTIALS=true` (or `-Dcryostat.mcp.allow-insecure-credentials=true`)
+to send credentials over such a connection anyway. This exposes the credential to anything able to
+observe the network path; prefer configuring Cryostat with TLS.
 
 ### Authentication
 

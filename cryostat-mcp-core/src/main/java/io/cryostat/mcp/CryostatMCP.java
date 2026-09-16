@@ -62,6 +62,8 @@ public class CryostatMCP {
     static final long ARCHIVE_INITIAL_DELAY_MS = 3_000L;
     static final long ARCHIVE_RETRY_DELAY_MS = 5_000L;
     static final Duration REPORT_NOTIFICATION_TIMEOUT = Duration.ofSeconds(30);
+    static final String ALLOW_INSECURE_CREDENTIALS_PROPERTY =
+            CredentialTransportPolicy.ALLOW_INSECURE_CREDENTIALS_PROPERTY;
 
     private final CryostatRESTClient rest;
     private final CryostatGraphQLClient graphql;
@@ -325,6 +327,14 @@ public class CryostatMCP {
         return stripped.isEmpty() ? null : stripped;
     }
 
+    /**
+     * Refuse to send an {@code Authorization} header over a cleartext transport. See {@link
+     * CredentialTransportPolicy} for the policy applied here and by the REST and GraphQL clients.
+     */
+    void requireSecureTransportForCredentials(URI uri, String credential) throws IOException {
+        CredentialTransportPolicy.requireSecureTransport(uri, credential);
+    }
+
     public InputStream downloadArchivedRecording(String jvmId, String filename) throws IOException {
         String downloadUrl =
                 listTargetArchivedRecordings(jvmId).stream()
@@ -336,9 +346,11 @@ public class CryostatMCP {
                                         new NoSuchElementException(
                                                 "Archived recording not found: " + filename))
                         .downloadUrl();
-        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(resolveUri(downloadUrl)).GET();
-        String authorizationHeader = this.authorizationHeader.get();
-        if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
+        URI resolvedDownloadUri = resolveUri(downloadUrl);
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(resolvedDownloadUri).GET();
+        String authorizationHeader = normalizeHeader(this.authorizationHeader.get());
+        requireSecureTransportForCredentials(resolvedDownloadUri, authorizationHeader);
+        if (authorizationHeader != null) {
             requestBuilder.header("Authorization", authorizationHeader);
         }
         try {
@@ -574,6 +586,7 @@ public class CryostatMCP {
     HttpResponse<String> sendStringGet(URI uri) throws IOException {
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(uri).GET();
         String authorizationHeader = normalizeHeader(this.authorizationHeader.get());
+        requireSecureTransportForCredentials(uri, authorizationHeader);
         if (authorizationHeader != null) {
             requestBuilder.header("Authorization", authorizationHeader);
         }
@@ -589,6 +602,7 @@ public class CryostatMCP {
         URI notificationsUri = notificationsUri();
         var builder = httpClient.newWebSocketBuilder();
         String authorizationHeader = normalizeHeader(this.authorizationHeader.get());
+        requireSecureTransportForCredentials(notificationsUri, authorizationHeader);
         if (authorizationHeader != null) {
             builder.header("Authorization", authorizationHeader);
         }

@@ -60,6 +60,10 @@ spec:
             - name: QUARKUS_TLS_NOTLS_HOSTNAME_VERIFICATION_ALGORITHM
               value: {{ if eq (.Values.env.trustAllTls | toString) "true" }}"NONE"{{ else }}"HTTPS"{{ end }}
 
+            # Permit sending Cryostat credentials over cleartext connections to non-loopback hosts
+            - name: CRYOSTAT_ALLOW_INSECURE_CREDENTIALS
+              value: {{ .Values.env.allowInsecureCredentials | default false | quote }}
+
           {{- if or .Values.auth.authorizationHeader .Values.auth.existingSecret }}
             # Optional static Authorization header for Cryostat instances. Per-invocation
             # Cryostat-Authorization headers take precedence when supplied by an MCP client.

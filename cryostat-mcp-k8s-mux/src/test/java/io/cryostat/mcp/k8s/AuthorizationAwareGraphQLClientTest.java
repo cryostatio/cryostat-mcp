@@ -15,8 +15,13 @@
  */
 package io.cryostat.mcp.k8s;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.net.URI;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.cryostat.mcp.model.ActiveRecordingsFilter;
@@ -30,6 +35,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class AuthorizationAwareGraphQLClientTest {
 
+    private static final URI SECURE_ENDPOINT =
+            URI.create("https://cryostat.namespace.svc:8181/api/v4/graphql");
+
     @Mock AuthorizationAwareGraphQLClient.Delegate delegate;
     @Mock DiscoveryNodeFilter filter;
     @Mock ActiveRecordingsFilter recordingsFilter;
@@ -39,7 +47,8 @@ class AuthorizationAwareGraphQLClientTest {
         AtomicReference<String> authorizationHeader =
                 new AtomicReference<>("Bearer per-invocation-token");
         AuthorizationAwareGraphQLClient client =
-                new AuthorizationAwareGraphQLClient(delegate, authorizationHeader::get);
+                new AuthorizationAwareGraphQLClient(
+                        delegate, authorizationHeader::get, SECURE_ENDPOINT);
 
         client.targetNodes(filter, false);
 
@@ -59,7 +68,8 @@ class AuthorizationAwareGraphQLClientTest {
     @Test
     void stripsTrailingNewlineFromHeaderForTargetNodes() {
         AuthorizationAwareGraphQLClient client =
-                new AuthorizationAwareGraphQLClient(delegate, () -> "Bearer token-with-newline\n");
+                new AuthorizationAwareGraphQLClient(
+                        delegate, () -> "Bearer token-with-newline\n", SECURE_ENDPOINT);
 
         client.targetNodes(filter, false);
 
@@ -69,7 +79,8 @@ class AuthorizationAwareGraphQLClientTest {
     @Test
     void stripsTrailingCarriageReturnNewlineFromHeaderForEnvironmentNodes() {
         AuthorizationAwareGraphQLClient client =
-                new AuthorizationAwareGraphQLClient(delegate, () -> "Bearer token-with-crlf\r\n");
+                new AuthorizationAwareGraphQLClient(
+                        delegate, () -> "Bearer token-with-crlf\r\n", SECURE_ENDPOINT);
 
         client.environmentNodes(filter);
 
@@ -79,7 +90,8 @@ class AuthorizationAwareGraphQLClientTest {
     @Test
     void stripsTrailingNewlineFromHeaderForTargetNodesWithRecordingsFilter() {
         AuthorizationAwareGraphQLClient client =
-                new AuthorizationAwareGraphQLClient(delegate, () -> "Bearer token-with-newline\n");
+                new AuthorizationAwareGraphQLClient(
+                        delegate, () -> "Bearer token-with-newline\n", SECURE_ENDPOINT);
 
         client.targetNodes(filter, recordingsFilter);
 
@@ -89,7 +101,7 @@ class AuthorizationAwareGraphQLClientTest {
     @Test
     void passesNullToAllDelegateMethodsWhenSupplierReturnsNull() {
         AuthorizationAwareGraphQLClient client =
-                new AuthorizationAwareGraphQLClient(delegate, () -> null);
+                new AuthorizationAwareGraphQLClient(delegate, () -> null, SECURE_ENDPOINT);
 
         client.targetNodes(filter, false);
         client.environmentNodes(filter);
@@ -103,7 +115,7 @@ class AuthorizationAwareGraphQLClientTest {
     @Test
     void passesNullToAllDelegateMethodsWhenSupplierReturnsBlank() {
         AuthorizationAwareGraphQLClient client =
-                new AuthorizationAwareGraphQLClient(delegate, () -> "   \n  ");
+                new AuthorizationAwareGraphQLClient(delegate, () -> "   \n  ", SECURE_ENDPOINT);
 
         client.targetNodes(filter, false);
         client.environmentNodes(filter);
@@ -112,5 +124,36 @@ class AuthorizationAwareGraphQLClientTest {
         verify(delegate).targetNodes(filter, false, null);
         verify(delegate).environmentNodes(filter, null);
         verify(delegate).targetNodes(filter, recordingsFilter, null);
+    }
+
+    @Test
+    void refusesToSendCredentialsOverRemoteCleartextEndpoint() {
+        AuthorizationAwareGraphQLClient client =
+                new AuthorizationAwareGraphQLClient(
+                        delegate,
+                        () -> "Bearer secret-token",
+                        URI.create("http://cryostat.namespace.svc:8181/api/v4/graphql"));
+
+        IllegalStateException e =
+                assertThrows(IllegalStateException.class, () -> client.targetNodes(filter, false));
+
+        assertTrue(
+                e.getMessage().contains("Refusing to send Authorization credentials"),
+                e.getMessage());
+        assertFalse(e.getMessage().contains("secret-token"), e.getMessage());
+        verifyNoInteractions(delegate);
+    }
+
+    @Test
+    void queriesRemoteCleartextEndpointWithoutCredentials() {
+        AuthorizationAwareGraphQLClient client =
+                new AuthorizationAwareGraphQLClient(
+                        delegate,
+                        () -> null,
+                        URI.create("http://cryostat.namespace.svc:8181/api/v4/graphql"));
+
+        client.environmentNodes(filter);
+
+        verify(delegate).environmentNodes(filter, null);
     }
 }

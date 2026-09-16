@@ -20,6 +20,8 @@ Set the following environment variables:
 - `CRYOSTAT_URL`: Base URL of the Cryostat instance (default: `http://localhost:8181`)
 - `CRYOSTAT_AUTH`: Authorization header value (e.g., "Bearer token")
 - `CRYOSTAT_GRAPHQL_PATH`: GraphQL endpoint path (default: `/api/v4/graphql`)
+- `CRYOSTAT_ALLOW_INSECURE_CREDENTIALS`: Permit sending credentials over cleartext `http://`/`ws://`
+  to a non-loopback host (default: `false`)
 
 ### URL Configuration
 
@@ -35,6 +37,14 @@ This module uses **static authorization** from the `CRYOSTAT_AUTH` environment v
 
 - REST client: Uses `AuthorizationHeaderFactory` to inject the static authorization header
 - GraphQL client: Uses `GraphQLClientFactory` to create clients with the static authorization header
+
+#### Transport security
+
+When an authorization value is configured, `CRYOSTAT_URL` must be `https://` or point at a loopback
+host; otherwise the credential would be sent in cleartext and startup fails with an error naming the
+URL. The default `http://localhost:8181` is loopback and therefore allowed. Set
+`CRYOSTAT_ALLOW_INSECURE_CREDENTIALS=true` to override this and accept the exposure. Deployments that
+use no authorization value are unaffected.
 
 ## Building
 

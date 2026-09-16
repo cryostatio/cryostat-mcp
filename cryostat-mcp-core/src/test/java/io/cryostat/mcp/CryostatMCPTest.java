@@ -894,6 +894,120 @@ class CryostatMCPTest {
     }
 
     @Test
+    void credentialedRequestOverRemoteCleartextIsRefused() {
+        CryostatMCP mcp =
+                new CryostatMCP(
+                        URI.create("http://cryostat.example.com:8181"),
+                        "Bearer secret-token",
+                        restClient,
+                        graphqlClient,
+                        objectMapper);
+
+        IOException e =
+                assertThrows(
+                        IOException.class,
+                        () ->
+                                mcp.sendStringGet(
+                                        URI.create(
+                                                "http://cryostat.example.com:8181/api/v4/health")));
+        assertTrue(
+                e.getMessage().contains("Refusing to send Authorization credentials"),
+                e.getMessage());
+        assertFalse(e.getMessage().contains("secret-token"), e.getMessage());
+    }
+
+    @Test
+    void credentialedNotificationsConnectionOverRemoteCleartextIsRefused() {
+        String jvmId = "test-jvm-id";
+        String filename = "recording.jfr";
+        ArchivedRecordingDescriptor descriptor =
+                new ArchivedRecordingDescriptor(
+                        jvmId, filename, null, "/api/v4/reports/test", null, 0L, 0L);
+        when(restClient.targetArchivedRecordings(jvmId))
+                .thenReturn(
+                        List.of(new ArchivedRecordingDirectory(null, jvmId, List.of(descriptor))));
+        CryostatMCP mcp =
+                new CryostatMCP(
+                        URI.create("http://cryostat.example.com:8181"),
+                        "Bearer secret-token",
+                        restClient,
+                        graphqlClient,
+                        objectMapper);
+
+        IOException e =
+                assertThrows(IOException.class, () -> mcp.getArchivedReport(jvmId, filename));
+        assertTrue(
+                e.getMessage().contains("Refusing to send Authorization credentials"),
+                e.getMessage());
+        assertTrue(e.getMessage().contains("ws://cryostat.example.com:8181"), e.getMessage());
+    }
+
+    @Test
+    void unauthenticatedRequestOverRemoteCleartextIsAllowed() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext(
+                "/api/v4/health", exchange -> writeResponse(exchange, "{}", "application/json"));
+        server.start();
+        try {
+            // no credentials configured: nothing to leak, so cleartext stays supported
+            CryostatMCP mcp =
+                    new CryostatMCP(
+                            URI.create("http://127.0.0.1:" + server.getAddress().getPort()),
+                            null,
+                            restClient,
+                            graphqlClient,
+                            objectMapper);
+            assertEquals(
+                    200,
+                    mcp.sendStringGet(
+                                    URI.create(
+                                            "http://127.0.0.1:"
+                                                    + server.getAddress().getPort()
+                                                    + "/api/v4/health"))
+                            .statusCode());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void secureTransportsAndLoopbackCleartextCarryCredentials() {
+        assertDoesNotThrow(
+                () -> {
+                    cryostatMCP.requireSecureTransportForCredentials(
+                            URI.create("https://cryostat.example.com/api/v4/health"), "Bearer t");
+                    cryostatMCP.requireSecureTransportForCredentials(
+                            URI.create("wss://cryostat.example.com/api/notifications"), "Bearer t");
+                    cryostatMCP.requireSecureTransportForCredentials(
+                            URI.create("ws://localhost:8181/api/notifications"), "Bearer t");
+                    cryostatMCP.requireSecureTransportForCredentials(
+                            URI.create("http://127.0.0.1:8181/api/v4/health"), "Bearer t");
+                    cryostatMCP.requireSecureTransportForCredentials(
+                            URI.create("ws://[::1]:8181/api/notifications"), "Bearer t");
+                    // no credential to protect
+                    cryostatMCP.requireSecureTransportForCredentials(
+                            URI.create("ws://cryostat.example.com/api/notifications"), null);
+                });
+    }
+
+    @Test
+    void remoteCleartextWithCredentialsRequiresExplicitOptIn() throws Exception {
+        URI insecure = URI.create("ws://cryostat.namespace.svc:8181/api/notifications");
+
+        assertThrows(
+                IOException.class,
+                () -> cryostatMCP.requireSecureTransportForCredentials(insecure, "Bearer t"));
+
+        System.setProperty(CryostatMCP.ALLOW_INSECURE_CREDENTIALS_PROPERTY, "true");
+        try {
+            assertDoesNotThrow(
+                    () -> cryostatMCP.requireSecureTransportForCredentials(insecure, "Bearer t"));
+        } finally {
+            System.clearProperty(CryostatMCP.ALLOW_INSECURE_CREDENTIALS_PROPERTY);
+        }
+    }
+
+    @Test
     void testGetArchivedReportResolvesRelativeUrlAgainstBaseUri() throws Exception {
         String jvmId = "test-jvm-id";
         String filename = "recording.jfr";

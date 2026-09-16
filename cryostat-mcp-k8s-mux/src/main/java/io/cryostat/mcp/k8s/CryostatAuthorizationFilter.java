@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import io.cryostat.mcp.CredentialTransportPolicy;
+
 import jakarta.ws.rs.client.ClientRequestContext;
 import jakarta.ws.rs.client.ClientRequestFilter;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -37,6 +39,7 @@ class CryostatAuthorizationFilter implements ClientRequestFilter {
     public void filter(ClientRequestContext requestContext) throws IOException {
         String header = StringUtils.stripToNull(authorizationHeader.get());
         if (header != null) {
+            CredentialTransportPolicy.requireSecureTransport(requestContext.getUri(), header);
             requestContext.getHeaders().putSingle(HttpHeaders.AUTHORIZATION, header);
         }
     }
