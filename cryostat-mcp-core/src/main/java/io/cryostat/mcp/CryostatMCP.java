@@ -596,21 +596,31 @@ public class CryostatMCP {
         try {
             return future.get(REPORT_NOTIFICATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
-            future.cancel(false);
+            abandonConnect(future);
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while connecting notifications WebSocket", e);
         } catch (ExecutionException e) {
             throw new IOException("Failed to connect notifications WebSocket", e.getCause());
         } catch (TimeoutException e) {
-            future.cancel(false);
-            future.whenComplete(
-                    (ws, t) -> {
-                        if (ws != null) {
-                            ws.abort();
-                        }
-                    });
+            abandonConnect(future);
             throw new IOException("Timed out connecting notifications WebSocket", e);
         }
+    }
+
+    /**
+     * Give up on a pending WebSocket connection attempt, closing the connection if it does
+     * eventually succeed. The future is deliberately not cancelled: cancelling completes it
+     * immediately with a {@link java.util.concurrent.CancellationException}, so the later
+     * completion carrying the real WebSocket is discarded and its TCP connection is left open with
+     * no reference to abort it.
+     */
+    private static void abandonConnect(CompletableFuture<WebSocket> future) {
+        future.whenComplete(
+                (ws, t) -> {
+                    if (ws != null) {
+                        ws.abort();
+                    }
+                });
     }
 
     private URI notificationsUri() {
