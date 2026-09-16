@@ -17,6 +17,7 @@ package io.cryostat.mcp;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.regex.Pattern;
 
 /**
  * Decides whether an {@code Authorization} credential may be sent over a given connection.
@@ -37,6 +38,9 @@ public final class CredentialTransportPolicy {
             "cryostat.mcp.allow-insecure-credentials";
     public static final String ALLOW_INSECURE_CREDENTIALS_ENV =
             "CRYOSTAT_ALLOW_INSECURE_CREDENTIALS";
+
+    private static final Pattern IPV4_LOOPBACK =
+            Pattern.compile("^127(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$");
 
     private CredentialTransportPolicy() {}
 
@@ -91,7 +95,9 @@ public final class CredentialTransportPolicy {
                 host.startsWith("[") && host.endsWith("]")
                         ? host.substring(1, host.length() - 1)
                         : host;
-        return "localhost".equalsIgnoreCase(bare) || "::1".equals(bare) || bare.startsWith("127.");
+        return "localhost".equalsIgnoreCase(bare)
+                || "::1".equals(bare)
+                || IPV4_LOOPBACK.matcher(bare).matches();
     }
 
     private static boolean allowInsecureCredentials() {
