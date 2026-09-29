@@ -20,6 +20,7 @@ import java.text.ParseException;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import io.cryostat.mcp.CryostatMCP;
@@ -196,7 +197,10 @@ public class K8sOrientedTools {
                     "Get the automated analysis report for a JVM's archived Flight Recordings that"
                         + " intersect the given time range. If a single recording covers the range"
                         + " it is used directly; if multiple recordings intersect the range they"
-                        + " are synthesized into a single recording first.")
+                        + " are synthesized into a single recording first. If no range is given"
+                        + " this simply returns the most recent report from cache, or else triggers"
+                        + " a fresh on-demand analysis assuming that at least one active recording"
+                        + " is available.")
     @MetaField(
             prefix = ToolLevelFilter.TOOL_LEVEL_META_PREFIX,
             name = ToolLevelFilter.TOOL_LEVEL_META_NAME,
@@ -211,20 +215,29 @@ public class K8sOrientedTools {
             @ToolArg(description = "The podName of the application.", required = true)
                     String podName,
             @ToolArg(
-                            description = "Filter events after this timestamp (ISO 8601).",
-                            required = true)
-                    String fromTimestamp,
+                            description =
+                                    "Filter events after this timestamp (ISO 8601). Defaults to the"
+                                            + " Unix epoch.",
+                            required = false)
+                    Optional<String> fromTimestamp,
             @ToolArg(
-                            description = "Filter events before this timestamp (ISO 8601).",
-                            required = true)
-                    String toTimestamp)
+                            description =
+                                    "Filter events before this timestamp (ISO 8601). Defaults to"
+                                            + " now.",
+                            required = false)
+                    Optional<String> toTimestamp)
             throws IOException, UnsatisfiableRangeException {
-        Date from = Date.from(Instant.parse(fromTimestamp));
-        Date to = Date.from(Instant.parse(toTimestamp));
         CryostatMCP mcp = instanceManager.createInstance(namespace);
         TargetInfo target = podNameResolver.resolveTarget(namespace, podName);
-        ArchivedRecordingDescriptor recording = synthesizer.synthesize(namespace, target, from, to);
-        return mcp.getArchivedReport(target.jvmId(), recording.name());
+        boolean latest = fromTimestamp.isEmpty() && toTimestamp.isEmpty();
+        if (!latest) {
+            Date from = Date.from(fromTimestamp.map(Instant::parse).orElse(Instant.EPOCH));
+            Date to = Date.from(toTimestamp.map(Instant::parse).orElseGet(Instant::now));
+            ArchivedRecordingDescriptor recording =
+                    synthesizer.synthesize(namespace, target, from, to);
+            return mcp.getArchivedReport(target.jvmId(), recording.name());
+        }
+        return mcp.getTargetReport(target.targetId());
     }
 
     @Tool(

@@ -359,7 +359,7 @@ public class CryostatMCP {
             prefix = CryostatToolMetadata.META_PREFIX,
             name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
             value = CryostatServerVersions.V4_1)
-    public Object getTargetReport(
+    public String getTargetReport(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
         return rest.getTargetReport(targetId);
     }

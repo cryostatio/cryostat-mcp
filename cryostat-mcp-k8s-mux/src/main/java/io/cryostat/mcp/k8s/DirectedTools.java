@@ -395,7 +395,7 @@ public class DirectedTools {
             prefix = CryostatToolMetadata.META_PREFIX,
             name = CryostatToolMetadata.MIN_CRYOSTAT_VERSION_META_NAME,
             value = CryostatServerVersions.V4_1)
-    public Object getTargetReport(
+    public String getTargetReport(
             @ToolArg(description = "The namespace of the application.", required = true)
                     String namespace,
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {

@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 import io.cryostat.mcp.CryostatMCP;
 import io.cryostat.mcp.k8s.PodNameResolver.TargetInfo;
@@ -77,11 +78,50 @@ class K8sOrientedToolsTest {
         when(synthesizer.synthesize(NAMESPACE, TARGET, from, to)).thenReturn(recording);
         when(mcp.getArchivedReport(JVM_ID, "rec1.jfr")).thenReturn(expectedReport);
 
-        String result = tools.getAnalysisReport(NAMESPACE, POD_NAME, fromTs, toTs);
+        String result =
+                tools.getAnalysisReport(
+                        NAMESPACE, POD_NAME, Optional.of(fromTs), Optional.of(toTs));
 
         assertEquals(expectedReport, result);
         verify(synthesizer).synthesize(NAMESPACE, TARGET, from, to);
         verify(mcp).getArchivedReport(JVM_ID, "rec1.jfr");
+    }
+
+    @Test
+    void testGetAnalysisReport_onlyFromTimestamp_usesNowAsTo()
+            throws IOException, UnsatisfiableRangeException {
+        String fromTs = "2024-01-01T00:00:00Z";
+        Date from = Date.from(Instant.parse(fromTs));
+
+        ArchivedRecordingDescriptor recording = recording("rec1.jfr");
+        String expectedReport = "{\"score\":42}";
+
+        when(synthesizer.synthesize(eq(NAMESPACE), eq(TARGET), eq(from), any(Date.class)))
+                .thenReturn(recording);
+        when(mcp.getArchivedReport(JVM_ID, "rec1.jfr")).thenReturn(expectedReport);
+
+        String result =
+                tools.getAnalysisReport(NAMESPACE, POD_NAME, Optional.of(fromTs), Optional.empty());
+
+        assertEquals(expectedReport, result);
+        verify(synthesizer).synthesize(eq(NAMESPACE), eq(TARGET), eq(from), any(Date.class));
+        verify(mcp).getArchivedReport(JVM_ID, "rec1.jfr");
+    }
+
+    @Test
+    void testGetAnalysisReport_noTimestamps_delegatesToTargetReport()
+            throws IOException, UnsatisfiableRangeException {
+        String expectedReport = "{\"GarbageCollectionPressure\":{\"score\":0.0}}";
+
+        when(mcp.getTargetReport(TARGET.targetId())).thenReturn(expectedReport);
+
+        String result =
+                tools.getAnalysisReport(NAMESPACE, POD_NAME, Optional.empty(), Optional.empty());
+
+        assertEquals(expectedReport, result);
+        verify(mcp).getTargetReport(TARGET.targetId());
+        verify(synthesizer, never()).synthesize(any(), any(), any(), any());
+        verify(mcp, never()).getArchivedReport(any(), any());
     }
 
     @Test
@@ -97,7 +137,9 @@ class K8sOrientedToolsTest {
 
         assertThrows(
                 UnsatisfiableRangeException.class,
-                () -> tools.getAnalysisReport(NAMESPACE, POD_NAME, fromTs, toTs));
+                () ->
+                        tools.getAnalysisReport(
+                                NAMESPACE, POD_NAME, Optional.of(fromTs), Optional.of(toTs)));
 
         verify(mcp, never()).getArchivedReport(any(), any());
     }
@@ -118,14 +160,21 @@ class K8sOrientedToolsTest {
 
         assertThrows(
                 IOException.class,
-                () -> tools.getAnalysisReport(NAMESPACE, POD_NAME, fromTs, toTs));
+                () ->
+                        tools.getAnalysisReport(
+                                NAMESPACE, POD_NAME, Optional.of(fromTs), Optional.of(toTs)));
     }
 
     @Test
     void testGetAnalysisReport_invalidTimestampThrowsDateTimeParseException() {
         assertThrows(
                 Exception.class,
-                () -> tools.getAnalysisReport(NAMESPACE, POD_NAME, "not-a-date", "also-not"));
+                () ->
+                        tools.getAnalysisReport(
+                                NAMESPACE,
+                                POD_NAME,
+                                Optional.of("not-a-date"),
+                                Optional.of("also-not")));
     }
 
     @Test

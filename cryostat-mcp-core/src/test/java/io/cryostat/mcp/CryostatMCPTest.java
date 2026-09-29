@@ -576,10 +576,10 @@ class CryostatMCPTest {
     @Test
     void testGetTargetReport() {
         long targetId = 123L;
-        Object mockReport = Map.of("score", 75.0, "evaluation", "MEDIUM");
+        String mockReport = "{\"score\":75.0,\"evaluation\":\"MEDIUM\"}";
         when(restClient.getTargetReport(targetId)).thenReturn(mockReport);
 
-        Object result = cryostatMCP.getTargetReport(targetId);
+        String result = cryostatMCP.getTargetReport(targetId);
 
         assertSame(mockReport, result);
         verify(restClient).getTargetReport(targetId);

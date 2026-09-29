@@ -311,7 +311,7 @@ public class CryostatMCP {
         }
     }
 
-    public Object getTargetReport(long targetId) {
+    public String getTargetReport(long targetId) {
         return rest.getTargetReport(targetId);
     }
 
