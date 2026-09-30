@@ -237,7 +237,7 @@ public class K8sOrientedTools {
                     synthesizer.synthesize(namespace, target, from, to);
             return mcp.getArchivedReport(target.jvmId(), recording.name());
         }
-        return mcp.getTargetReport(target.targetId());
+        return mcp.getTargetAnalysisReport(target.targetId());
     }
 
     @Tool(

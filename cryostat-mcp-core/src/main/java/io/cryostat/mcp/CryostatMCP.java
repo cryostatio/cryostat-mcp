@@ -97,7 +97,17 @@ public class CryostatMCP {
             CryostatRESTClient rest,
             CryostatGraphQLClient graphql,
             ObjectMapper mapper) {
-        this.httpClient = HttpClient.newHttpClient();
+        this(baseUri, authorizationHeader, rest, graphql, mapper, HttpClient.newHttpClient());
+    }
+
+    CryostatMCP(
+            URI baseUri,
+            Supplier<String> authorizationHeader,
+            CryostatRESTClient rest,
+            CryostatGraphQLClient graphql,
+            ObjectMapper mapper,
+            HttpClient httpClient) {
+        this.httpClient = httpClient;
         this.baseUri = baseUri;
         this.authorizationHeader = authorizationHeader;
         this.rest = rest;
@@ -312,7 +322,58 @@ public class CryostatMCP {
     }
 
     public String getTargetReport(long targetId) {
-        return rest.getTargetReport(targetId);
+        try (Response r = rest.getTargetReport(targetId)) {
+            return r.readEntity(String.class);
+        }
+    }
+
+    public String getTargetAnalysisReport(long targetId) throws IOException {
+        try (Response cached = rest.getTargetReport(targetId)) {
+            int status = cached.getStatus();
+            if (status == 200) {
+                return cached.readEntity(String.class);
+            }
+            if (status != 404) {
+                throw new IOException(
+                        "Unexpected response while fetching cached report for target "
+                                + targetId
+                                + ": HTTP "
+                                + status);
+            }
+        }
+        ReportNotificationListener listener = new ReportNotificationListener();
+        WebSocket webSocket = connectNotifications(listener);
+        try {
+            String jobId;
+            try (Response analyzeResponse = rest.analyzeTarget(targetId)) {
+                int status = analyzeResponse.getStatus();
+                if (status != 202) {
+                    throw new IOException(
+                            "Unexpected response while triggering analysis for target "
+                                    + targetId
+                                    + ": HTTP "
+                                    + status);
+                }
+                jobId = analyzeResponse.readEntity(String.class).strip();
+            }
+            listener.subscribeToJob(jobId);
+            boolean success = listener.awaitJob(REPORT_NOTIFICATION_TIMEOUT);
+            if (!success) {
+                throw new IOException("Target analysis job failed for target: " + targetId);
+            }
+            try (Response completed = rest.getTargetReport(targetId)) {
+                if (completed.getStatus() != 200) {
+                    throw new IOException(
+                            "Unexpected response while fetching completed report for target "
+                                    + targetId
+                                    + ": HTTP "
+                                    + completed.getStatus());
+                }
+                return completed.readEntity(String.class);
+            }
+        } finally {
+            closeWebSocket(webSocket);
+        }
     }
 
     private String emptyIfNull(String value) {
@@ -389,7 +450,7 @@ public class CryostatMCP {
                                 + ": HTTP "
                                 + response.statusCode());
             }
-            String jobId = response.body().trim();
+            String jobId = response.body().strip();
             listener.subscribeToJob(jobId);
             boolean success = listener.awaitJob(REPORT_NOTIFICATION_TIMEOUT);
             if (!success) {
@@ -447,7 +508,7 @@ public class CryostatMCP {
                                     + ": HTTP "
                                     + status);
                 }
-                String jobId = response.readEntity(String.class).trim();
+                String jobId = response.readEntity(String.class).strip();
                 listener.subscribeToJob(jobId);
             }
             String recordingName = listener.awaitJob(REPORT_NOTIFICATION_TIMEOUT);

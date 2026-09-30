@@ -36,6 +36,7 @@ import io.quarkiverse.mcp.server.MetaField;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 public class CryostatMCP {
@@ -361,7 +362,9 @@ public class CryostatMCP {
             value = CryostatServerVersions.V4_1)
     public String getTargetReport(
             @ToolArg(description = "The Target's ID.", required = true) long targetId) {
-        return rest.getTargetReport(targetId);
+        try (Response r = rest.getTargetReport(targetId)) {
+            return r.readEntity(String.class);
+        }
     }
 
     @Tool(

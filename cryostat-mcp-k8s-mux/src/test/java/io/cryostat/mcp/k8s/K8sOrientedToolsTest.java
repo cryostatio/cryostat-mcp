@@ -109,17 +109,17 @@ class K8sOrientedToolsTest {
     }
 
     @Test
-    void testGetAnalysisReport_noTimestamps_delegatesToTargetReport()
+    void testGetAnalysisReport_noTimestamps_delegatesToTargetAnalysisReport()
             throws IOException, UnsatisfiableRangeException {
         String expectedReport = "{\"GarbageCollectionPressure\":{\"score\":0.0}}";
 
-        when(mcp.getTargetReport(TARGET.targetId())).thenReturn(expectedReport);
+        when(mcp.getTargetAnalysisReport(TARGET.targetId())).thenReturn(expectedReport);
 
         String result =
                 tools.getAnalysisReport(NAMESPACE, POD_NAME, Optional.empty(), Optional.empty());
 
         assertEquals(expectedReport, result);
-        verify(mcp).getTargetReport(TARGET.targetId());
+        verify(mcp).getTargetAnalysisReport(TARGET.targetId());
         verify(synthesizer, never()).synthesize(any(), any(), any(), any());
         verify(mcp, never()).getArchivedReport(any(), any());
     }

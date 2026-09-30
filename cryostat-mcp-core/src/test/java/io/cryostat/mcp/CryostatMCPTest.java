@@ -23,6 +23,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.WebSocket;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -33,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.cryostat.mcp.model.ActiveRecordingsFilter;
@@ -577,12 +580,213 @@ class CryostatMCPTest {
     void testGetTargetReport() {
         long targetId = 123L;
         String mockReport = "{\"score\":75.0,\"evaluation\":\"MEDIUM\"}";
-        when(restClient.getTargetReport(targetId)).thenReturn(mockReport);
+        Response response = mock(Response.class);
+        when(response.readEntity(String.class)).thenReturn(mockReport);
+        when(restClient.getTargetReport(targetId)).thenReturn(response);
 
         String result = cryostatMCP.getTargetReport(targetId);
 
-        assertSame(mockReport, result);
+        assertEquals(mockReport, result);
         verify(restClient).getTargetReport(targetId);
+    }
+
+    @Test
+    void testGetTargetAnalysisReport_returnsCachedReportImmediately() throws Exception {
+        long targetId = 42L;
+        String mockReport = "{\"GarbageCollectionPressure\":{\"score\":0.0}}";
+        Response response = mock(Response.class);
+        when(response.getStatus()).thenReturn(200);
+        when(response.readEntity(String.class)).thenReturn(mockReport);
+        when(restClient.getTargetReport(targetId)).thenReturn(response);
+
+        HttpClient mockHttpClient = mock(HttpClient.class);
+        CryostatMCP mcp =
+                new CryostatMCP(
+                        URI.create("http://localhost:8181"),
+                        () -> null,
+                        restClient,
+                        graphqlClient,
+                        objectMapper,
+                        mockHttpClient);
+
+        String result = mcp.getTargetAnalysisReport(targetId);
+
+        assertEquals(mockReport, result);
+        verify(restClient).getTargetReport(targetId);
+        verify(restClient, never()).analyzeTarget(anyLong());
+        verifyNoInteractions(mockHttpClient);
+    }
+
+    @Test
+    void testGetTargetAnalysisReport_triggersAnalysisOn404ThenReturnsReport() throws Exception {
+        long targetId = 42L;
+        String jobId = "test-job-uuid";
+        String mockReport = "{\"GarbageCollectionPressure\":{\"score\":25.0}}";
+
+        Response notCached = mock(Response.class);
+        when(notCached.getStatus()).thenReturn(404);
+
+        Response analyzeResponse = mock(Response.class);
+        when(analyzeResponse.getStatus()).thenReturn(202);
+        when(analyzeResponse.readEntity(String.class)).thenReturn(jobId);
+
+        Response completed = mock(Response.class);
+        when(completed.getStatus()).thenReturn(200);
+        when(completed.readEntity(String.class)).thenReturn(mockReport);
+
+        when(restClient.getTargetReport(targetId)).thenReturn(notCached, completed);
+        when(restClient.analyzeTarget(targetId)).thenReturn(analyzeResponse);
+
+        String notificationJson =
+                String.format(
+                        "{\"meta\":{\"category\":\"ReportSuccess\"},\"message\":{\"jobId\":\"%s\"}}",
+                        jobId);
+
+        ArgumentCaptor<WebSocket.Listener> listenerCaptor =
+                ArgumentCaptor.forClass(WebSocket.Listener.class);
+        WebSocket mockWebSocket = mock(WebSocket.class);
+        WebSocket.Builder mockWsBuilder = mock(WebSocket.Builder.class);
+        CompletableFuture<WebSocket> wsFuture = new CompletableFuture<>();
+        when(mockWsBuilder.buildAsync(any(URI.class), listenerCaptor.capture()))
+                .thenAnswer(
+                        inv -> {
+                            wsFuture.complete(mockWebSocket);
+                            return wsFuture;
+                        });
+        when(mockWebSocket.sendClose(anyInt(), anyString()))
+                .thenReturn(CompletableFuture.completedFuture(mockWebSocket));
+        HttpClient mockHttpClient = mock(HttpClient.class);
+        when(mockHttpClient.newWebSocketBuilder()).thenReturn(mockWsBuilder);
+
+        CryostatMCP mcp =
+                new CryostatMCP(
+                        URI.create("http://localhost:8181"),
+                        () -> null,
+                        restClient,
+                        graphqlClient,
+                        new ObjectMapper(),
+                        mockHttpClient);
+
+        Thread notifyThread =
+                new Thread(
+                        () -> {
+                            try {
+                                wsFuture.get(5, java.util.concurrent.TimeUnit.SECONDS);
+                                WebSocket.Listener listener = listenerCaptor.getValue();
+                                listener.onText(mockWebSocket, notificationJson, true);
+                            } catch (Exception ignored) {
+                            }
+                        });
+        notifyThread.setDaemon(true);
+        notifyThread.start();
+
+        String result = mcp.getTargetAnalysisReport(targetId);
+        assertEquals(mockReport, result);
+        notifyThread.join(5_000);
+
+        verify(restClient, times(2)).getTargetReport(targetId);
+        verify(restClient).analyzeTarget(targetId);
+    }
+
+    @Test
+    void testGetTargetAnalysisReport_throwsOnUnexpectedPostStatus() throws Exception {
+        long targetId = 42L;
+
+        Response notCached = mock(Response.class);
+        when(notCached.getStatus()).thenReturn(404);
+
+        Response analyzeResponse = mock(Response.class);
+        when(analyzeResponse.getStatus()).thenReturn(500);
+
+        when(restClient.getTargetReport(targetId)).thenReturn(notCached);
+        when(restClient.analyzeTarget(targetId)).thenReturn(analyzeResponse);
+
+        WebSocket mockWebSocket = mock(WebSocket.class);
+        WebSocket.Builder mockWsBuilder = mock(WebSocket.Builder.class);
+        when(mockWsBuilder.buildAsync(any(URI.class), any(WebSocket.Listener.class)))
+                .thenReturn(CompletableFuture.completedFuture(mockWebSocket));
+        when(mockWebSocket.sendClose(anyInt(), anyString()))
+                .thenReturn(CompletableFuture.completedFuture(mockWebSocket));
+        HttpClient mockHttpClient = mock(HttpClient.class);
+        when(mockHttpClient.newWebSocketBuilder()).thenReturn(mockWsBuilder);
+
+        CryostatMCP mcp =
+                new CryostatMCP(
+                        URI.create("http://localhost:8181"),
+                        () -> null,
+                        restClient,
+                        graphqlClient,
+                        objectMapper,
+                        mockHttpClient);
+
+        IOException ex =
+                assertThrows(IOException.class, () -> mcp.getTargetAnalysisReport(targetId));
+        assertTrue(ex.getMessage().contains("500"));
+        assertTrue(ex.getMessage().contains(String.valueOf(targetId)));
+    }
+
+    @Test
+    void testGetTargetAnalysisReport_throwsOnJobFailureNotification() throws Exception {
+        long targetId = 42L;
+        String jobId = "fail-job-uuid";
+
+        Response notCached = mock(Response.class);
+        when(notCached.getStatus()).thenReturn(404);
+
+        Response analyzeResponse = mock(Response.class);
+        when(analyzeResponse.getStatus()).thenReturn(202);
+        when(analyzeResponse.readEntity(String.class)).thenReturn(jobId);
+
+        when(restClient.getTargetReport(targetId)).thenReturn(notCached);
+        when(restClient.analyzeTarget(targetId)).thenReturn(analyzeResponse);
+
+        String notificationJson =
+                String.format(
+                        "{\"meta\":{\"category\":\"ReportFailure\"},\"message\":{\"jobId\":\"%s\"}}",
+                        jobId);
+
+        ArgumentCaptor<WebSocket.Listener> listenerCaptor =
+                ArgumentCaptor.forClass(WebSocket.Listener.class);
+        WebSocket mockWebSocket = mock(WebSocket.class);
+        WebSocket.Builder mockWsBuilder = mock(WebSocket.Builder.class);
+        CompletableFuture<WebSocket> wsFuture = new CompletableFuture<>();
+        when(mockWsBuilder.buildAsync(any(URI.class), listenerCaptor.capture()))
+                .thenAnswer(
+                        inv -> {
+                            wsFuture.complete(mockWebSocket);
+                            return wsFuture;
+                        });
+        when(mockWebSocket.sendClose(anyInt(), anyString()))
+                .thenReturn(CompletableFuture.completedFuture(mockWebSocket));
+        HttpClient mockHttpClient = mock(HttpClient.class);
+        when(mockHttpClient.newWebSocketBuilder()).thenReturn(mockWsBuilder);
+
+        CryostatMCP mcp =
+                new CryostatMCP(
+                        URI.create("http://localhost:8181"),
+                        () -> null,
+                        restClient,
+                        graphqlClient,
+                        new ObjectMapper(),
+                        mockHttpClient);
+
+        Thread notifyThread =
+                new Thread(
+                        () -> {
+                            try {
+                                wsFuture.get(5, java.util.concurrent.TimeUnit.SECONDS);
+                                WebSocket.Listener listener = listenerCaptor.getValue();
+                                listener.onText(mockWebSocket, notificationJson, true);
+                            } catch (Exception ignored) {
+                            }
+                        });
+        notifyThread.setDaemon(true);
+        notifyThread.start();
+
+        IOException ex =
+                assertThrows(IOException.class, () -> mcp.getTargetAnalysisReport(targetId));
+        assertTrue(ex.getMessage().contains(String.valueOf(targetId)));
+        notifyThread.join(5_000);
     }
 
     @Test

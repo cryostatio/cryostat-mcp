@@ -110,7 +110,11 @@ public interface CryostatRESTClient {
     @GET
     @Path("/api/v4.1/targets/{targetId}/reports")
     @Produces(MediaType.APPLICATION_JSON)
-    String getTargetReport(long targetId);
+    Response getTargetReport(long targetId);
+
+    @POST
+    @Path("/api/v4.1/targets/{targetId}/reports")
+    Response analyzeTarget(long targetId);
 
     @POST
     @Path("/api/beta/recordings/{jvmId}")
