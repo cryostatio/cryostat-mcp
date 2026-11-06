@@ -10,7 +10,7 @@ on:
       - main
       - v[0-9]+
       - v[0-9]+.[0-9]+
-      - cryostat-v[0-9]+.[0-9]+
+      - mcp-v[0-9]+.[0-9]+
   pull_request:
     types:
       - opened
@@ -22,7 +22,7 @@ on:
       - main
       - v[0-9]+
       - v[0-9]+.[0-9]+
-      - cryostat-v[0-9]+.[0-9]+
+      - mcp-v[0-9]+.[0-9]+
 
 jobs:
   build-core-and-single:
